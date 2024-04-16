@@ -84,7 +84,7 @@ def create_image(palette, data, filename, top_colors=4):
     array_top_colors = unique_colors[sorted_indices][:top_colors]
 
 
-    data = np.round(scale(np.abs(np.sin(data)) , 0, array_top_colors.shape[0]-1)).reshape(-1)
+    data = np.round(scale((np.sin(data)) , 0, array_top_colors.shape[0]-1)).reshape(-1)
     for i, n in enumerate(array_top_colors):
         data[data == i] = n
 
