@@ -12,8 +12,9 @@ Should probably work on linux, was tested on termux(android).
 ## Installation
 Requirements:
 ```sh
-pip install numpy Pillow cython
+pip install numpy opencv-python ctypes
 ```
+(on termux is necessary to `pkg opencv-python`)
 <br>
 
 ```sh
@@ -23,11 +24,33 @@ sh start.sh
 ```
 
 <br>
-start.sh builds and runs the generator, once is built you can just run(unless you changed something in fractal_generator.pyx):
+start.sh builds and runs the generator, once is built you can just run the python file.
 
 ```sh
 python runner.py
 ```
+On that python script there is a lot of options to change if needed.
+
+<br>
+<br>
+
+## Fractals Implemented
+
+Mandelbrot
+<div align="center">
+  <picture>
+    <img alt="mandelbrot" height="324px" src="colorful_mandelbrot.png">
+  </picture>
+</div>
+
+<br>
+
+Juliaset
+<div align="center">
+  <picture>
+    <img alt="mandelbrot" height="324px" src="colorful_juliaset.png">
+  </picture>
+</div>
 
 <br>
 <br>
