@@ -16,7 +16,6 @@
 
 
 
-
 void signal_handler(int signal) {
     std::cout << "(Ctrl+C)" << std::endl;
     std::exit(signal);
@@ -78,8 +77,20 @@ double log10_approx(double x) {
 
 }
 
+
+double noNan(double value) {
+    if (std::isnan(value) || std::isinf(value)) {
+        return 0;
+    } else {
+        return value;
+    }
+}
+
 double pi = M_PI;    //3.141592653589793;
 double e = M_E;       //2.718281828459045;
+
+
+
 
 
 
@@ -101,10 +112,9 @@ extern "C" {
         }
 
     }
-}
 
 
-extern "C" {
+
     void fractal(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double xmin=-2, double xmax=2, double ymin=-2, double ymax=2, bool lake=false) {
 
         std::signal(SIGINT, signal_handler);
@@ -140,7 +150,7 @@ extern "C" {
                 if (z_real * z_real + z_imag * z_imag < 4 && lake) {
                     // Point is in the set, use lake color
                     double lake_value = log(1 + sqrt(z_real * z_real + z_imag * z_imag) );
-                    uint16_t color = (uint16_t)(lake_value * max_iter) + max_iter;
+                    uint16_t color = static_cast<uint16_t>((lake_value * max_iter) + max_iter);
                     output[y *width + x] = color;
                 } else {
                     // Point is outside the set, color depends on the number of iterations
@@ -149,13 +159,97 @@ extern "C" {
             }
         }
     }
-}
 
 
 
 
 
-extern "C" {
+
+
+    void lyapunov(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double xmin=3.4, double xmax=4.0, double ymin=2.5, double ymax=3.4) {
+
+        std::signal(SIGINT, signal_handler);
+
+        double dx = (xmax - xmin) / width;
+        double dy = (ymax - ymin) / height;
+        
+        #pragma omp parallel for schedule(dynamic)
+        for (uint16_t i = 0; i < height; ++i) {
+            
+
+            for (uint16_t j = 0; j < width; ++j) {
+                double x = xmin + j * dx;
+                double y = ymin + i * dy;
+                double a = 0.5 + x * 0.5;
+                double b = 0.5 + y * 0.5;
+                double l = 0.0;
+                double v = 0.5;
+                for (uint16_t k = 0; k < max_iter; ++k) {
+                    if (k % 12 < 6) {
+                        v = b * v * (1 - v);
+                    } else {
+                        v = a * v * (1 - v);
+                    }
+                    l += log(fabs((k % 12 < 6 ? b : a) * (1 - 2 * v)));
+                }
+                l = noNan(l);
+                
+                uint16_t color = 0;
+                if (l <= 0) {
+                    color = static_cast<uint16_t>((std::round((-l/(-l+1))*max_iter)));
+                } else {
+                    color = static_cast<uint16_t>((std::round((l/(l+1))*max_iter)));
+                }
+                output[i * width + j] = color;
+            }
+        }
+    }
+
+
+
+
+    void sandpile(uint8_t* output, uint16_t width, uint16_t height, uint32_t n_grains, uint16_t max_grains=3) {
+        // Create a 2D array to store the sandpile
+        std::signal(SIGINT, signal_handler);
+        std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
+
+        // Add grains to the center of the sandpile
+        sandpile[height / 2][width / 2] = n_grains;
+
+        bool unstable = true;
+        while (unstable) {
+            unstable = false;
+
+            // Process each cell in the sandpile
+            for (uint16_t y = 0; y < height; ++y) {
+                for (uint16_t x = 0; x < width; ++x) {
+                    if (sandpile[y][x] > max_grains) {
+                        // Distribute grains to neighboring cells
+                        if (y > 0) sandpile[y-1][x] += sandpile[y][x] / 4;
+                        if (y < height-1) sandpile[y+1][x] += sandpile[y][x] / 4;
+                        if (x > 0) sandpile[y][x-1] += sandpile[y][x] / 4;
+                        if (x < width-1) sandpile[y][x+1] += sandpile[y][x] / 4;
+
+                        // Remove grains from current cell
+                        sandpile[y][x] %= 4;
+                        unstable = true;
+                    }
+                }
+            }
+        }
+
+        // Copy the sandpile to the output buffer
+        for (uint16_t y = 0; y < height; ++y) {
+            for (uint16_t x = 0; x < width; ++x) {
+                output[y * width + x] = static_cast<uint8_t>(sandpile[y][x]);
+            }
+        }
+    }
+
+
+
+
+
 
     void juliaset(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double c_real, double c_imag, double xmin=-2, double xmax=2, double ymin=-2, double ymax=2, bool lake=false) {
         double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
@@ -191,7 +285,7 @@ extern "C" {
                 if (z_real * z_real + z_imag * z_imag < 4 && lake) {
                     // Point is in the set, use lake color
                     double lake_value = log(1 + sqrt(z_real * z_real + z_imag * z_imag) );
-                    uint16_t color = (uint16_t)(lake_value * max_iter) + max_iter;
+                    uint16_t color = static_cast<uint16_t>((lake_value * max_iter) + max_iter);
                     output[y *width + x] = color;
                 } else {
                     // Point is outside the set, color depends on the number of iterations
@@ -201,12 +295,9 @@ extern "C" {
         }
     }
 
-}
 
 
 
-
-extern "C" {
     void process_array(uint32_t* input_array, uint8_t* output_array, uint16_t width, uint16_t height, double max_value, uint16_t batch_size, double npmax) {
         std::signal(SIGINT, signal_handler);
         // Iterate over each batch

@@ -1,7 +1,4 @@
 import numpy as np
-#from PIL import Image
-#%pip install cython
-#import cython
 import time
 import cv2
 from ctypes import cdll, c_double, POINTER, c_uint32, c_uint16, c_uint8, c_bool, c_float #, c_longdouble
@@ -14,7 +11,8 @@ lib = cdll.LoadLibrary('./libfract.so')
 
 fractal = lib.fractal
 juliaset = lib.juliaset
-
+lyapunov = lib.lyapunov
+sandpile = lib.sandpile
 
 lib.process_array.argtypes = [POINTER(c_uint32), POINTER(c_uint8), c_uint16, c_uint16, c_double, c_uint16, c_double]
 lib.process_array.restype = None
@@ -23,7 +21,8 @@ lib.scale.restype = None
 
 fractal.argtypes = [POINTER(c_uint16), c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_bool]
 juliaset.argtypes = [POINTER(c_uint16), c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool]
-
+lyapunov.argtypes = [POINTER(c_uint16), c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double]
+sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
 
 
 def scale(input_array, min, max):
@@ -127,17 +126,21 @@ def create_image(palette, data, filename, iterations, array_top_colors, lake=Fal
     shape = (shape[1], shape[0])
     data = data.reshape(shape)
     
-    if (lake == True) and (isinstance(array_top_colors[1], np.ndarray)) :
+    
+    if (lake == True) and (isinstance(array_top_colors[1], np.ndarray)) and not ('lyapunov' in filename or 'sandpile' in filename):
         data = np.where(data>iterations, np.round(scale((np.sin(data.astype(np.float32)).reshape(-1)) , iterations+1, iterations+array_top_colors[1].shape[0])).astype(np.uint32).reshape(shape), data) #.reshape(-1)
         for i, n in enumerate(array_top_colors[1]):
             data[data == i+iterations+1] = n+iterations
+     #   data = np.where(data<=iterations,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
+   # else:
+    #    data = np.where(data,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
             
         
     #data = np.where(data<=iterations,np.round(scale(np.sin((data.astype(np.float64))) , 0, array_top_colors[0].shape[0]-1)).astype(np.uint32),data).reshape(-1)
     data = np.where(data<=iterations,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
     for i, n in enumerate(array_top_colors[0]):
         data[data == i] = n
-
+    
     process_image(data.reshape(shape), np.max(data), filename )
 
 
@@ -178,28 +181,24 @@ height = int(4096) #2304
 # Number of iterations
 max_iter = 1000
 
-mandelbrot_on = True
+# Sandpile max grains
+max_grains = 3
 
-# Here you can move around 
-xmin_xmax = np.array([((-16/6)), ((16/6))], dtype=np.float64)        #-16/5, 16/5
-ymin_ymax = np.array([(-16/6), (16/6)], dtype=np.float64)             #-9/5, 9/5
-
-
-
-# n_squares is a grid 7x7 to help you aim
-#                       ([(column, line, grid nxn)])
-coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])  #np.array([(1,2,3),(2,2,3),(2,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2, 3)])
-
-xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
-xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:5, :], xmin, xmax, ymin, ymax)
+# You can generate different types of fractals
+fractals = {
+    'mandelbrot': True,
+    'juliaset': True,
+    'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
+    'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
+}
 
 palette = "palette.png"
 use_palette = True
+
 # How many top colors to use from the palette.png
 top_colors = 24
 
 # Julia set parameters
-juliaset_on = False
 juliaset_c_real = -0.8
 juliaset_c_imag = 0.16
 
@@ -210,53 +209,83 @@ lake_palette = "lake_palette.png"
 # Here it's loading the palette before the generation and conversion
 array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
 
+
+# Here you can move around 
+xmin_xmax = np.array([(-(16/6)), ((16/6))], dtype=np.float64)        #-16/5, 16/5
+ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)             #-9/5, 9/5
+
+
+
+# n_squares is a grid 7x7 to help you aim
+#                       ([(column, line, grid nxn)])
+coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])  #np.array([(1,2,3),(2,2,3),(2,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2, 3)])
+coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+
+coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
+#xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:2, :], xmin, xmax, ymin, ymax)
+print("Your coordinates: ", xmin, xmax, ymin, ymax, "\n") 
+
         
 def activate(max_iter, xmin, xmax, ymin, ymax):
-
-        
-        
+    
+    for key, value in fractals.items():
         # Mandelbrot Set
-        if mandelbrot_on:
+        if (key == "mandelbrot") and (value):
+            gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            
-            mandelbrot_set = np.empty((height, width), dtype=np.uint16)
-            fractal(mandelbrot_set.ctypes.data_as(POINTER(c_uint16)), width, height, max_iter, xmin, xmax, ymin, ymax, lake)
-            
+            fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), width, height, max_iter, xmin, xmax, ymin, ymax, lake)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
             
-            start_time = time.perf_counter()
-            if use_palette:
-                create_image(palette, mandelbrot_set.reshape(width, height), "colorful", max_iter, array_top_colors, lake)
-            else:
-                process_image(mandelbrot_set, (2**24-1), "generated_fractal" )
-            end_time = time.perf_counter()
-            print("Took ", end_time - start_time, "seconds to convert")
             
-        
         # Julia Set
-        if juliaset_on:
+        if (key == "juliaset") and (value):
+            gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            
-            julia_set = np.empty((height, width), dtype=np.uint16)
-            juliaset(julia_set.ctypes.data_as(POINTER(c_uint16)), width, height, max_iter, juliaset_c_real, juliaset_c_imag, xmin, xmax, ymin, ymax, lake)
-            
+            juliaset(gen_array.ctypes.data_as(POINTER(c_uint16)), width, height, max_iter, juliaset_c_real, juliaset_c_imag, xmin, xmax, ymin, ymax, lake)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
             
+            
+        # Lyapunov Set
+        if (key == "lyapunov") and (value):
+            gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            if use_palette:
-                create_image(palette, julia_set.reshape(width, height), "colorful_julia_set" , max_iter, array_top_colors, lake)
-            else:
-                process_image(julia_set, (2**24-1), "generated_fractal_julia_set")
+            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), width, height, max_iter, xmin, xmax, ymin, ymax)
             end_time = time.perf_counter()
             
+            print("Took ", end_time - start_time, "seconds to generate")
+            
+            
+        # Abelian Sandpile Fractal
+        if (key == "sandpile") and (value):
+            gen_array = np.empty((height, width), dtype=np.uint8)
+            start_time = time.perf_counter()
+            sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)), width, height, max_iter, max_grains)
+            end_time = time.perf_counter()
+            
+            print("Took ", end_time - start_time, "seconds to generate")
+            
+            
+        if "gen_array" in locals():
+            start_time = time.perf_counter()
+            if use_palette:
+                create_image(palette, gen_array.reshape(width, height), "colorful_"+key, max_iter, array_top_colors, lake)
+            else:
+                process_image(gen_array, (2**24-1), "generated_fractal_"+key )
+            end_time = time.perf_counter()
+            del gen_array
             print("Took ", end_time - start_time, "seconds to convert")
             
-
-# The first image generated
+            
+            
+            
+            
+            
+# Generate
 activate(max_iter, xmin, xmax, ymin, ymax)
 
 
