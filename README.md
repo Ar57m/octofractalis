@@ -12,7 +12,7 @@ Should probably work on linux, was tested on termux(android) and google colab.
 ## Installation
 Requirements:
 ```sh
-pip install numpy opencv-python ctypes
+pip install numpy opencv-python
 ```
 (on termux is necessary to `pkg opencv-python`)
 <br>
