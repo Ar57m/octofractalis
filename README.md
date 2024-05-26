@@ -6,7 +6,7 @@
 
 # another_fractal_generator
 
-Should probably work on linux, was tested on termux(android).
+Should probably work on linux, was tested on termux(android) and google colab.
 <br>
 
 ## Installation
@@ -48,9 +48,28 @@ Mandelbrot
 Juliaset
 <div align="center">
   <picture>
-    <img alt="mandelbrot" height="324px" src="colorful_juliaset.png">
+    <img alt="juliaset" height="324px" src="colorful_juliaset.png">
   </picture>
 </div>
+
+<br>
+
+Lyapunov (sorry for the bad coordinates 😅)
+<div align="center">
+  <picture>
+    <img alt="lyapunov" height="324px" src="colorful_lyapunov.png">
+  </picture>
+</div>
+
+<br>
+
+Abelian Sandpile Fractal
+<div align="center">
+  <picture>
+    <img alt="sandpile" height="324px" src="colorful_sandpile.png">
+  </picture>
+</div>
+
 
 <br>
 <br>
