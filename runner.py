@@ -40,7 +40,7 @@ def scale(input_array, min, max):
 
 
 def scale_fast(input, max):
-    return np.round((input.copy()/np.max(input))*max).astype(np.uint32)
+    return (input%(max+1))
 
 
 
@@ -59,9 +59,10 @@ def process_image(input_array, max_val, imgname):
     # Convert the output array to a numpy array
     output_array = np.ctypeslib.as_array(output_array).reshape(width, height, 3 )
 
-    output_image = cv2.cvtColor(output_array.astype(np.uint8), cv2.COLOR_BGR2RGB) 
-    
+    output_image = cv2.cvtColor(output_array.astype(np.uint8), cv2.COLOR_BGR2RGB)
     del output_array
+    if "sandpile" in imgname:
+        output_image = cv2.resize(output_image, (width*4, height*4), interpolation=cv2.INTER_NEAREST)
     cv2.imwrite(f'{imgname}.png', output_image) 
     print(f'{imgname}.png' )
 
@@ -72,7 +73,7 @@ def process_image(input_array, max_val, imgname):
 def image_to_array(image_path, min=0, max=2**24-1):
         img = cv2.imread(image_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
-        array_image = np.array(img).astype(np.uint32)  #.astype(np.int64)
+        array_image = np.array(img).astype(np.uint32)
     
         if array_image.ndim != 3:
             array_image = np.array(img.convert("RGBA"))
@@ -94,21 +95,21 @@ def image_to_array(image_path, min=0, max=2**24-1):
 
 def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
     if (lake == False) or (lake_palette == False):
-        palette = image_to_array(palette).astype(np.uint32)
+        palette = image_to_array(palette)
         unique_colors, counts = np.unique(palette, return_counts=True)
         del palette
         sorted_indices = np.argsort(counts)[::-1]
         array_top_colors = unique_colors[sorted_indices][:top_colors]
         return array_top_colors, False
     else:
-        palette = image_to_array(palette).astype(np.uint32)
+        palette = image_to_array(palette)
         unique_colors, counts = np.unique(palette, return_counts=True)
         del palette
         sorted_indices = np.argsort(counts)[::-1]
         array_top_colors = unique_colors[sorted_indices][:top_colors]
         
         # Lake palette
-        lake_palette = image_to_array(lake_palette).astype(np.uint32)
+        lake_palette = image_to_array(lake_palette)
         unique_colors, counts = np.unique(lake_palette, return_counts=True)
         del lake_palette
         sorted_indices = np.argsort(counts)[::-1]
@@ -121,27 +122,26 @@ def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
 # Image with palette
 def create_image(palette, data, filename, iterations, array_top_colors, lake=False):
     
-    data = data.copy()
+    data = data.copy().astype(np.uint32)
     shape = data.shape
     shape = (shape[1], shape[0])
     data = data.reshape(shape)
     
     
     if (lake == True) and (isinstance(array_top_colors[1], np.ndarray)) and not ('lyapunov' in filename or 'sandpile' in filename):
-        data = np.where(data>iterations, np.round(scale((np.sin(data.astype(np.float32)).reshape(-1)) , iterations+1, iterations+array_top_colors[1].shape[0])).astype(np.uint32).reshape(shape), data) #.reshape(-1)
+        #data = np.where(data>iterations, np.round(scale((np.sin(data.astype(np.float32)).reshape(-1)) , iterations+1, iterations+array_top_colors[1].shape[0])).astype(np.uint32).reshape(shape), data)
+        #data = np.where(data>iterations, scale_fast(data, array_top_colors[1].shape[0]-1)+iterations+1, data) 
+        data[data>iterations] = scale_fast(data[data>iterations], array_top_colors[1].shape[0]-1)+iterations+1
         for i, n in enumerate(array_top_colors[1]):
             data[data == i+iterations+1] = n+iterations
-     #   data = np.where(data<=iterations,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
-   # else:
-    #    data = np.where(data,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
-            
-        
-    #data = np.where(data<=iterations,np.round(scale(np.sin((data.astype(np.float64))) , 0, array_top_colors[0].shape[0]-1)).astype(np.uint32),data).reshape(-1)
-    data = np.where(data<=iterations,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
+
+    #data = np.where(data<=iterations,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
+    #data = np.where(data<=iterations,(scale_fast(data, array_top_colors[0].shape[0]-1)),data).reshape(-1)
+    data[data<=iterations] = scale_fast(data[data<=iterations], array_top_colors[0].shape[0]-1)
     for i, n in enumerate(array_top_colors[0]):
         data[data == i] = n
     
-    process_image(data.reshape(shape), np.max(data), filename )
+    process_image(data.reshape(shape), np.max(data), filename)
 
 
 # This helps you to aim by dividing in squares(grid)
