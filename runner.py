@@ -121,25 +121,28 @@ def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
 
 # Image with palette
 def create_image(palette, data, filename, iterations, array_top_colors, lake=False):
-    
     data = data.copy().astype(np.uint32)
     shape = data.shape
     shape = (shape[1], shape[0])
     data = data.reshape(shape)
     
-    
-    if (lake == True) and (isinstance(array_top_colors[1], np.ndarray)) and not ('lyapunov' in filename or 'sandpile' in filename):
-        #data = np.where(data>iterations, np.round(scale((np.sin(data.astype(np.float32)).reshape(-1)) , iterations+1, iterations+array_top_colors[1].shape[0])).astype(np.uint32).reshape(shape), data)
-        #data = np.where(data>iterations, scale_fast(data, array_top_colors[1].shape[0]-1)+iterations+1, data) 
-        data[data>iterations] = scale_fast(data[data>iterations], array_top_colors[1].shape[0]-1)+iterations+1
-        for i, n in enumerate(array_top_colors[1]):
-            data[data == i+iterations+1] = n+iterations
+    if (lake and isinstance(array_top_colors[1], np.ndarray) and not ('lyapunov' in filename or 'sandpile' in filename)):
+        temp = data > iterations
+        
+        data[temp] = scale_fast(data[temp], array_top_colors[1].shape[0] - 1) + iterations + 1
 
-    #data = np.where(data<=iterations,(scale_fast(np.sin(data.astype(np.float32))+1, array_top_colors[0].shape[0]-1)),data).reshape(-1)
-    #data = np.where(data<=iterations,(scale_fast(data, array_top_colors[0].shape[0]-1)),data).reshape(-1)
-    data[data<=iterations] = scale_fast(data[data<=iterations], array_top_colors[0].shape[0]-1)
-    for i, n in enumerate(array_top_colors[0]):
-        data[data == i] = n
+        lake_indices = data - iterations - 1
+        data[temp] = np.take(array_top_colors[1], lake_indices[temp]) + iterations
+        
+        data[~temp] = scale_fast(data[~temp], array_top_colors[0].shape[0] - 1)
+        
+        data[~temp] = np.take(array_top_colors[0], data[~temp])
+
+        data[temp] = data[temp] - iterations
+        del temp
+    else:
+        data = scale_fast(data, array_top_colors[0].shape[0] - 1)
+        data = np.take(array_top_colors[0], data)
     
     process_image(data.reshape(shape), np.max(data), filename)
 

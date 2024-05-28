@@ -54,7 +54,7 @@ Juliaset
 
 <br>
 
-Lyapunov (sorry for the bad coordinates 😅)
+Lyapunov
 <div align="center">
   <picture>
     <img alt="lyapunov" height="324px" src="colorful_lyapunov.png">
