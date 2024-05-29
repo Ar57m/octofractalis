@@ -14,7 +14,7 @@ Requirements:
 ```sh
 pip install numpy opencv-python
 ```
-(on termux is necessary to `pkg opencv-python`)
+(on termux is necessary to `apt install x11-repo && apt update && apt install opencv && apt install opencv-python`)
 <br>
 
 ```sh
@@ -30,6 +30,7 @@ start.sh builds and runs the generator, once is built you can just run the pytho
 python runner.py
 ```
 On that python script there is a lot of options to change if needed.
+You can zoom into fractals(until some depth where precision limits hits).
 
 <br>
 <br>

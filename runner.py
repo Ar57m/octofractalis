@@ -39,33 +39,34 @@ def scale(input_array, min, max):
     return output_array
 
 
+
 def scale_fast(input, max):
     return (input%(max+1))
 
 
 
-# This can only scale positive numbers not negatives
+# This can only scale positive numbers not negative numbers
 def process_image(input_array, max_val, imgname):
     width, height = input_array.shape
     max = np.float64(np.max(input_array))
     max_val = np.float64(max_val)
-    
+
     input_array = input_array.copy().reshape(-1).astype(np.uint32)
     input_array = input_array.ctypes.data_as(POINTER(c_uint32))
     output_array = (c_uint8 * (width * height* 3))()
+
     # Call the function
     lib.process_array(input_array, output_array, width, height, max_val, 5000, max)
     del input_array
     # Convert the output array to a numpy array
     output_array = np.ctypeslib.as_array(output_array).reshape(width, height, 3 )
 
-    output_image = cv2.cvtColor(output_array.astype(np.uint8), cv2.COLOR_BGR2RGB)
-    del output_array
+    output_array = cv2.cvtColor(output_array, cv2.COLOR_BGR2RGB)
+    
     if "sandpile" in imgname:
-        output_image = cv2.resize(output_image, (width*4, height*4), interpolation=cv2.INTER_NEAREST)
-    cv2.imwrite(f'{imgname}.png', output_image) 
+        output_array = cv2.resize(output_array, (width*4, height*4), interpolation=cv2.INTER_NEAREST)
+    cv2.imwrite(f'{imgname}.png', output_array) 
     print(f'{imgname}.png' )
-
 
 
 
@@ -80,16 +81,11 @@ def image_to_array(image_path, min=0, max=2**24-1):
             
         if array_image.ndim == 3:
               if array_image.shape[2] == 4:
-                      array_image = array_image[:, :, :-1] #.astype(np.int64)
+                      array_image = array_image[:, :, :-1]
                       
               if array_image.shape[2] == 3:
                       array_image = (array_image[:, :, 0]*(256**2)+array_image[:, :, 1]*(256)+array_image[:, :, 2])
-    
-        #shape = array_image.shape
-        #array_image = array_image.reshape(shape[0],shape[1])
-
-        #array_image = np.clip(array_image , min, max)
-        
+            
         return array_image
 
 
@@ -145,8 +141,9 @@ def create_image(palette, data, filename, iterations, array_top_colors, lake=Fal
         data = np.take(array_top_colors[0], data)
     
     process_image(data.reshape(shape), np.max(data), filename)
-
-
+    
+    
+    
 # This helps you to aim by dividing in squares(grid)
 def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
     list = list_c.copy()
@@ -163,16 +160,6 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
     
     return xmin, xmax, ymin, ymax
 
-
-
-# Not working properly yet
-def depth_to_intensity(rgb_image, depth_map):
-    depth_map = (depth_map).astype(np.float64)
-    normalized_depth = (1-(depth_map / np.max(depth_map)))
-    
-    intensity_image = rgb_image.astype(np.float64) * normalized_depth.reshape(rgb_image.shape[0],-1,1) #[:,np.newaxis]
-    
-    return np.round(intensity_image).astype(np.uint8)
 
 
 
@@ -194,6 +181,11 @@ fractals = {
     'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
+
+zoom = False
+max_zoom = 5 # How many images # it's gonna generate  +n_coordinates more images than expected
+per_zoom = 0.9  # How much zoom after aiming
+
 
 palette = "palette.png"
 use_palette = True
@@ -222,16 +214,27 @@ ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)             #-9/5, 9/5
 # n_squares is a grid 7x7 to help you aim
 #                       ([(column, line, grid nxn)])
 coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])  #np.array([(1,2,3),(2,2,3),(2,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2, 3)])
-coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+#coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
 
-coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+#coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
 xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
 #xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:2, :], xmin, xmax, ymin, ymax)
 print("Your coordinates: ", xmin, xmax, ymin, ymax, "\n") 
 
-        
-def activate(max_iter, xmin, xmax, ymin, ymax):
+
+
+
+def generate(zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax):
+
+    prefix = ""
     
+    if zoom:
+        max_zoom = str(max_zoom)
+        target_length = len(max_zoom)+1
+        n_iter = str(n_iter)
+        n_iter = n_iter.zfill(target_length)
+        prefix = n_iter+"-"
+        
     for key, value in fractals.items():
         # Mandelbrot Set
         if (key == "mandelbrot") and (value):
@@ -276,24 +279,53 @@ def activate(max_iter, xmin, xmax, ymin, ymax):
         if "gen_array" in locals():
             start_time = time.perf_counter()
             if use_palette:
-                create_image(palette, gen_array.reshape(width, height), "colorful_"+key, max_iter, array_top_colors, lake)
+                create_image(palette, gen_array.reshape(width, height), prefix + "colorful_"+key, max_iter, array_top_colors, lake)
             else:
-                process_image(gen_array, (2**24-1), "generated_fractal_"+key )
+                process_image(gen_array, (2**24-1), prefix + "generated_fractal_"+key )
             end_time = time.perf_counter()
             del gen_array
-            print("Took ", end_time - start_time, "seconds to convert")
+            print("Took ", end_time - start_time, "seconds to convert\n")
+
             
             
-            
-            
-            
-            
-# Generate
-activate(max_iter, xmin, xmax, ymin, ymax)
+def generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax):
+    
+    if zoom:
+        assert fractals["sandpile"]== False, "Error: Can't zoom on sandpile."
+        # The first image generated
+        generate(zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax)
+        
+        xmin1, xmax1, ymin1, ymax1 =  xmin, xmax, ymin, ymax
+        
+        
+        
+        for i in range(n_coordinates+max_zoom): 
+            if i < n_coordinates:
+                xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(i+1), :], xmin1, xmax1, ymin1, ymax1)
+            else:
+                
+                x_center = (xmin + xmax) / 2
+                y_center = (ymin + ymax) / 2
+                
+                widtho = (xmax - xmin) * per_zoom
+                heighto = (ymax - ymin) * per_zoom
+                
+                xmin = x_center - widtho / 2
+                xmax = x_center + widtho / 2
+                ymin = y_center - heighto / 2
+                ymax = y_center + heighto / 2
+        
+            generate(zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax)
+    else:
+            # Normal mode without zoom
+            generate(zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax)
 
 
-        
-        
-        
-        
-        
+
+
+# Let's Run
+generate_wrapper(5, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax)
+# n_coordinates is how many times it will use the array coordinates.
+
+
+
