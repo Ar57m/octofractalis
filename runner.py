@@ -165,8 +165,8 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
 
 
 
-width = int(4096) # I'm using ratio 1/1
-height = int(4096) #2304
+width = int(1600) # I'm using ratio 1/1
+height = int(1600) #2304
 
 # Number of iterations
 max_iter = 1000
@@ -177,15 +177,15 @@ max_grains = 3
 # You can generate different types of fractals
 fractals = {
     'mandelbrot': True,
-    'juliaset': True,
+    'juliaset': False,
     'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
 
 zoom = False
-max_zoom = 5 # How many images # it's gonna generate  +n_coordinates more images than expected
-per_zoom = 0.9  # How much zoom after aiming
-
+max_zoom = 20 # How many images # it's gonna generate  +n_coordinates more images than expected
+per_zoom = 0.9 # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
+video_out = False # If you want to generate a video with the images
 
 palette = "palette.png"
 use_palette = True
@@ -211,14 +211,21 @@ ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)             #-9/5, 9/5
 
 
 
-# n_squares is a grid 7x7 to help you aim
+# This part is to help you aim
+n_coordinates = 5   #  Number of coordinates to use, set False to not use it
 #                       ([(column, line, grid nxn)])
-coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])  #np.array([(1,2,3),(2,2,3),(2,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2, 3)])
-#coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 
-#coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+#coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+#coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
+
 xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
-#xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:2, :], xmin, xmax, ymin, ymax)
+
+
+# Uncomment the code below if you want to start at certain location
+#xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(n_coordinates+1), :], xmin, xmax, ymin, ymax)
+
+
 print("Your coordinates: ", xmin, xmax, ymin, ymax, "\n") 
 
 
@@ -300,7 +307,7 @@ def generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, 
         
         
         for i in range(n_coordinates+max_zoom): 
-            if i < n_coordinates:
+            if (i < n_coordinates) and (n_coordinates !=False):
                 xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(i+1), :], xmin1, xmax1, ymin1, ymax1)
             else:
                 
@@ -324,8 +331,51 @@ def generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, 
 
 
 # Let's Run
-generate_wrapper(5, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax)
+generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax)
 # n_coordinates is how many times it will use the array coordinates.
 
 
+
+
+
+
+
+def imgs_to_video(n_coordinates):
+    import os
+    import subprocess
+    import re
+    
+    image_folder = os.getcwd()
+    fps = 10
+    frac = ["colorful_mandelbrot", "colorful_juliaset", "colorful_lyapunov"]
+    image_files = sorted([f for f in os.listdir(image_folder) if f.endswith('.png') and 'colorful' in f])
+    
+    for i, n in enumerate(frac):
+        
+        filtered_files = [f for f in image_files if n in f]
+
+        pattern = re.compile(rf".*{re.escape(n)}\.png$")
+
+        if any(pattern.match(f) for f in filtered_files): 
+            
+            with open('input.txt', 'w') as f:
+                for index, image_file in enumerate(filtered_files):
+                    duration = 0.9 if index < n_coordinates else 0.1
+                    f.write(f"file '{image_file}'\n")
+                    f.write(f"duration {duration}\n")
+        
+                f.write(f"file '{image_files[-1]}'\n")
+        
+            subprocess.run([
+                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', 'input.txt', 
+                '-fps_mode', 'vfr', '-pix_fmt', 'yuv420p', '-vf', f'fps={fps}', f'video_{n}.mp4' 
+            ])
+        
+            os.remove('input.txt')
+        
+            print(f'\nvideo_{n}.mp4 Video Done!')
+            
+            
+if video_out:
+    imgs_to_video(n_coordinates)
 
