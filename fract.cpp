@@ -141,7 +141,7 @@ extern "C" {
                 }
                 double temp = z_real * z_real + z_imag * z_imag;
                 if (temp < 4 && lake) {
-                    output[y *width + x] = temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter));
+                    output[y *width + x] = (temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter))) + max_iter;
                 } else {
                     output[y * width + x] = iteration;
                 }
@@ -258,7 +258,7 @@ extern "C" {
 
                 double temp =  (z_real * z_real + z_imag * z_imag);
                 if (temp < 4 && lake) {
-                    output[y *width + x] = temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter));
+                    output[y *width + x] = (temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter))) + max_iter;
                 } else {
                     output[y * width + x] = iteration;
                 }
