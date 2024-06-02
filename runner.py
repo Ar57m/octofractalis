@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import cv2
-from ctypes import cdll, c_double, POINTER, c_uint32, c_uint16, c_uint8, c_bool, c_float #, c_longdouble
+from ctypes import cdll, c_double, POINTER, c_int, c_uint32, c_uint16, c_uint8, c_bool, c_float #, c_longdouble
 
 
 
@@ -16,7 +16,7 @@ sandpile = lib.sandpile
 
 lib.process_array.argtypes = [POINTER(c_uint32), POINTER(c_uint8), c_uint16, c_uint16, c_double, c_uint16, c_double]
 lib.process_array.restype = None
-lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_uint32, c_float, c_float] 
+lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_float] 
 lib.scale.restype = None
 
 fractal.argtypes = [POINTER(c_uint16), c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_bool]
@@ -36,6 +36,7 @@ def scale(input_array, min, max):
     lib.scale(input_array, output_array, size, min, max)
     # Convert the output array to a numpy array
     output_array = np.ctypeslib.as_array(output_array).reshape(shape)
+    
     return output_array
 
 
@@ -65,7 +66,8 @@ def process_image(input_array, max_val, imgname):
     
     if "sandpile" in imgname:
         output_array = cv2.resize(output_array, (width*4, height*4), interpolation=cv2.INTER_NEAREST)
-    cv2.imwrite(f'{imgname}.png', output_array) 
+    
+    cv2.imwrite(f'{imgname}.png', output_array)
     print(f'{imgname}.png' )
 
 
@@ -116,11 +118,17 @@ def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
 
 
 # Image with palette
-def create_image(palette, data, filename, iterations, array_top_colors, lake=False):
+def create_image(palette, data, filename, iterations, array_top_colors, lake=False, shift_palette=(0, 0) ):
     data = data.copy().astype(np.uint32)
     shape = data.shape
     shape = (shape[1], shape[0])
     data = data.reshape(shape)
+    
+    array_top_colors = (
+    np.roll(array_top_colors[0], shift_palette[0]),
+    np.roll(array_top_colors[1], shift_palette[1]) if array_top_colors[1] is not False else False
+    )
+
     
     if (lake and isinstance(array_top_colors[1], np.ndarray) and not ('lyapunov' in filename or 'sandpile' in filename)):
         temp = data > iterations
@@ -177,21 +185,24 @@ max_grains = 3
 # You can generate different types of fractals
 fractals = {
     'mandelbrot': True,
-    'juliaset': False,
+    'juliaset': True,
     'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
+
 
 zoom = False
 max_zoom = 20 # How many images # it's gonna generate  +n_coordinates more images than expected
 per_zoom = 0.9 # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
 video_out = False # If you want to generate a video with the images
 
-palette = "palette.png"
+
+palette = "palette.png"  # Palette location
 use_palette = True
 
 # How many top colors to use from the palette.png
 top_colors = 24
+shift_palette = (0, 0)   # This shift the palette, you can set negative and positive integers.
 
 # Julia set parameters
 juliaset_c_real = -0.8
@@ -206,8 +217,8 @@ array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
 
 
 # Here you can move around 
-xmin_xmax = np.array([(-(16/6)), ((16/6))], dtype=np.float64)        #-16/5, 16/5
-ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)             #-9/5, 9/5
+xmin_xmax = np.array([(-(16/6)), ((16/6))], dtype=np.float64)     #-16/5, 16/5
+ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)           #-9/5, 9/5
 
 
 
@@ -286,7 +297,7 @@ def generate(zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax):
         if "gen_array" in locals():
             start_time = time.perf_counter()
             if use_palette:
-                create_image(palette, gen_array.reshape(width, height), prefix + "colorful_"+key, max_iter, array_top_colors, lake)
+                create_image(palette, gen_array.reshape(width, height), prefix + "colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
             else:
                 process_image(gen_array, (2**24-1), prefix + "generated_fractal_"+key )
             end_time = time.perf_counter()

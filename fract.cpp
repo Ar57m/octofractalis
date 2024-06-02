@@ -2,18 +2,12 @@
 #include <omp.h>
 #include <math.h>
 #include <cstdint>
-
 #include <cmath>
 #include <vector>
-
-
 #include <iostream>
 #include <csignal>
 #include <cstdlib>
-
 #include <algorithm>
-
-
 
 
 void signal_handler(int signal) {
@@ -94,9 +88,8 @@ double e = M_E;       //2.718281828459045;
 
 
 
-
 extern "C" {
-    void scale(const float* input_tensor, float* scaled_tensor, uint32_t input_size, float new_min, float new_max) {
+    void scale(const float* input_tensor, float* scaled_tensor, int input_size, float new_min, float new_max) {
         std::signal(SIGINT, signal_handler);
         float current_min = *std::min_element(input_tensor, input_tensor + input_size);
         float current_max = *std::max_element(input_tensor, input_tensor + input_size);
@@ -106,8 +99,8 @@ extern "C" {
         } 
 
         float scale_factor = (new_max - new_min) / (current_max - current_min);
-        #pragma omp parallel for schedule(dynamic, 1)
-        for (uint32_t i = 0; i < input_size; ++i) {
+        
+        for (int i = 0; i < input_size; ++i) {
             scaled_tensor[i] = (input_tensor[i] - current_min) * scale_factor + new_min;
         }
 
@@ -122,10 +115,10 @@ extern "C" {
         double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
         #pragma omp parallel for schedule(dynamic)
-        for (uint16_t x = 0; x < width; ++x) {
+        for (int x = 0; x < width; ++x) {
             double r_part = 0;
             r_part = xmin + x * dx;
-            for (uint16_t y = 0; y < height; ++y) {
+            for (int y = 0; y < height; ++y) {
                 double i_part = ymin + y * dy;
                 double z_real = 0;
                 double z_imag = 0;
@@ -134,6 +127,7 @@ extern "C" {
                 c_real = r_part;
                 c_imag = i_part;
                 uint16_t iteration = 0;
+                
 
                 while (z_real * z_real + z_imag * z_imag < 4 && iteration < max_iter) {
                     double z2_real = z_real * z_real - z_imag * z_imag + c_real;
@@ -145,15 +139,10 @@ extern "C" {
                     z_imag = temp_imag;
                     ++iteration;
                 }
-                
-
-                if (z_real * z_real + z_imag * z_imag < 4 && lake) {
-                    // Point is in the set, use lake color
-                    double lake_value = log(1 + sqrt(z_real * z_real + z_imag * z_imag) );
-                    uint16_t color = static_cast<uint16_t>((lake_value * max_iter) + max_iter);
-                    output[y *width + x] = color;
+                double temp = z_real * z_real + z_imag * z_imag;
+                if (temp < 4 && lake) {
+                    output[y *width + x] = temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter));
                 } else {
-                    // Point is outside the set, color depends on the number of iterations
                     output[y * width + x] = iteration;
                 }
             }
@@ -163,48 +152,39 @@ extern "C" {
 
 
 
-
-
-
     void lyapunov(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double xmin=3.4, double xmax=4.0, double ymin=2.5, double ymax=3.4) {
-
+    
         std::signal(SIGINT, signal_handler);
-
+    
         double dx = (xmax - xmin) / width;
         double dy = (ymax - ymin) / height;
-        
-        #pragma omp parallel for schedule(dynamic)
-        for (uint16_t i = 0; i < height; ++i) {
-            
 
-            for (uint16_t j = 0; j < width; ++j) {
+        #pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < height; ++i) {
+            for (int j = 0; j < width; ++j) {
                 double x = xmin + j * dx;
                 double y = ymin + i * dy;
                 double a = 0.5 + x * 0.5;
                 double b = 0.5 + y * 0.5;
                 double l = 0.0;
                 double v = 0.5;
-                for (uint16_t k = 0; k < max_iter; ++k) {
-                    if (k % 12 < 6) {
-                        v = b * v * (1 - v);
-                    } else {
-                        v = a * v * (1 - v);
+    
+                for (int k = 0; k < max_iter; k += 6) {
+                    for (int lote = 0; lote < 6; ++lote) {
+                        if ((k +lote) % 12 < 6) {
+                            v = b * v * (1 - v);
+                            l += noNan(log(fabs(b * (1 - 2 * v))));
+                        } else {
+                            v = a * v * (1 - v);
+                            l += noNan(log(fabs(a * (1 - 2 * v))));
+                        }
                     }
-                    l += log(fabs((k % 12 < 6 ? b : a) * (1 - 2 * v)));
                 }
-                l = noNan(l);
-                
-                uint16_t color = 0;
-                if (l <= 0) {
-                    color = static_cast<uint16_t>((std::round((-l/(-l+1))*max_iter)));
-                } else {
-                    color = static_cast<uint16_t>((std::round((l/(l+1))*max_iter)));
-                }
-                output[i * width + j] = color;
+                output[i * width + j] = l < 0 ? static_cast<uint16_t>((std::round((-l/(-l+1))*max_iter))) : static_cast<uint16_t>((std::round((l/(l+1))*max_iter)));
             }
         }
     }
-
+    
 
 
 
@@ -221,8 +201,8 @@ extern "C" {
             unstable = false;
 
             // Process each cell in the sandpile
-            for (uint16_t y = 0; y < height; ++y) {
-                for (uint16_t x = 0; x < width; ++x) {
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
                     if (sandpile[y][x] > max_grains) {
                         // Distribute grains to neighboring cells
                         if (y > 0) sandpile[y-1][x] += sandpile[y][x] / 4;
@@ -234,14 +214,8 @@ extern "C" {
                         sandpile[y][x] %= 4;
                         unstable = true;
                     }
+                    output[y * width + x] = static_cast<uint8_t>(sandpile[y][x]);
                 }
-            }
-        }
-
-        // Copy the sandpile to the output buffer
-        for (uint16_t y = 0; y < height; ++y) {
-            for (uint16_t x = 0; x < width; ++x) {
-                output[y * width + x] = static_cast<uint8_t>(sandpile[y][x]);
             }
         }
     }
@@ -256,11 +230,11 @@ extern "C" {
         
         std::signal(SIGINT, signal_handler);
         #pragma omp parallel for schedule(dynamic)
-        for (uint16_t x = 0; x < width; ++x) {
+        for (int x = 0; x < width; ++x) {
             double r_part = 0; 
             r_part = xmin + x * dx;
 
-            for (uint16_t y = 0; y < height; ++y) {
+            for (int y = 0; y < height; ++y) {
                 double i_part = ymin + y * dy;
 
                 double z_real = 0;
@@ -281,14 +255,11 @@ extern "C" {
                     ++iteration;
                 }
                 
-             //   output[y * width + x] = iteration;
-                if (z_real * z_real + z_imag * z_imag < 4 && lake) {
-                    // Point is in the set, use lake color
-                    double lake_value = log(1 + sqrt(z_real * z_real + z_imag * z_imag) );
-                    uint16_t color = static_cast<uint16_t>((lake_value * max_iter) + max_iter);
-                    output[y *width + x] = color;
+
+                double temp =  (z_real * z_real + z_imag * z_imag);
+                if (temp < 4 && lake) {
+                    output[y *width + x] = temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter));
                 } else {
-                    // Point is outside the set, color depends on the number of iterations
                     output[y * width + x] = iteration;
                 }
             }
@@ -301,10 +272,11 @@ extern "C" {
     void process_array(uint32_t* input_array, uint8_t* output_array, uint16_t width, uint16_t height, double max_value, uint16_t batch_size, double npmax) {
         std::signal(SIGINT, signal_handler);
         // Iterate over each batch
+        
         #pragma omp parallel for schedule(dynamic)
-        for(uint32_t i = 0; i < width * height; i += batch_size) {
+        for(int i = 0; i < width * height; i += batch_size) {
             // Iterate over each value in the batch
-            for(uint32_t j = i; j < i + batch_size && j < width * height; j++) {
+            for(int j = i; j < i + batch_size && j < width * height; j++) {
                 // Convert the value to double and scale it
                 double value = (static_cast<double>((input_array[j])) / npmax) * max_value;
 
@@ -319,3 +291,6 @@ extern "C" {
         }
     }
 }
+
+
+
