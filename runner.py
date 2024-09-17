@@ -399,7 +399,8 @@ import multiprocessing
 
 received_params = {}
 stop_gen = multiprocessing.Event()
-def server():
+
+def server(port):
 
 
     import http.server
@@ -410,7 +411,7 @@ def server():
 
 
 
-    PORT = 8888
+    PORT = port
     DIRECTORY = ""
     
 
@@ -551,6 +552,12 @@ def main():
         action='store_true', 
         help='If specified, the server will not be started.'
     )
+    parser.add_argument(
+        '--port', 
+        type=int,
+        default=8888,
+        help='Port to serve. Defaults to 8888 if not specified.'
+    )
     
     args = parser.parse_args()
     
@@ -562,7 +569,11 @@ def main():
             imgs_to_video(n_coordinates)
 
     else:
-        server()
+
+        with open('port.txt', 'w') as file:
+            file.write(str(args.port))
+
+        server(args.port)
 
 
 if __name__ == "__main__":
