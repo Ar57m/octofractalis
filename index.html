@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Another Fractal Generator</title>
+    <style>
+        h1 {
+            text-align: center;
+        }
+
+        body {
+            background: linear-gradient(135deg, #121212, #3a3a3a);
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background: #222;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+            max-width: 1200px;
+            width: 100%;
+            margin: 20px;
+            box-sizing: border-box;
+        }
+        .small-input {
+            width: 80px;
+        }
+        .checkbox-text {
+            display: flex;
+            flex-direction: column;
+        }
+        input, select {
+            width: 100%;
+            margin: 8px 0;
+            padding: 10px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        input[type="submit"] {
+            background-color: #1abc9c;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        input[type="submit"]:hover, input[type="button"]:hover {
+            background-color: #158a72;
+        }
+        input[id="stop_button"] {
+            background-color: #af1d1d;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        input[id="stop_button"]:hover {
+            background-color: #751414;
+        }
+        input[type="checkbox"] {
+            width: 25px;
+            height: 25px;
+            margin-right: 5px;
+            margin-bottom: 10px;
+        }
+        fieldset {
+            border-top: 2px solid #444;
+            border: 1px solid #555;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .form-section {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 1vw;
+            margin-bottom: 1vw;
+            row-gap: 10px;
+            
+        }
+
+        .form-section label {
+            flex: 1 1 25%;
+            min-width: 30px;
+        }
+
+
+        input[type="text"],
+        input[type="number"] {
+            width: 35%;
+            box-sizing: border-box;
+        }
+
+
+
+
+        legend {
+            font-weight: bold;
+            color: #fff;
+            padding: 0 10px;
+        }
+
+        label {
+            display: inline-block;
+            width: 150px;
+            margin-bottom: 5px;
+        }
+
+
+
+        @media (max-width: 768px) {
+            .container {
+                max-width: 100%;
+            }
+            input, select {
+                padding: 8px;
+            }
+            .form-section label {
+                flex: 1 1 100%;
+            }
+        }
+
+
+        .fractals-section {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: space-around;
+        }
+        .fractalGallery {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin: 10px 0;
+            padding-left: 0px;
+            padding-right: 5px;
+            width: 100%;
+            height: auto;
+        }
+        .fractals-section label {
+            flex: 1 1 45%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Another Fractal Generator</h1>
+        <form id="fractalForm">
+            <fieldset>
+                <legend>Select Fractals</legend>
+                <div class="fractals-section">
+                    <fieldset>
+                        <label><input type="checkbox" name="fractals[mandelbrot]" checked class="small-input"> Mandelbrot</label>
+                    </fieldset>
+                    <fieldset>
+                        <label><input type="checkbox" name="fractals[juliaset]" class="small-input"> Julia Set</label>
+                    </fieldset>
+                    <fieldset>
+                        <label><input type="checkbox" name="fractals[lyapunov]" class="small-input"> Lyapunov</label>
+                    </fieldset>
+                    <fieldset>
+                        <label><input type="checkbox" name="fractals[sandpile]" class="small-input"> Sandpile</label>
+                    </fieldset>
+                </div>
+            </fieldset>
+
+            <div class="form-section">
+                <fieldset>
+                    <label for="width">Width:</label>
+                    <input type="number" id="width" name="width" min="2" value="800" required class="small-input"><br>
+
+                    <label for="height">Height:</label>
+                    <input type="number" id="height" name="height" min="2" value="600" required class="small-input"><br>
+
+                    <label for="max_iter">Max Iterations:</label>
+                    <input type="number" id="max_iter" name="max_iter" min="2" value="1000" required class="small-input"><br>
+
+                    <label for="top_colors">Top Colors:</label>
+                    <input type="number" id="top_colors" name="top_colors" min="2" value="256" required class="small-input"><br>
+
+                    <label for="max_grains">Max Grains:</label>
+                    <input type="number" id="max_grains" name="max_grains" min="2" value="100" required class="small-input"><br>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Julia Set Parameters</legend>
+                    <label for="juliaset_c_real">Julia Set C Real (float):</label>
+                    <input type="text" id="juliaset_c_real" name="juliaset_c_real" value="-0.8" required class="small-input"><br>
+
+                    <label for="juliaset_c_imag">Julia Set C Imaginary (float):</label>
+                    <input type="text" id="juliaset_c_imag" name="juliaset_c_imag" value="0.16" required class="small-input"><br>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Coordinates</legend>
+                    <label for="xmin">X Min (float):</label>
+                    <input type="text" id="xmin" name="xmin" value="-2.0" required class="small-input"><br>
+
+                    <label for="xmax">X Max (float):</label>
+                    <input type="text" id="xmax" name="xmax" value="2.0" required class="small-input"><br>
+
+                    <label for="ymin">Y Min (float):</label>
+                    <input type="text" id="ymin" name="ymin" value="-2.0" required class="small-input"><br>
+
+                    <label for="ymax">Y Max (float):</label>
+                    <input type="text" id="ymax" name="ymax" value="2.0" required class="small-input"><br>
+                </fieldset>
+
+            </div>
+            <fieldset>
+                <legend>Palette Settings</legend>
+                <label for="use_palette">Use Palette:</label>
+                <input type="checkbox" id="use_palette" name="use_palette" checked class="small-input"><br>
+
+                <label for="palette">Palette Image Path:</label>
+                <input type="text" id="palette" name="palette" value="palette.png"><br>
+                
+                <label for="shift_palette">Shift Palette Colors:</label>
+                <input type="number" id="shift_palette" name="shift_palette" min="-1024" max="1024" value="0" required class="small-input"><br>
+
+
+                <label for="lake">Use Lake:</label>
+                <input type="checkbox" id="lake" name="lake" checked class="small-input"><br>
+
+                <label for="lake_palette">Lake Palette Image Path:</label>
+                <input type="text" id="lake_palette" name="lake_palette" value="lake_palette.png"><br>
+
+                <label for="shift_palette_lake">Shift Lake Palette Colors:</label>
+                <input type="number" id="shift_palette_lake" name="shift_palette_lake" min="-1024" max="1024" value="0" required class="small-input"><br>
+
+            </fieldset>
+            <input type="submit" value="Generate Fractal"> 
+            <input type="button" id="stop_button" value="Stop">
+            
+        </form>
+
+        
+        <div id="fractalContainer" class="fractalGallery"></div>
+    </div>
+
+<script>
+    function resizeImage(imagePath, maxPixels, callback) {
+        const img = new Image();
+        img.src = imagePath;
+
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const scale = Math.sqrt(maxPixels / (img.width * img.height));
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            callback(canvas.toDataURL());
+        };
+    }
+
+    document.getElementById('fractalForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const maxPixels = 1048576; // 1MP
+
+        fetch('http://localhost:8888', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(fractalResult => {
+            const imagePaths = fractalResult.split(',');
+
+            const fractalContainer = document.getElementById('fractalContainer');
+            fractalContainer.innerHTML = '';
+
+            imagePaths.forEach(imagePath => {
+                resizeImage(imagePath, maxPixels, function(rescaledImageSrc) {
+                    const imgElement = document.createElement('img');
+                    imgElement.src = rescaledImageSrc;
+                    imgElement.classList.add('fractalGallery');
+                    fractalContainer.appendChild(imgElement);
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+    document.getElementById("stop_button").addEventListener("click", function() {
+            fetch('/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: 'stop' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message); // Log the response from the server
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+
+</script>
+</body>
+</html>

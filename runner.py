@@ -2,7 +2,7 @@ import numpy as np
 import time
 import cv2
 from ctypes import cdll, c_double, POINTER, c_int, c_uint32, c_uint16, c_uint8, c_bool, c_float #, c_longdouble
-
+import argparse
 
 
 # Carregue a biblioteca
@@ -65,7 +65,7 @@ def process_image(input_array, max_val, imgname):
     output_array = cv2.cvtColor(output_array, cv2.COLOR_BGR2RGB)
     
     if "sandpile" in imgname:
-        output_array = cv2.resize(output_array, (width*4, height*4), interpolation=cv2.INTER_NEAREST)
+        output_array = cv2.resize(output_array, (height*4, width*4), interpolation=cv2.INTER_NEAREST)
     
     cv2.imwrite(f'{imgname}.png', output_array)
     print(f'{imgname}.png' )
@@ -118,7 +118,7 @@ def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
 
 
 # Image with palette
-def create_image(palette, data, filename, iterations, array_top_colors, lake=False, shift_palette=(0, 0) ):
+def create_image(data, filename, iterations, array_top_colors, lake=False, shift_palette=(0, 0) ):
     data = data.copy().astype(np.uint32)
     shape = data.shape
     shape = (shape[1], shape[0])
@@ -147,7 +147,7 @@ def create_image(palette, data, filename, iterations, array_top_colors, lake=Fal
     else:
         data = scale_fast(data, array_top_colors[0].shape[0] - 1)
         data = np.take(array_top_colors[0], data)
-    
+
     process_image(data.reshape(shape), np.max(data), filename)
     
     
@@ -198,7 +198,7 @@ video_out = False # If you want to generate a video with the images
 
 
 palette = "palette.png"  # Palette location
-use_palette = True
+use_palette = False
 
 # How many top colors to use from the palette.png
 top_colors = 24
@@ -242,10 +242,13 @@ print("Your coordinates: ", xmin, xmax, ymin, ymax, "\n")
 
 
 
-def generate(zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax):
+def generate(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
 
+    array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
     prefix = ""
-    
+    img_names = []
+
+
     if zoom:
         max_zoom = str(max_zoom)
         target_length = len(max_zoom)+1
@@ -296,22 +299,26 @@ def generate(zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax):
             
         if "gen_array" in locals():
             start_time = time.perf_counter()
+            localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette:
-                create_image(palette, gen_array.reshape(width, height), prefix + "colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
+                create_image(gen_array.reshape(width, height), "./images/" + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
+                img_names.append("./images/" + prefix + "0" + localtime + "_colorful_"+key+".png")
             else:
-                process_image(gen_array, (2**24-1), prefix + "generated_fractal_"+key )
+                process_image(gen_array, (2**24-1), "./images/" + prefix + "0" + localtime + "_generated_fractal_"+key )
+                img_names.append("./images/" + prefix + "0" + localtime + "_generated_fractal_"+key+".png")
             end_time = time.perf_counter()
             del gen_array
             print("Took ", end_time - start_time, "seconds to convert\n")
+    return img_names
 
             
             
-def generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax):
+def generate_wrapper(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
     
     if zoom:
         assert fractals["sandpile"]== False, "Error: Can't zoom on sandpile."
         # The first image generated
-        generate(zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax)
+        generate(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
         
         xmin1, xmax1, ymin1, ymax1 =  xmin, xmax, ymin, ymax
         
@@ -333,17 +340,12 @@ def generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, 
                 ymin = y_center - heighto / 2
                 ymax = y_center + heighto / 2
         
-            generate(zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax)
+            generate(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
     else:
             # Normal mode without zoom
-            generate(zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax)
+            img_names = generate(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+            return img_names
 
-
-
-
-# Let's Run
-generate_wrapper(n_coordinates, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax)
-# n_coordinates is how many times it will use the array coordinates.
 
 
 
@@ -390,3 +392,178 @@ def imgs_to_video(n_coordinates):
 if video_out:
     imgs_to_video(n_coordinates)
 
+
+# received_params = {}
+# stop_gen = False
+import multiprocessing
+
+received_params = {}
+stop_gen = multiprocessing.Event()
+def server():
+
+
+    import http.server
+    import socketserver
+    import signal
+    import sys
+    import os
+
+
+
+    PORT = 8888
+    DIRECTORY = ""
+    
+
+    def process_form_data(params):
+
+        fractals = {
+            'mandelbrot': 'fractals[mandelbrot]' in params,
+            'juliaset': 'fractals[juliaset]' in params,
+            'lyapunov': 'fractals[lyapunov]' in params,
+            'sandpile': 'fractals[sandpile]' in params
+        }
+
+        width = int(params.get('width', [0]))
+        height = int(params.get('height', [0]))
+        max_iter = int(params.get('max_iter', [0]))
+        top_colors = int(params.get('top_colors', [0]))
+        max_grains = int(params.get('max_grains', [0]))
+        juliaset_c_real = float(params.get('juliaset_c_real', [0.0]))
+        juliaset_c_imag = float(params.get('juliaset_c_imag', [0.0]))
+        xmin = float(params.get('xmin', [0.0]))
+        xmax = float(params.get('xmax', [0.0]))
+        ymin = float(params.get('ymin', [0.0]))
+        ymax = float(params.get('ymax', [0.0]))
+        use_palette = 'use_palette' in params
+        palette = params.get('palette', [''])
+        lake = 'lake' in params
+        lake_palette = params.get('lake_palette', [''])
+        shift_palette = int(params.get('shift_palette'))
+        shift_palette_lake = int(params.get('shift_palette_lake'))
+        
+        zoom = False
+        max_zoom = 20
+
+
+        if use_palette and not os.path.exists(palette):
+            print(f"Palette file does not exist: {palette}")
+            return
+        if lake and not os.path.exists(lake_palette):
+            print(f"Lake palette file does not exist: {lake_palette}")
+            return
+
+        print(f"Calling activate with parameters:\nfractals: {fractals}, width: {width}, height: {height}, max_iter: {max_iter}, top_colors: {top_colors}, max_grains: {max_grains}, juliaset_c_real: {juliaset_c_real}, juliaset_c_imag: {juliaset_c_imag}, xmin: {xmin}, xmax: {xmax}, ymin: {ymin}, ymax: {ymax}, use_palette: {use_palette}, palette: {palette}, lake: {lake}, lake_palette: {lake_palette}")
+        paths = generate_wrapper(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
+        
+        print((paths))
+        return paths
+
+
+
+    class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+
+        def do_POST(self):
+            global received_params, stop_signal
+
+            # Get the content type and boundary from headers
+            content_type = self.headers.get('Content-Type')
+            if not content_type:
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            # Extract boundary from content type
+            boundary = None
+            for part in content_type.split(';'):
+                if 'boundary=' in part:
+                    boundary = part.split('=')[1].strip()
+                    break
+            
+            if not boundary:
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            # Read the entire body of the request
+            content_length = int(self.headers['Content-Length'])
+            body = self.rfile.read(content_length)
+
+            # Parse the multipart form data
+            parts = body.split(f'--{boundary}'.encode())
+            for part in parts:
+                if part.strip() and not part.startswith(b'--'):
+                    # Extract headers and body from part
+                    headers, payload = part.split(b'\r\n\r\n', 1)
+                    headers = headers.decode('utf-8')
+                    payload = payload.rstrip(b'--').decode('utf-8')
+
+                    # Extract form field name
+                    disposition = [h for h in headers.split('\r\n') if h.startswith('Content-Disposition:')]
+                    if disposition:
+                        content_disposition = disposition[0]
+                        field_name = None
+                        for param in content_disposition.split(';'):
+                            if 'name=' in param:
+                                field_name = param.split('=')[1].strip('" ')
+                                break
+                        if field_name:
+                            received_params[field_name] = payload.strip()
+
+            required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
+            if all(key in received_params for key in required_keys):
+                print(received_params)
+                fractal_result = ",".join(process_form_data(received_params))
+                received_params.clear()
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(fractal_result.encode('utf-8'))
+            else:
+                self.send_response(400)
+                self.end_headers()
+
+        def translate_path(self, path):
+            return http.server.SimpleHTTPRequestHandler.translate_path(self, f'/{DIRECTORY}{path}')
+
+    def signal_handler(signum, frame):
+        print(f"Signal {signum} received. Shutting down.")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    Handler = MyHttpRequestHandler
+
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"Fractal Generator running at: http://localhost:{PORT}")
+        httpd.serve_forever()
+
+
+
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Process some arguments.')
+
+    # Add the --noserver flag
+    parser.add_argument(
+        '--noserver', 
+        action='store_true', 
+        help='If specified, the server will not be started.'
+    )
+    
+    args = parser.parse_args()
+    
+    if args.noserver:
+        # Let's Run
+        generate_wrapper(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+        # n_coordinates is how many times it will use the array coordinates.
+        if video_out:
+            imgs_to_video(n_coordinates)
+
+    else:
+        server()
+
+
+if __name__ == "__main__":
+    main()
