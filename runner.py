@@ -453,10 +453,10 @@ def server(port):
             print(f"Lake palette file does not exist: {lake_palette}")
             return
 
-        print(f"Calling activate with parameters:\nfractals: {fractals}, width: {width}, height: {height}, max_iter: {max_iter}, top_colors: {top_colors}, max_grains: {max_grains}, juliaset_c_real: {juliaset_c_real}, juliaset_c_imag: {juliaset_c_imag}, xmin: {xmin}, xmax: {xmax}, ymin: {ymin}, ymax: {ymax}, use_palette: {use_palette}, palette: {palette}, lake: {lake}, lake_palette: {lake_palette}")
+
         paths = generate_wrapper(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
         
-        print((paths))
+        #print((paths))
         return paths
 
 
@@ -512,7 +512,7 @@ def server(port):
 
             required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
             if all(key in received_params for key in required_keys):
-                print(received_params)
+                #print(received_params)
                 fractal_result = ",".join(process_form_data(received_params))
                 received_params.clear()
 
@@ -569,9 +569,6 @@ def main():
             imgs_to_video(n_coordinates)
 
     else:
-
-        with open('port.txt', 'w') as file:
-            file.write(str(args.port))
 
         server(args.port)
 
