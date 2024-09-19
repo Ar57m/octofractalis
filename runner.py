@@ -3,7 +3,8 @@ import time
 import cv2
 from ctypes import cdll, c_double, POINTER, c_int, c_uint32, c_uint16, c_uint8, c_bool, c_float #, c_longdouble
 import argparse
-
+import sys
+import os
 
 # Carregue a biblioteca
 lib = cdll.LoadLibrary('./libfract.so')
@@ -223,7 +224,7 @@ ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)           #-9/5, 9/5
 
 
 # This part is to help you aim
-n_coordinates = 5   #  Number of coordinates to use, set False to not use it
+n_coordinates = 0   #  Number of coordinates to use, set False to not use it
 #                       ([(column, line, grid nxn)])
 coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 
@@ -234,7 +235,8 @@ xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
 
 
 # Uncomment the code below if you want to start at certain location
-#xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(n_coordinates+1), :], xmin, xmax, ymin, ymax)
+if n_coordinates>0:
+    xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(n_coordinates+1), :], xmin, xmax, ymin, ymax)
 
 
 print("Your coordinates: ", xmin, xmax, ymin, ymax, "\n") 
@@ -400,6 +402,73 @@ import multiprocessing
 received_params = {}
 stop_gen = multiprocessing.Event()
 
+
+xmin_xmax = np.array([(-(2.0)), ((2.0))], dtype=np.float64)
+ymin_ymax = np.array([-(2.0), (2.0)], dtype=np.float64)
+xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
+
+
+
+def process_form_data(params):
+    global xmin, xmax, ymin, ymax
+
+    fractals = {
+        'mandelbrot': 'fractals[mandelbrot]' in params,
+        'juliaset': 'fractals[juliaset]' in params,
+        'lyapunov': 'fractals[lyapunov]' in params,
+        'sandpile': 'fractals[sandpile]' in params
+    }
+
+    width = int(params.get('width', [0]))
+    height = int(params.get('height', [0]))
+    max_iter = int(params.get('max_iter', [0]))
+    top_colors = int(params.get('top_colors', [0]))
+    max_grains = int(params.get('max_grains', [0]))
+    juliaset_c_real = float(params.get('juliaset_c_real', [0.0]))
+    juliaset_c_imag = float(params.get('juliaset_c_imag', [0.0]))
+
+    use_palette = 'use_palette' in params
+    palette = params.get('palette', [''])
+    lake = 'lake' in params
+    lake_palette = params.get('lake_palette', [''])
+    shift_palette = int(params.get('shift_palette'))
+    shift_palette_lake = int(params.get('shift_palette_lake'))
+    column_aim = int(params.get('column_aim'))
+    row_aim = int(params.get('row_aim'))
+    grid_length = int(params.get('grid_length'))
+    coordinates = np.array([(column_aim,row_aim,grid_length)])
+    continue_aim = "continue_aim" in params
+
+    if continue_aim and grid_length != 1:
+
+        xmin, xmax, ymin, ymax = divide_in_squares(coordinates, xmin, xmax, ymin, ymax) 
+    else:
+        xmin = float(params.get('xmin', [0.0]))
+        xmax = float(params.get('xmax', [0.0]))
+        ymin = float(params.get('ymin', [0.0]))
+        ymax = float(params.get('ymax', [0.0]))
+
+    
+    zoom = False
+    max_zoom = 20
+
+
+    if use_palette and not os.path.exists(palette):
+        print(f"Palette file does not exist: {palette}")
+        return
+    if lake and not os.path.exists(lake_palette):
+        print(f"Lake palette file does not exist: {lake_palette}")
+        return
+
+
+    paths = generate_wrapper(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
+    
+    #print((paths))
+    return paths
+
+
+
+
 def server(port):
 
 
@@ -415,56 +484,14 @@ def server(port):
     DIRECTORY = ""
     
 
-    def process_form_data(params):
 
-        fractals = {
-            'mandelbrot': 'fractals[mandelbrot]' in params,
-            'juliaset': 'fractals[juliaset]' in params,
-            'lyapunov': 'fractals[lyapunov]' in params,
-            'sandpile': 'fractals[sandpile]' in params
-        }
-
-        width = int(params.get('width', [0]))
-        height = int(params.get('height', [0]))
-        max_iter = int(params.get('max_iter', [0]))
-        top_colors = int(params.get('top_colors', [0]))
-        max_grains = int(params.get('max_grains', [0]))
-        juliaset_c_real = float(params.get('juliaset_c_real', [0.0]))
-        juliaset_c_imag = float(params.get('juliaset_c_imag', [0.0]))
-        xmin = float(params.get('xmin', [0.0]))
-        xmax = float(params.get('xmax', [0.0]))
-        ymin = float(params.get('ymin', [0.0]))
-        ymax = float(params.get('ymax', [0.0]))
-        use_palette = 'use_palette' in params
-        palette = params.get('palette', [''])
-        lake = 'lake' in params
-        lake_palette = params.get('lake_palette', [''])
-        shift_palette = int(params.get('shift_palette'))
-        shift_palette_lake = int(params.get('shift_palette_lake'))
-        
-        zoom = False
-        max_zoom = 20
-
-
-        if use_palette and not os.path.exists(palette):
-            print(f"Palette file does not exist: {palette}")
-            return
-        if lake and not os.path.exists(lake_palette):
-            print(f"Lake palette file does not exist: {lake_palette}")
-            return
-
-
-        paths = generate_wrapper(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
-        
-        #print((paths))
-        return paths
 
 
 
     class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
-
+        
         def do_POST(self):
-            global received_params, stop_signal
+            global received_params, stop_gen
 
             # Get the content type and boundary from headers
             content_type = self.headers.get('Content-Type')
