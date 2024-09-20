@@ -198,7 +198,7 @@ per_zoom = 0.9 # Zooming after aiming: Using a value greater than 1.0 will zoom 
 video_out = False # If you want to generate a video with the images
 
 
-palette = "palette.png"  # Palette location
+palette = "./palettes/palette.png"  # Palette location
 use_palette = False
 
 # How many top colors to use from the palette.png
@@ -212,7 +212,7 @@ juliaset_c_imag = 0.16
 # Makes the part that converges visible
 lake = True
 # Palette path to another palette image
-lake_palette = "lake_palette.png"
+lake_palette = "./palettes/lake_palette.png"
 # Here it's loading the palette before the generation and conversion
 array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
 
@@ -239,12 +239,13 @@ if n_coordinates>0:
     xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(n_coordinates+1), :], xmin, xmax, ymin, ymax)
 
 
-print("Your coordinates: ", xmin, xmax, ymin, ymax, "\n") 
+
 
 
 
 
 def generate(fractals, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
+    print("\nYour coordinates: ", xmin, xmax, ymin, ymax, "\n")
 
     array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
     prefix = ""
@@ -399,6 +400,9 @@ if video_out:
 # stop_gen = False
 import multiprocessing
 
+
+
+
 received_params = {}
 stop_gen = multiprocessing.Event()
 
@@ -411,6 +415,67 @@ xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
 
 def process_form_data(params):
     global xmin, xmax, ymin, ymax
+
+
+
+
+    import requests
+    import hashlib
+    import os
+    import re
+
+
+    def is_url_or_path(value):
+        url_regex = re.compile(
+            r'^(?:http|ftp)s?://' # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' # Domain
+            r'localhost|' # localhost
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|' # IP
+            r'\[?[A-F0-9]*:[A-F0-9:]+\]?)' # IPv6
+            r'(?::\d+)?' # port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
+        if re.match(url_regex, value):
+            return "url"
+        elif os.path.isfile(value):
+            return "image path"
+        else:
+            return "invalid"
+        
+
+    def download_image(url):
+        # Check if the value is a URL
+        if is_url_or_path(url) != "url":
+            return url  # If not a URL, return the original value
+        
+        # Download the image
+        response = requests.get(url)
+        if response.status_code == 200:
+            # Calculate MD5 hash of the content
+            md5_hash = hashlib.md5(response.content).hexdigest()
+            # Determine the extension
+            ext = url.split('.')[-1].lower()
+            if ext not in ['png', 'jpg', 'jpeg']:
+                ext = 'png'  # Fallback to PNG if unsupported format
+            
+            file_name = f"{md5_hash}.{ext}"
+            
+            if os.path.isfile(file_name):
+                return file_name 
+            
+            with open(file_name, 'wb') as file:
+                file.write(response.content)
+            
+            return file_name
+        else:
+            raise Exception(f"Failed to download the image. Status Code: {response.status_code}")
+
+
+
+
+
+
+
 
     fractals = {
         'mandelbrot': 'fractals[mandelbrot]' in params,
@@ -429,8 +494,12 @@ def process_form_data(params):
 
     use_palette = 'use_palette' in params
     palette = params.get('palette', [''])
+    palette = download_image(palette)
+
     lake = 'lake' in params
     lake_palette = params.get('lake_palette', [''])
+    lake_palette = download_image(lake_palette)
+
     shift_palette = int(params.get('shift_palette'))
     shift_palette_lake = int(params.get('shift_palette_lake'))
     column_aim = int(params.get('column_aim'))
@@ -476,7 +545,6 @@ def server(port):
     import socketserver
     import signal
     import sys
-    import os
 
 
 
@@ -563,7 +631,7 @@ def server(port):
     Handler = MyHttpRequestHandler
 
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
-        print(f"Fractal Generator running at: http://localhost:{PORT}")
+        print(f"\nAnother Fractal Generator running at: http://localhost:{PORT}\n")
         httpd.serve_forever()
 
 
