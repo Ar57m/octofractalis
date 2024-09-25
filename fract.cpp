@@ -478,11 +478,11 @@ private:
 };
 
 
-void update_output(uint16_t* output, double temp, uint16_t max_iter, uint16_t width, uint16_t iteration, uint16_t x, uint16_t y, bool lake) {
-    if (temp < 2 && lake) {
-        output[y * width + x] = (temp < 0 ? 
-            static_cast<uint16_t>(std::round((-temp / (-temp + 1)) * max_iter)) : 
-            static_cast<uint16_t>(std::round((temp / (temp + 1)) * max_iter))) + max_iter;
+void update_output(uint16_t* output, const double temp, const uint16_t max_iter, const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y, const bool lake, const bool lya) {
+    if ((temp < 2 && lake)) {
+        output[y * width + x] = static_cast<uint16_t>(std::round((temp / (temp + 1)) * max_iter)) + max_iter;
+    } else if ( lya) {
+        output[y * width + x] = static_cast<uint16_t>((std::round((temp / (temp + 1)) * max_iter)));
     } else {
         output[y * width + x] = iteration;
     }
@@ -522,9 +522,8 @@ extern "C" {
 
         const std::string expression = std::string(exp);
 
-        
         if (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw" ) {
-            
+
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
@@ -549,7 +548,7 @@ extern "C" {
                         z = (z*z)+c;
                         ++iteration;
                     }
-                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake);
+                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
             }
         } else {
@@ -590,7 +589,7 @@ extern "C" {
                         temp = z.abs();
                         ++iteration;
                     }
-                    update_output( output, temp, max_iter, width, iteration, x, y, lake);
+                    update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
                 }
             }
        } 
@@ -598,12 +597,12 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double xmin=3.4, double xmax=4.0, double ymin=2.5, double ymax=3.4) {
+    void lyapunov(uint16_t* output, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin=3.4, const double xmax=4.0, const double ymin=2.5, const double ymax=3.4) {
         
         std::signal(SIGINT, signal_handler);
         
-        double dx = (xmax - xmin) / width;
-        double dy = (ymax - ymin) / height;
+        const double dx = (xmax - xmin) / width;
+        const double dy = (ymax - ymin) / height;
 
         #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < height; ++i) {
@@ -618,14 +617,14 @@ extern "C" {
                 for (int k = 0; k < max_iter; ++k) {
                     if (k % 12 < 6) {
                         v = b * v * (1 - v);
-                        l = l + noNan(log((b * (1 - 2 * v)).abs()));
+                        l += noNan(log((b * (1 - 2 * v)).abs()));
                     } else {
                         v = a * v * (1 - v);
-                        l = l + noNan(log((a * (1 - 2 * v)).abs()));
+                        l += noNan(log((a * (1 - 2 * v)).abs()));
                     }
                 }
-
-                output[i * width + j] = l.abs() < 0 ? static_cast<uint16_t>((std::round((-l.abs() / (-l.abs() + 1)) * max_iter))) : static_cast<uint16_t>((std::round((l.abs() / (l.abs() + 1)) * max_iter)));
+                update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                
             }
         }
     }
