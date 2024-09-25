@@ -8,68 +8,18 @@
 #include <csignal>
 #include <cstdlib>
 #include <algorithm>
-
+#include <map>
+#include <memory>
+#include <functional>
+#include <stdexcept>
+#include <sstream>
 
 void signal_handler(int signal) {
     std::cout << "(Ctrl+C)" << std::endl;
     std::exit(signal);
 }
 
-double tanh_approx(double x) {
-    double x2 = x * x;
-    double x4 = x2 * x2;
-    return x * (21.0+9.0 * x2 + 2.0 * x4)/(20.5 + 18.0 * x2 + 3.0 * x4);
-}
-double sin_approx(double x) {
-    double x2 = x * x;
-    return x * (1 - x2 / 6 * (1 - x2 / 20));
-}
 
-double cos_approx(double x) {
-    double x2 = x * x;
-    return 1 - x2 / 2 * (1 - x2 / 12);
-}
-
-double tan_approx(double x) {
-    return x * (1 + x * x / 3);
-}
-
-double sinh_approx(double x) {
-    double x2 = x * x;
-    return x * (1 + x2 / 6 * (1 + x2 / 20));
-}
-
-double cosh_approx(double x) {
-    double x2 = x * x;
-    return 1 + x2 / 2 * (1 + x2 / 12);
-}
-
-double log_approx(double x) {
-    if (x <= 0) {
-        return 0;
-    }
-    double y = (x - 1) / (x + 1);
-    double y2 = y * y;
-
-    if (x <= 0.78) {
-        y2 = 2 * y * (1 + y2 / 3 * (1 + y2 / 5 * (1 + y2 / 7 * (1 + y2 / 9))));
-    } else {
-        y2 = ((-1) / (x + 0.23)) + 0.7;
-    }
-    return y2;
-}
-
-
-double log10_approx(double x) {
-    if (x <= 0.715) {
-            return log_approx(x) / 2.302585093;
-    } else {
-            double y = (x - 1) / (x + 1);
-            double y2 = y * y;
-            return (2 * y * (1 + y2 / 3 * (1 + y2 / 5 * (1 + y2 / 7 * (1 + y2 / 9))))) / 2.302585093;
-    }
-
-}
 
 
 double noNan(double value) {
@@ -80,10 +30,464 @@ double noNan(double value) {
     }
 }
 
-double pi = M_PI;    //3.141592653589793;
-double e = M_E;       //2.718281828459045;
+double pi = 3.141592653589793;
+double e = 2.718281828459045;
 
 
+
+
+struct Complex {
+    double real;
+    double imag;
+
+    Complex(double r = 0.0, double i = 0.0) : real(r), imag(i) {}
+
+
+    Complex noNan() const {
+        return Complex(
+            (!std::isnan(real) && !std::isinf(real)) ? real : 3,
+            (!std::isnan(imag) && !std::isinf(imag)) ? imag : 0
+        );
+    }
+
+
+
+    // Sum
+    Complex operator+(const Complex& other) const {
+        return Complex(real + other.real, imag + other.imag);
+    }
+
+    Complex operator+(double value) const {
+        return Complex(real + value, imag);
+    }
+
+    Complex operator+() const {
+    return Complex(+real, +imag);
+    }
+    
+    Complex& operator+=(const Complex& other) {
+        real += other.real;
+        imag += other.imag;
+        return *this;
+    }
+
+    Complex& operator+=(double value) {
+        real += value;
+        return *this;
+    }
+    friend Complex operator+(double value, const Complex& c) {
+        return Complex(c.real + value, c.imag);
+    }
+
+    // Sub
+    Complex operator-(const Complex& other) const {
+        return Complex(real - other.real, imag - other.imag);
+    }
+    Complex operator-(double value) const {
+        return Complex(real - value, imag);
+    }
+
+    Complex operator-() const {
+    return Complex(-real, -imag);
+    }
+
+    Complex& operator-=(const Complex& other) {
+        real -= other.real;
+        imag -= other.imag;
+        return *this;
+    }
+
+    Complex& operator-=(double value) {
+        real -= value;
+        return *this;
+    }
+
+    friend Complex operator-(double value, const Complex& c) {
+        return Complex(value - c.real, c.imag);
+    } 
+
+    // Mul
+    Complex operator*(const Complex& other) const {
+        return Complex(real * other.real - imag * other.imag, real * other.imag + imag * other.real);
+    }
+
+    Complex operator*(double scalar) const {
+        return Complex(real * scalar, imag * scalar);
+    }
+
+    Complex& operator*=(const Complex& other) {
+        double new_real = real * other.real - imag * other.imag;
+        double new_imag = real * other.imag + imag * other.real;
+
+        real = new_real;
+        imag = new_imag;
+        return *this;
+    }
+
+    Complex& operator*=(double value) {
+        real *= value;
+        imag *= value;
+        return *this;
+    }
+
+    friend Complex operator*(double scalar, const Complex& c) {
+        return c * scalar;
+    }
+
+    // Division
+    Complex operator/(const Complex& other) const {
+        double denom = other.real * other.real + other.imag * other.imag;
+        return Complex((real * other.real + imag * other.imag) / denom,
+                       (imag * other.real - real * other.imag) / denom);
+    }
+
+    Complex operator/(double value) const {
+        return Complex(real / value, imag / value);
+    }
+
+    friend Complex operator/(double value, const Complex& c) {
+        double denom = c.real * c.real + c.imag * c.imag;
+        return Complex((value * c.real) / denom, (-value * c.imag) / denom);
+    }
+
+    // Conj
+    Complex conj() const {
+        return Complex(real, -imag);
+    }
+
+    // abs
+    double abs() const {
+        return std::sqrt(real * real + imag * imag);
+    }
+
+    // sqrt
+    Complex sqrt() const {
+        double magnitude = std::sqrt(abs());
+        double angle = std::atan2(imag, real) / 2.0;
+        return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
+    }
+    
+    // arg
+    double arg() const {
+        return std::atan2(imag, real);
+    }
+
+    // root
+    Complex root(const Complex& n1) const {
+        double magnitude = std::pow(abs(), 1.0 / n1.real);
+        double angle = arg() / n1.real;
+        return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
+    }
+
+    // log
+    Complex log() const {
+        return Complex(std::log(abs()), std::atan2(imag, real));
+    }
+
+    // pow
+    Complex pow(const Complex& exponent) const {
+        Complex log_z = this->log();
+        Complex result = exponent * log_z;
+        double magnitude = std::exp(result.real);
+        return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
+    }
+
+    // pow
+    Complex pow(double exponent) const {
+        double magnitude = std::pow(abs(), exponent);
+        double angle = std::atan2(imag, real) * exponent;
+        return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
+    }
+
+
+
+    // Sin
+    Complex sin() const {
+        return Complex(std::sin(real) * std::cosh(imag), std::cos(real) * std::sinh(imag));
+    }
+
+    // Cos
+    Complex cos() const {
+        return Complex(std::cos(real) * std::cosh(imag), -std::sin(real) * std::sinh(imag));
+    }
+
+    // Tanh
+    Complex tanh() const {
+        return this->sinh() / this->cosh(); 
+    }
+
+    // Sinh
+    Complex sinh() const {
+        return Complex(std::sinh(real) * std::cos(imag), std::cosh(real) * std::sin(imag));
+    }
+
+    // Cosh
+    Complex cosh() const {
+        return Complex(std::cosh(real) * std::cos(imag), std::sinh(real) * std::sin(imag));
+    }
+
+    // Log10
+    Complex log10() const {
+        return log() / std::log(10.0);
+    }
+
+    // Log nthing
+    Complex logn(const Complex& base) const {
+        return this->log() / base.log();
+    }
+
+
+    friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
+        os << "(" << c.real << " + " << c.imag << "i)";
+        return os;
+    }
+};
+
+
+
+
+// ASTNode base class
+class ASTNode {
+public:
+    virtual Complex evaluate() const = 0;
+    virtual ~ASTNode() = default;
+};
+
+
+class ConstantNode : public ASTNode {
+    Complex value;
+public:
+    ConstantNode(const Complex& val) : value(val) {}
+    Complex evaluate() const override { return value; }
+};
+
+
+class VariableNode : public ASTNode {
+    std::function<Complex()> getter;
+public:
+    VariableNode(const std::function<Complex()>& getter) : getter(getter) {}
+    Complex evaluate() const override { return getter(); }
+};
+
+
+class BinaryOpNode : public ASTNode {
+    std::shared_ptr<ASTNode> left, right;
+    std::function<Complex(const Complex&, const Complex&)> op;
+public:
+    BinaryOpNode(const std::shared_ptr<ASTNode>& left, const std::shared_ptr<ASTNode>& right, const std::function<Complex(const Complex&, const Complex&)>& op)
+        : left(left), right(right), op(op) {}
+
+    Complex evaluate() const override {
+        return op(left->evaluate(), right->evaluate());
+    }
+};
+
+
+class UnaryFunctionNode : public ASTNode {
+    std::shared_ptr<ASTNode> operand;
+    std::function<Complex(const Complex&)> func;
+public:
+    UnaryFunctionNode(const std::shared_ptr<ASTNode>& operand, std::function<Complex(const Complex&)> func)
+        : operand(operand), func(func) {}
+
+    Complex evaluate() const override {
+        return func(operand->evaluate());
+    }
+};
+
+
+class BinaryFunctionNode : public ASTNode {
+    std::shared_ptr<ASTNode> operand1, operand2;
+    std::function<Complex(const Complex&, const Complex&)> func;
+public:
+    BinaryFunctionNode(const std::shared_ptr<ASTNode>& operand1, const std::shared_ptr<ASTNode>& operand2, 
+                       std::function<Complex(const Complex&, const Complex&)> func)
+        : operand1(operand1), operand2(operand2), func(func) {}
+
+    Complex evaluate() const override {
+        return func(operand1->evaluate(), operand2->evaluate());
+    }
+};
+
+// Parser
+class Parser {
+public:
+    Parser(const std::string& expr, const std::map<std::string, std::function<Complex()>>& vars) 
+        : expr(expr), pos(0), variables(vars) {}
+
+    std::shared_ptr<ASTNode> parse() {
+        return parseExpression();
+    }
+
+private:
+    std::string expr;
+    size_t pos;
+    std::map<std::string, std::function<Complex()>> variables;
+
+    std::shared_ptr<ASTNode> parseExpression() {
+        auto node = parseTerm();
+        while (pos < expr.size()) {
+            if (expr[pos] == '+') {
+                ++pos;
+                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return a + b; });
+            } else if (expr[pos] == '-') {
+                ++pos;
+                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return a - b; });
+            } else {
+                break;
+            }
+        }
+        return node;
+    }
+
+    std::shared_ptr<ASTNode> parseTerm() {
+        auto node = parseFactor();
+        while (pos < expr.size()) {
+            if (expr[pos] == '*') {
+                ++pos;
+                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return a * b; });
+            } else if (expr[pos] == '/') {
+                ++pos;
+                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return a / b; });
+            } else {
+                break;
+            }
+        }
+        return node;
+    }
+
+    std::shared_ptr<ASTNode> parseFactor() {
+        skipWhitespace();
+
+        if (expr[pos] == '+') {
+            ++pos;
+            return parseFactor();
+        } else if (expr[pos] == '-') {
+            ++pos;
+
+            return std::make_shared<UnaryFunctionNode>(parseFactor(), [](const Complex& a) { return -a; });
+        }
+
+        if (isalpha(expr[pos])) {
+            return parseVariableOrFunction();
+        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i') {
+            return parseNumber();
+        } else if (expr[pos] == '(') {
+            ++pos;
+            auto node = parseExpression();
+            if (expr[pos] != ')') {
+                throw std::runtime_error("Expected ')'");
+            }
+            ++pos;
+            return node;
+        }
+
+        throw std::runtime_error("Unexpected character in expression");
+    }
+
+
+    std::shared_ptr<ASTNode> parseVariableOrFunction() {
+        std::string name;
+        while (pos < expr.size() && isalpha(expr[pos])) {
+            name += expr[pos++];
+        }
+
+        skipWhitespace();
+        if (pos < expr.size() && expr[pos] == '(') {
+            return parseFunction(name);
+        }
+
+        if (variables.find(name) != variables.end()) {
+            return std::make_shared<VariableNode>(variables.at(name));
+        } else {
+            throw std::runtime_error("Unknown variable: " + name);
+        }
+    }
+
+    std::shared_ptr<ASTNode> parseNumber() {
+        skipWhitespace();
+        std::string number;
+        bool hasImaginaryPart = false;
+
+        while (pos < expr.size() && (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i')) {
+            if (expr[pos] == 'i') {
+                hasImaginaryPart = true;
+            }
+            number += expr[pos++];
+        }
+
+        double realPart = 0.0, imagPart = 0.0;
+        if (hasImaginaryPart) {
+            imagPart = std::stod(number);
+        } else {
+            realPart = std::stod(number);
+        }
+
+        return std::make_shared<ConstantNode>(Complex(realPart, imagPart));
+    }
+
+    std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
+        ++pos; // Skip '('
+        auto arg1 = parseExpression();
+        std::shared_ptr<ASTNode> arg2;
+
+        skipWhitespace();
+        if (func == "logn" || func == "pow" || func == "root") {
+            if (expr[pos] == ',') {
+                ++pos;
+                arg2 = parseExpression();  // Parse the second argument for binary functions
+            } else {
+                throw std::runtime_error("Expected ',' between arguments for " + func);
+            }
+        }
+
+
+        if (expr[pos] != ')') {
+            throw std::runtime_error("Expected ')'");
+        }
+        ++pos;
+
+        // Mapping
+        if (func == "sin") {
+            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); });
+        } else if (func == "cos") {
+            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); });
+        } else if (func == "sqrt") {
+            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); });
+        } else if (func == "log") {
+            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log(); });
+        } else if (func == "logten") {
+            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10(); });
+        } else if (func == "logn") {
+            return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b); });
+        } else if (func == "pow") {
+            return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b); });
+        } else if (func == "root") {
+            return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); });
+
+        } else {
+            throw std::runtime_error("Unknown function: " + func);
+        }
+    }
+
+    void skipWhitespace() {
+        while (pos < expr.size() && isspace(expr[pos])) {
+            ++pos;
+        }
+    }
+};
+
+
+void update_output(uint16_t* output, double temp, uint16_t max_iter, uint16_t width, uint16_t iteration, uint16_t x, uint16_t y, bool lake) {
+    if (temp < 2 && lake) {
+        output[y * width + x] = (temp < 0 ? 
+            static_cast<uint16_t>(std::round((-temp / (-temp + 1)) * max_iter)) : 
+            static_cast<uint16_t>(std::round((temp / (temp + 1)) * max_iter))) + max_iter;
+    } else {
+        output[y * width + x] = iteration;
+    }
+}
+    
 
 
 
@@ -108,54 +512,96 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double xmin=-2, double xmax=2, double ymin=-2, double ymax=2, bool lake=false) {
+    void fractal(uint16_t* output, const char* exp,const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake) {
 
         std::signal(SIGINT, signal_handler);
 
-        double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
-        #pragma omp parallel for schedule(dynamic)
-        for (int x = 0; x < width; ++x) {
-            double r_part = 0;
-            r_part = xmin + x * dx;
-            for (int y = 0; y < height; ++y) {
-                double i_part = ymin + y * dy;
-                double z_real = 0;
-                double z_imag = 0;
-                double c_real = 0;
-                double c_imag = 0;
-                c_real = r_part;
-                c_imag = i_part;
-                uint16_t iteration = 0;
-                
+        const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
-                while (z_real * z_real + z_imag * z_imag < 4 && iteration < max_iter) {
-                    double z2_real = z_real * z_real - z_imag * z_imag + c_real;
-                    double z2_imag = 2 * z_real * z_imag + c_imag;
-                    double temp_real = (z2_real);
-                    double temp_imag = (z2_imag);
 
-                    z_real = temp_real;
-                    z_imag = temp_imag;
-                    ++iteration;
-                }
-                double temp = z_real * z_real + z_imag * z_imag;
-                if (temp < 4 && lake) {
-                    output[y *width + x] = (temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter))) + max_iter;
-                } else {
-                    output[y * width + x] = iteration;
+        const std::string expression = std::string(exp);
+
+        
+        if (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw" ) {
+            
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+
+                for (int y = 0; y < height; ++y) {
+                    double r_part = xmin + x * dx;
+                    double i_part = ymin + y * dy;
+                    
+                    Complex c, z;
+                    if (juliaset) {
+                        c = Complex (c_real, c_imag);
+                        z = Complex (r_part, i_part);
+                    } else {
+                        c = Complex (r_part, i_part);
+                        z = Complex (0.0, 0.0);
+                    }
+
+                    uint16_t iteration = 0;
+                    
+    
+                    while (z.abs() < 2 && iteration < max_iter) {
+    
+                        z = (z*z)+c;
+                        ++iteration;
+                    }
+                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake);
                 }
             }
-        }
+        } else {
+            
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Complex z, c;
+    
+                std::map<std::string, std::function<Complex()>> variables = {
+                    {"rt", [&z]() { return z; }},
+                    {"rw", [&c]() { return c; }}
+                };
+    
+                //Parser parser(x % 2 < 1 ? expression : exp, variables);
+                Parser parser( expression, variables);
+                auto ast = parser.parse();
+    
+    
+                for (int y = 0; y < height; ++y) {
+                    double r_part = xmin + x * dx;
+                    double i_part = ymin + y * dy;
+    
+
+                    if (juliaset) {
+                        c = Complex (-0.8, 0.16);
+                        z = Complex (r_part, i_part);
+                    } else {
+                        c = Complex (r_part, i_part);
+                        z = Complex (0.0, 0.0);
+                    }
+
+    
+                    double temp = z.abs();
+                    uint16_t iteration = 0;
+    
+                    while (temp < 2 && iteration < max_iter) {
+                        z = (ast->evaluate()).noNan();
+                        temp = z.abs();
+                        ++iteration;
+                    }
+                    update_output( output, temp, max_iter, width, iteration, x, y, lake);
+                }
+            }
+       } 
     }
 
 
 
-
     void lyapunov(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double xmin=3.4, double xmax=4.0, double ymin=2.5, double ymax=3.4) {
-    
+        
         std::signal(SIGINT, signal_handler);
-    
+        
         double dx = (xmax - xmin) / width;
         double dy = (ymax - ymin) / height;
 
@@ -164,27 +610,25 @@ extern "C" {
             for (int j = 0; j < width; ++j) {
                 double x = xmin + j * dx;
                 double y = ymin + i * dy;
-                double a = 0.5 + x * 0.5;
-                double b = 0.5 + y * 0.5;
-                double l = 0.0;
-                double v = 0.5;
-    
-                for (int k = 0; k < max_iter; k += 6) {
-                    for (int lote = 0; lote < 6; ++lote) {
-                        if ((k +lote) % 12 < 6) {
-                            v = b * v * (1 - v);
-                            l += noNan(log(fabs(b * (1 - 2 * v))));
-                        } else {
-                            v = a * v * (1 - v);
-                            l += noNan(log(fabs(a * (1 - 2 * v))));
-                        }
+                Complex a(0.5 + x * 0.5, 0.0);
+                Complex b(0.5 + y * 0.5, 0.0);
+                Complex l(0.0, 0.0);
+                Complex v(0.5, 0.0);
+
+                for (int k = 0; k < max_iter; ++k) {
+                    if (k % 12 < 6) {
+                        v = b * v * (1 - v);
+                        l = l + noNan(log((b * (1 - 2 * v)).abs()));
+                    } else {
+                        v = a * v * (1 - v);
+                        l = l + noNan(log((a * (1 - 2 * v)).abs()));
                     }
                 }
-                output[i * width + j] = l < 0 ? static_cast<uint16_t>((std::round((-l/(-l+1))*max_iter))) : static_cast<uint16_t>((std::round((l/(l+1))*max_iter)));
+
+                output[i * width + j] = l.abs() < 0 ? static_cast<uint16_t>((std::round((-l.abs() / (-l.abs() + 1)) * max_iter))) : static_cast<uint16_t>((std::round((l.abs() / (l.abs() + 1)) * max_iter)));
             }
         }
     }
-    
 
 
 
@@ -219,53 +663,6 @@ extern "C" {
             }
         }
     }
-
-
-
-
-
-
-    void juliaset(uint16_t* output, uint16_t width, uint16_t height, uint16_t max_iter, double c_real, double c_imag, double xmin=-2, double xmax=2, double ymin=-2, double ymax=2, bool lake=false) {
-        double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-        
-        std::signal(SIGINT, signal_handler);
-        #pragma omp parallel for schedule(dynamic)
-        for (int x = 0; x < width; ++x) {
-            double r_part = 0; 
-            r_part = xmin + x * dx;
-
-            for (int y = 0; y < height; ++y) {
-                double i_part = ymin + y * dy;
-
-                double z_real = 0;
-                double z_imag = 0;
-                z_real = r_part;
-                z_imag = i_part;
-                uint16_t iteration = 0;
-
-
-                while (z_real * z_real + z_imag * z_imag < 4 && iteration < max_iter) {
-                    double z2_real = z_real * z_real - z_imag * z_imag + c_real;
-                    double z2_imag = 2 * z_real * z_imag + c_imag;
-                    double temp_real = (z2_real);
-                    double temp_imag = (z2_imag);
-
-                    z_real = temp_real;
-                    z_imag = temp_imag;
-                    ++iteration;
-                }
-                
-
-                double temp =  (z_real * z_real + z_imag * z_imag);
-                if (temp < 4 && lake) {
-                    output[y *width + x] = (temp < 0 ? static_cast<uint16_t>(std::round((-temp/(-temp+1))*max_iter)) : static_cast<uint16_t>(std::round((temp/(temp+1))*max_iter))) + max_iter;
-                } else {
-                    output[y * width + x] = iteration;
-                }
-            }
-        }
-    }
-
 
 
 
