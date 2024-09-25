@@ -254,8 +254,9 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
     prefix = ""
     img_names = []
 
+    print(expression.replace(" ", ""))
     expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
-    print(expression)
+
     
     if zoom:
         max_zoom = str(max_zoom)
