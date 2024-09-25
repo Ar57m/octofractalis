@@ -184,7 +184,7 @@ max_grains = 3
 
 
 # The equation
-expression = "z * z +(c)"         # z = "z^2 + c"
+expression = "z * z +c"         # z = "z^2 + c"
 
 # You can generate different types of fractals
 fractals = {
@@ -254,9 +254,9 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
     prefix = ""
     img_names = []
 
+    expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
     print(expression)
-    expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression))
-
+    
     if zoom:
         max_zoom = str(max_zoom)
         target_length = len(max_zoom)+1
