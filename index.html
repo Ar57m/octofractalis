@@ -197,7 +197,14 @@
                 </div>
             </fieldset>
 
+
             <div class="form-section">
+                
+                <fieldset>
+                    <label id="exp" for="expression">Expression or Equation:</label>
+                    <input type="text" id="expression" name="expression" value="z*z+c"><br>
+                </fieldset>
+
                 <fieldset>
                     <legend>General Parameters</legend>
                     <label for="width">Width:</label>
@@ -207,7 +214,7 @@
                     <input type="number" id="height" name="height" min="2" value="1024" required class="small-input"><br>
 
                     <label for="max_iter">Max Iterations:</label>
-                    <input type="number" id="max_iter" name="max_iter" min="2" value="1000" required class="small-input"><br>
+                    <input type="number" id="max_iter" name="max_iter" min="2" value="400" required class="small-input"><br>
 
                     <label for="top_colors">Top Colors:</label>
                     <input type="number" id="top_colors" name="top_colors" min="2" value="256" required class="small-input"><br>
@@ -267,8 +274,8 @@
                 </fieldset>
 
                 <fieldset>
-                    <legend>Aiming Better</legend>
-                    <label for="continue_aim">Go Deeper or Reset:</label>
+                    <legend>Zoom</legend>
+                    <label for="continue_aim">Zoom or Reset:</label>
                     <input type="checkbox" id="continue_aim" name="continue_aim" class="small-input"><br>
 
                     <label for="column_aim">Column:</label>
