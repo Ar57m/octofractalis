@@ -20,7 +20,8 @@ void signal_handler(int signal) {
 }
 
 
-
+double pi = 3.1415926535897932384626433832795028841971693993751;
+double e =  2.7182818284590452353602874713526624977572470937000;
 
 double noNan(double value) {
     if (std::isnan(value) || std::isinf(value)) {
@@ -30,8 +31,6 @@ double noNan(double value) {
     }
 }
 
-double pi = 3.141592653589793;
-double e = 2.718281828459045;
 
 
 
@@ -174,14 +173,22 @@ struct Complex {
 
     // root
     Complex root(const Complex& n1) const {
-        double magnitude = std::pow(abs(), 1.0 / n1.real);
-        double angle = arg() / n1.real;
-        return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
+        if (n1.real == 0 && n1.imag == 0) {
+            return Complex(0,0);
+        } else {
+            Complex result = (this->log())/n1;
+            double magnitude = std::exp(result.real);
+            return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
+        }
     }
 
     // log
     Complex log() const {
-        return Complex(std::log(abs()), std::atan2(imag, real));
+        if (real == 0 && imag == 0) {
+            return Complex(0,0);
+        } else {
+            return Complex(std::log(abs()), std::atan2(imag, real));
+        }
     }
 
     // pow
@@ -236,7 +243,47 @@ struct Complex {
         return this->log() / base.log();
     }
 
+    Complex maximum(const Complex& arg2) const {
+        return this->abs() < arg2.abs() ? arg2 : *this;
+    }
 
+    Complex minimum(const Complex& arg2) const {
+        return this->abs() > arg2.abs() ? arg2 : *this;
+    }
+
+    Complex round() const {
+        return Complex(std::round(real), std::round(imag));
+    }
+
+    // Complex gamma() const {
+    //     // Using Stirling's approximation for Gamma function
+    //     Complex z = *this;
+    //     Complex stirling_approx = (2.0 * (pi / z)).sqrt() * (z / e).pow(z);
+    //     return stirling_approx;
+    // }
+
+    Complex gamma() const {
+        const double sqrt_2_pi = std::sqrt(2 * pi);
+        Complex z = *this;
+        
+        if (z.real <= 0 && z.imag == 0) {
+            return Complex(0,0);
+        }
+        // probably wrong something here fix later
+        Complex exponent = z * ((z).log() - 1.0);
+        Complex stirling_approx = sqrt_2_pi * (z / std::exp(1.0)).pow(z);
+        
+        return stirling_approx;
+    }
+
+    Complex zeta() const {
+        Complex sum(0, 0);
+        const int N = 100;  // Number of terms for approximation
+        for (int n = 1; n <= N; ++n) {
+            sum = sum + Complex(n, 0).pow(-(*this));
+        }
+        return sum;
+    }
     friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
         os << "(" << c.real << " + " << c.imag << "i)";
         return os;
@@ -427,44 +474,59 @@ private:
     }
 
     std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
-        ++pos; // Skip '('
-        auto arg1 = parseExpression();
-        std::shared_ptr<ASTNode> arg2;
+        ++pos;  // Skip '('
+        
+        skipWhitespace(); // Skip any leading whitespace before parsing expressions
+        auto arg1 = parseExpression(); // Parse the first argument
+        
+        std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
+        
+        skipWhitespace(); // Skip any whitespace after the first argument
 
-        skipWhitespace();
-        if (func == "logn" || func == "pow" || func == "root") {
+        // Parse binary functions (expecting a second argument)
+        if (func == "logn" || func == "pow" || func == "root"|| func == "max"|| func == "min") {
             if (expr[pos] == ',') {
-                ++pos;
+                ++pos; // Skip ','
+                skipWhitespace(); // Skip any whitespace before the second argument
                 arg2 = parseExpression();  // Parse the second argument for binary functions
             } else {
                 throw std::runtime_error("Expected ',' between arguments for " + func);
             }
         }
 
+        skipWhitespace(); // Skip any trailing whitespace before closing the parentheses
 
         if (expr[pos] != ')') {
-            throw std::runtime_error("Expected ')'");
+            throw std::runtime_error("Expected ')' to close the function " + func);
         }
-        ++pos;
+        ++pos;  // Skip ')'
 
-        // Mapping
-        if (func == "sin") {
-            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); });
-        } else if (func == "cos") {
-            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); });
-        } else if (func == "sqrt") {
-            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); });
-        } else if (func == "log") {
-            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log(); });
-        } else if (func == "logten") {
-            return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10(); });
-        } else if (func == "logn") {
-            return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b); });
-        } else if (func == "pow") {
-            return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b); });
-        } else if (func == "root") {
-            return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); });
+        // Mapping functions to nodes (unary and binary)
+        static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
+            {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
+            {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
+            {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
+            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log(); }); }},
+            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10(); }); }},
+            {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sinh(); }); }},
+            {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cosh(); }); }},
+            {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
+            {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.arg(); }); }},
+            {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
+            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.abs(); }); }},
+            {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
+            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b); }); }},
+            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b); }); }},
+            {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); }); }},
+            {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.maximum(b); }); }},
+            {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
+            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma(); }); }},
+            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta(); }); }},
+        };
 
+        auto it = functionMap.find(func);
+        if (it != functionMap.end()) {
+            return it->second(arg1, arg2);  // Call the mapped function
         } else {
             throw std::runtime_error("Unknown function: " + func);
         }
@@ -516,7 +578,6 @@ extern "C" {
 
         std::signal(SIGINT, signal_handler);
 
-
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
 
@@ -553,13 +614,18 @@ extern "C" {
             }
         } else {
             
+            int y;
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Complex z, c;
     
                 std::map<std::string, std::function<Complex()>> variables = {
                     {"rt", [&z]() { return z; }},
-                    {"rw", [&c]() { return c; }}
+                    {"rw", [&c]() { return c; }},
+                    {"pi", [&]() { return pi; }},
+                    {"e", [&]() { return e;   }},
+                    {"y", [&]() { return static_cast<double>(y); }},
+                    {"x", [&]() { return static_cast<double>(x); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
