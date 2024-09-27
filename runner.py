@@ -90,15 +90,38 @@ def image_to_array(image_path, min=0, max=2**24-1):
             
         return array_image
 
+def generate_gradient(arr, n_grad):
+    n_grad = n_grad + 2
+    if (n_grad < 3):
+        return arr
+        
+    n = len(arr)
+    
+    arr = arr.copy().astype(np.int32)
+    r0, g0, b0 = (arr >> 16) & 0xFF, (arr >> 8) & 0xFF, arr & 0xFF
+    arr = np.concatenate((arr[1:], arr[:1])) 
+    r1, g1, b1 = (arr >> 16) & 0xFF, (arr >> 8) & 0xFF, arr & 0xFF
 
-def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
+    dr, dg, db = r1 - r0, g1 - g0, b1 - b0
+    
+    i = np.linspace(0, n_grad - 1, n_grad)[:-1]
+    i = np.vstack([i]*n).T
+    
+    r = np.int32(r0 + (dr * i) / (n_grad - 1))
+    g = np.int32(g0 + (dg * i) / (n_grad - 1))
+    b = np.int32(b0 + (db * i) / (n_grad - 1))
+    
+    return (((r << 16) + (g << 8) + b).T).reshape(-1)
+    
+    
+def palette_load(palette, gradient, top_colors=4, lake_palette=False, lake=False):
     if (lake == False) or (lake_palette == False):
         palette = image_to_array(palette)
         unique_colors, counts = np.unique(palette, return_counts=True)
         del palette
         sorted_indices = np.argsort(counts)[::-1]
         array_top_colors = unique_colors[sorted_indices][:top_colors]
-        return array_top_colors, False
+        return generate_gradient(array_top_colors, gradient), False
     else:
         palette = image_to_array(palette)
         unique_colors, counts = np.unique(palette, return_counts=True)
@@ -112,7 +135,7 @@ def palette_load(palette, top_colors=4, lake_palette=False, lake=False):
         del lake_palette
         sorted_indices = np.argsort(counts)[::-1]
         array_top_colors_lake = unique_colors[sorted_indices][:top_colors]
-        return array_top_colors, array_top_colors_lake
+        return generate_gradient(array_top_colors, gradient), generate_gradient(array_top_colors_lake, gradient) 
 
 
 
@@ -128,7 +151,6 @@ def create_image(data, filename, iterations, array_top_colors, lake=False, shift
     np.roll(array_top_colors[0], shift_palette[0]),
     np.roll(array_top_colors[1], shift_palette[1]) if array_top_colors[1] is not False else False
     )
-
     
     if (lake and isinstance(array_top_colors[1], np.ndarray) and not ('lyapunov' in filename or 'sandpile' in filename)):
         temp = data > iterations
@@ -173,23 +195,23 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
 
 
 
-width = int(4096) # I'm using ratio 1/1
-height = int(4096) #2304
+width = int(1024) # I'm using ratio 1/1
+height = int(1024) #2304
 
 # Number of iterations
-max_iter = 1000
+max_iter = 400
 
 # Sandpile max grains
 max_grains = 3
 
 
 # The equation
-expression = "z * z +c"         # z = "z^2 + c"
+expression = "z*z+c"         # z = "z^2 + c"
 
 # You can generate different types of fractals
 fractals = {
     'mandelbrot': True,
-    'juliaset': False,
+    'juliaset': True,
     'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
@@ -203,6 +225,7 @@ video_out = False # If you want to generate a video with the images
 
 palette = "./palettes/palette.png"  # Palette location
 use_palette = True
+gradient = 16        # Amount of colors between the colors
 
 # How many top colors to use from the palette.png
 top_colors = 24
@@ -217,7 +240,7 @@ lake = True
 # Palette path to another palette image
 lake_palette = "./palettes/lake_palette.png"
 # Here it's loading the palette before the generation and conversion
-array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
+array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
 
 
 # Here you can move around 
@@ -247,10 +270,10 @@ if n_coordinates>0:
 
 
 
-def generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
+def generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
     print("\nYour coordinates: ", xmin, xmax, ymin, ymax, "\n")
 
-    array_top_colors = palette_load(palette, top_colors, lake_palette, lake)
+    array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
     prefix = ""
     img_names = []
 
@@ -314,12 +337,12 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
 
             
             
-def generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
+def generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
     
     if zoom:
         assert fractals["sandpile"]== False, "Error: Can't zoom on sandpile."
         # The first image generated
-        generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+        generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
         
         xmin1, xmax1, ymin1, ymax1 =  xmin, xmax, ymin, ymax
         
@@ -341,10 +364,10 @@ def generate_wrapper(fractals, expression, width, height, top_colors, max_grains
                 ymin = y_center - heighto / 2
                 ymax = y_center + heighto / 2
         
-            generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+            generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
     else:
             # Normal mode without zoom
-            img_names = generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+            img_names = generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
             return img_names
 
 
@@ -489,6 +512,7 @@ def process_form_data(params):
     use_palette = 'use_palette' in params
     palette = params.get('palette', [''])
     palette = download_image(palette)
+    gradient = int(params.get('gradient', [0]))
 
     lake = 'lake' in params
     lake_palette = params.get('lake_palette', [''])
@@ -524,7 +548,7 @@ def process_form_data(params):
         return
 
 
-    paths = generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
+    paths = generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
     
     #print((paths))
     return paths
@@ -657,7 +681,7 @@ def main():
     
     if args.noserver:
         # Let's Run
-        generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+        generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
         # n_coordinates is how many times it will use the array coordinates.
         if video_out:
             imgs_to_video(n_coordinates)

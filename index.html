@@ -201,8 +201,12 @@
             <div class="form-section">
                 
                 <fieldset>
+                    <legend>Main Parameters</legend>
                     <label id="exp" for="expression">Expression or Equation:</label>
                     <input type="text" id="expression" name="expression" value="z*z+c"><br>
+
+                    <label for="gradient">Gradient:</label>
+                    <input type="number" id="gradient" name="gradient" min="0" max="256" value="24" required class="small-input"><br>
                 </fieldset>
 
                 <fieldset>
@@ -217,14 +221,14 @@
                     <input type="number" id="max_iter" name="max_iter" min="2" value="400" required class="small-input"><br>
 
                     <label for="top_colors">Top Colors:</label>
-                    <input type="number" id="top_colors" name="top_colors" min="2" value="256" required class="small-input"><br>
+                    <input type="number" id="top_colors" name="top_colors" min="2" max="256" value="24" required class="small-input"><br>
                 </fieldset>
 
-                    <fieldset>
+                <fieldset>
                     <legend>Sandpile Parameter</legend>
                     <label for="max_grains">Max Grains:</label>
-                    <input type="number" id="max_grains" name="max_grains" min="2" value="100" required class="small-input"><br>
-                    </fieldset>
+                    <input type="number" id="max_grains" name="max_grains" min="2" max="256" value="32" required class="small-input"><br>
+                </fieldset>
 
                 <fieldset>
                     <legend>Julia Set Parameters</legend>
