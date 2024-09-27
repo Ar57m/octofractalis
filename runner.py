@@ -225,7 +225,7 @@ video_out = False # If you want to generate a video with the images
 
 palette = "./palettes/palette.png"  # Palette location
 use_palette = True
-gradient = 1        # Amount of colors between the colors
+gradient = 16        # Amount of colors between the colors
 
 # How many top colors to use from the palette.png
 top_colors = 24
