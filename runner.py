@@ -199,7 +199,7 @@ width = int(1024) # I'm using ratio 1/1
 height = int(1024) #2304
 
 # Number of iterations
-max_iter = 350
+max_iter = 400
 
 # Sandpile max grains
 max_grains = 3
