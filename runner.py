@@ -476,7 +476,7 @@ def process_form_data(params):
             if ext not in ['png', 'jpg', 'jpeg']:
                 ext = 'png'  # Fallback to PNG if unsupported format
             
-            file_name = f"{md5_hash}.{ext}"
+            file_name = f"./palettes/{md5_hash}.{ext}"
             
             if os.path.isfile(file_name):
                 return file_name 
