@@ -251,7 +251,7 @@ ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)           #-9/5, 9/5
 
 # This part is to help you aim
 n_coordinates = 0   #  Number of coordinates to use, set False to not use it
-#                       ([(row, column, grid n*n)])
+#                       ([(column, row, grid n*n)])
 coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 
 #coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
@@ -523,7 +523,7 @@ def process_form_data(params):
     column_aim = int(params.get('column_aim'))
     row_aim = int(params.get('row_aim'))
     grid_length = int(params.get('grid_length'))
-    coordinates = np.array([(row_aim,column_aim,grid_length)])
+    coordinates = np.array([(column_aim,row_aim,grid_length)])
     continue_aim = "continue_aim" in params
 
     if continue_aim and grid_length != 1:
