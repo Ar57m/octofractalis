@@ -43,11 +43,11 @@ struct Complex {
 
 
     Complex noNan() const {
-        return Complex(
-            (!std::isnan(real) && !std::isinf(real)) ? real : 3,
-            (!std::isnan(imag) && !std::isinf(imag)) ? imag : 0
-        );
+        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
+        double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && !std::isinf(imag)) ? imag : 0;
+        return Complex(realPart, imagPart);
     }
+
 
 
 
@@ -255,25 +255,16 @@ struct Complex {
         return Complex(std::round(real), std::round(imag));
     }
 
-    // Complex gamma() const {
-    //     // Using Stirling's approximation for Gamma function
-    //     Complex z = *this;
-    //     Complex stirling_approx = (2.0 * (pi / z)).sqrt() * (z / e).pow(z);
-    //     return stirling_approx;
-    // }
-
     Complex gamma() const {
-        const double sqrt_2_pi = std::sqrt(2 * pi);
         Complex z = *this;
         
         if (z.real <= 0 && z.imag == 0) {
             return Complex(0,0);
         }
-        // probably wrong something here fix later
-        Complex exponent = z * ((z).log() - 1.0);
-        Complex stirling_approx = sqrt_2_pi * (z / std::exp(1.0)).pow(z);
-        
-        return stirling_approx;
+        const double sqrt_2_pi = std::sqrt(2 * 3.1415926535897932384626433832795028841971693993751);
+
+        Complex e(2.7182818284590452353602874713526624977572470937000,0);
+        return sqrt_2_pi * e.pow(z * (z.log() - 1.0));
     }
 
     Complex zeta() const {
@@ -671,10 +662,10 @@ extern "C" {
         const double dy = (ymax - ymin) / height;
 
         #pragma omp parallel for schedule(dynamic)
-        for (int i = 0; i < height; ++i) {
-            for (int j = 0; j < width; ++j) {
-                double x = xmin + j * dx;
-                double y = ymin + i * dy;
+        for (int i = 0; i < width; ++i) {
+            for (int j = 0; j < height; ++j) {
+                double x = xmin + i * dx;
+                double y = ymin + j * dy;
                 Complex a(0.5 + x * 0.5, 0.0);
                 Complex b(0.5 + y * 0.5, 0.0);
                 Complex l(0.0, 0.0);

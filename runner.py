@@ -6,7 +6,7 @@ import argparse
 import sys
 import os
 import re
-
+from decimal import Decimal, getcontext
 # Carregue a biblioteca
 lib = cdll.LoadLibrary('./libfract.so')
 
@@ -211,16 +211,18 @@ expression = "z*z+c"         # z = "z^2 + c"
 # You can generate different types of fractals
 fractals = {
     'mandelbrot': True,
-    'juliaset': True,
+    'juliaset': False,
     'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
 
 
 zoom = False
-max_zoom = 20 # How many images # it's gonna generate  +n_coordinates more images than expected
-per_zoom = 0.9 # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
-video_out = False # If you want to generate a video with the images
+max_zoom = 10 # How many images # it's gonna generate  +n_coordinates more images than expected
+per_zoom = Decimal("0.9") # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
+video_out = False # If you want to generate a video with the images using ffmpeg
+imgfromvidfolder = ""       # Folder to save all the imgs, it will be on ./images/yourfoldername try "imgs/"
+os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and video_out else None
 
 
 palette = "./palettes/palette.png"  # Palette location
@@ -243,21 +245,21 @@ lake_palette = "./palettes/lake_palette.png"
 array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
 
 
-# Here you can move around 
-xmin_xmax = np.array([(-(16/6)), ((16/6))], dtype=np.float64)     #-16/5, 16/5
-ymin_ymax = np.array([-(16/6), (16/6)], dtype=np.float64)           #-9/5, 9/5
+getcontext().prec = 28
+# Here you can move around
+xmin, xmax, ymin, ymax = Decimal("-2.6"),Decimal("2.6"),Decimal("-2.6"),Decimal("2.6")
 
 
 
 # This part is to help you aim
 n_coordinates = 0   #  Number of coordinates to use, set False to not use it
-#                       ([(row, column, grid n*n)])
-coordinates = np.array([(1,2,3),(3,2,3),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
+#                       ([(column, row, grid n*n)])
+coordinates = np.array([(1,2,3),(2,2,3),(2,1,2),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 
 #coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
 #coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 
-xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
+
 
 
 # Uncomment the code below if you want to start at certain location
@@ -325,11 +327,11 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
             start_time = time.perf_counter()
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette:
-                create_image(gen_array.reshape(width, height), "./images/" + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
-                img_names.append("./images/" + prefix + "0" + localtime + "_colorful_"+key+".png")
+                create_image(gen_array.reshape(width, height), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
+                img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
             else:
-                process_image(gen_array, (2**24-1), "./images/" + prefix + "0" + localtime + "_generated_fractal_"+key )
-                img_names.append("./images/" + prefix + "0" + localtime + "_generated_fractal_"+key+".png")
+                process_image(gen_array, (2**24-1), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key )
+                img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key+".png")
             end_time = time.perf_counter()
             del gen_array
             print("Took ", end_time - start_time, "seconds to convert\n")
@@ -380,11 +382,12 @@ def generate_wrapper(fractals, expression, width, height, top_colors, max_grains
 def imgs_to_video(n_coordinates):
     import subprocess
     
-    image_folder = os.getcwd()
+    image_folder = "./images/" + imgfromvidfolder
+    
     fps = 10
     frac = ["colorful_mandelbrot", "colorful_juliaset", "colorful_lyapunov"]
-    image_files = sorted([f for f in os.listdir(image_folder) if f.endswith('.png') and 'colorful' in f])
-    
+    image_files = sorted([f for f in os.listdir(image_folder) if f.endswith('.png') and re.search(r"\d+-", f) and 'colorful' in f])
+    print(image_files)
     for i, n in enumerate(frac):
         
         filtered_files = [f for f in image_files if n in f]
@@ -396,10 +399,10 @@ def imgs_to_video(n_coordinates):
             with open('input.txt', 'w') as f:
                 for index, image_file in enumerate(filtered_files):
                     duration = 0.9 if index < n_coordinates else 0.1
-                    f.write(f"file '{image_file}'\n")
+                    f.write(f"file './images/{imgfromvidfolder}{image_file}'\n")
                     f.write(f"duration {duration}\n")
         
-                f.write(f"file '{image_files[-1]}'\n")
+                f.write(f"file './images/{imgfromvidfolder}{image_files[-1]}'\n")
         
             subprocess.run([
                 'ffmpeg', '-f', 'concat', '-safe', '0', '-i', 'input.txt', 
@@ -411,11 +414,9 @@ def imgs_to_video(n_coordinates):
             print(f'\nvideo_{n}.mp4 Video Done!')
             
             
-if video_out:
-    imgs_to_video(n_coordinates)
 
 
-# received_params = {}
+
 # stop_gen = False
 import multiprocessing
 
@@ -475,7 +476,7 @@ def process_form_data(params):
             if ext not in ['png', 'jpg', 'jpeg']:
                 ext = 'png'  # Fallback to PNG if unsupported format
             
-            file_name = f"{md5_hash}.{ext}"
+            file_name = f"./palettes/{md5_hash}.{ext}"
             
             if os.path.isfile(file_name):
                 return file_name 
@@ -523,17 +524,17 @@ def process_form_data(params):
     column_aim = int(params.get('column_aim'))
     row_aim = int(params.get('row_aim'))
     grid_length = int(params.get('grid_length'))
-    coordinates = np.array([(row_aim,column_aim,grid_length)])
+    coordinates = np.array([(column_aim,row_aim,grid_length)])
     continue_aim = "continue_aim" in params
 
     if continue_aim and grid_length != 1:
 
         xmin, xmax, ymin, ymax = divide_in_squares(coordinates, xmin, xmax, ymin, ymax) 
     else:
-        xmin = float(params.get('xmin', [0.0]))
-        xmax = float(params.get('xmax', [0.0]))
-        ymin = float(params.get('ymin', [0.0]))
-        ymax = float(params.get('ymax', [0.0]))
+        xmin = Decimal(params.get('xmin', [0.0]))
+        xmax = Decimal(params.get('xmax', [0.0]))
+        ymin = Decimal(params.get('ymin', [0.0]))
+        ymax = Decimal(params.get('ymax', [0.0]))
 
     
     zoom = False
@@ -662,6 +663,7 @@ def server(port):
 
 
 def main():
+    global video_out, n_coordinates
     parser = argparse.ArgumentParser(description='Process some arguments.')
 
     # Add the --noserver flag
