@@ -255,21 +255,14 @@ struct Complex {
         return Complex(std::round(real), std::round(imag));
     }
 
-    // Complex gamma() const {
-    //     // Using Stirling's approximation for Gamma function
-    //     Complex z = *this;
-    //     Complex stirling_approx = (2.0 * (pi / z)).sqrt() * (z / e).pow(z);
-    //     return stirling_approx;
-    // }
-    
-    
     Complex gamma() const {
-        const double sqrt_2_pi = std::sqrt(2 * 3.1415926535897932384626433832795028841971693993751);
         Complex z = *this;
         
         if (z.real <= 0 && z.imag == 0) {
             return Complex(0,0);
         }
+        const double sqrt_2_pi = std::sqrt(2 * 3.1415926535897932384626433832795028841971693993751);
+
         Complex e(2.7182818284590452353602874713526624977572470937000,0);
         return sqrt_2_pi * e.pow(z * (z.log() - 1.0));
     }
