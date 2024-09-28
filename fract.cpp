@@ -43,11 +43,11 @@ struct Complex {
 
 
     Complex noNan() const {
-        return Complex(
-            (!std::isnan(real) && !std::isinf(real)) ? real : 3,
-            (!std::isnan(imag) && !std::isinf(imag)) ? imag : 0
-        );
+        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
+        double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && !std::isinf(imag)) ? imag : 0;
+        return Complex(realPart, imagPart);
     }
+
 
 
 
@@ -270,7 +270,7 @@ struct Complex {
             return Complex(0,0);
         }
         // probably wrong something here fix later
-        Complex exponent = z * ((z).log() - 1.0);
+        //Complex exponent = z * ((z).log() - 1.0);
         Complex stirling_approx = sqrt_2_pi * (z / std::exp(1.0)).pow(z);
         
         return stirling_approx;
@@ -671,10 +671,10 @@ extern "C" {
         const double dy = (ymax - ymin) / height;
 
         #pragma omp parallel for schedule(dynamic)
-        for (int i = 0; i < height; ++i) {
-            for (int j = 0; j < width; ++j) {
-                double x = xmin + j * dx;
-                double y = ymin + i * dy;
+        for (int i = 0; i < width; ++i) {
+            for (int j = 0; j < height; ++j) {
+                double x = xmin + i * dx;
+                double y = ymin + j * dy;
                 Complex a(0.5 + x * 0.5, 0.0);
                 Complex b(0.5 + y * 0.5, 0.0);
                 Complex l(0.0, 0.0);
