@@ -195,11 +195,11 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
 
 
 
-width = int(2304) # I'm using ratio 1/1
-height = int(4096) #2304
+width = int(1024) # I'm using ratio 1/1
+height = int(1024) #2304
 
 # Number of iterations
-max_iter = 1000
+max_iter = 400
 
 # Sandpile max grains
 max_grains = 3
@@ -217,12 +217,12 @@ fractals = {
 }
 
 
-zoom = True
-max_zoom = 100 # How many images # it's gonna generate  +n_coordinates more images than expected
+zoom = False
+max_zoom = 10 # How many images # it's gonna generate  +n_coordinates more images than expected
 per_zoom = Decimal("0.9") # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
-video_out = True # If you want to generate a video with the images
-imgfromvidfolder = "img/"       # Folder to save all the imgs, it will be on ./images/yourfoldername try "imgs/"
-os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 else None
+video_out = False # If you want to generate a video with the images using ffmpeg
+imgfromvidfolder = ""       # Folder to save all the imgs, it will be on ./images/yourfoldername try "imgs/"
+os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and video_out else None
 
 
 palette = "./palettes/palette.png"  # Palette location
@@ -231,7 +231,7 @@ gradient = 16        # Amount of colors between the colors
 
 # How many top colors to use from the palette.png
 top_colors = 24
-shift_palette = (0+6, 0)   # This shift the palette, you can set negative and positive integers.
+shift_palette = (0, 0)   # This shift the palette, you can set negative and positive integers.
 
 # Julia set parameters
 juliaset_c_real = -0.8
@@ -245,14 +245,14 @@ lake_palette = "./palettes/lake_palette.png"
 array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
 
 
-# Here you can move around
 getcontext().prec = 28
-xmin, xmax, ymin, ymax = Decimal("-2.25"),Decimal("2.25"),Decimal("-4"),Decimal("4")
+# Here you can move around
+xmin, xmax, ymin, ymax = Decimal("-2.6"),Decimal("2.6"),Decimal("-2.6"),Decimal("2.6")
 
 
 
 # This part is to help you aim
-n_coordinates = 2   #  Number of coordinates to use, set False to not use it
+n_coordinates = 0   #  Number of coordinates to use, set False to not use it
 #                       ([(column, row, grid n*n)])
 coordinates = np.array([(1,2,3),(2,2,3),(2,1,2),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 
@@ -414,11 +414,9 @@ def imgs_to_video(n_coordinates):
             print(f'\nvideo_{n}.mp4 Video Done!')
             
             
-# if video_out:
-#     imgs_to_video(n_coordinates)
 
 
-# received_params = {}
+
 # stop_gen = False
 import multiprocessing
 
