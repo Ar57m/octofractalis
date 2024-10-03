@@ -20,7 +20,7 @@ lib.process_array.restype = None
 lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_float] 
 lib.scale.restype = None
 
-fractal.argtypes = [POINTER(c_uint16), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool]
+fractal.argtypes = [POINTER(c_uint16), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double]
 lyapunov.argtypes = [POINTER(c_uint16), c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double]
 sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
 
@@ -195,11 +195,11 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
 
 
 
-width = int(1024) # I'm using ratio 1/1
-height = int(1024) #2304
+width = int(4096) # I'm using ratio 1/1
+height = int(4096) #2304
 
 # Number of iterations
-max_iter = 400
+max_iter = 1000
 
 # Sandpile max grains
 max_grains = 3
@@ -211,7 +211,7 @@ expression = "z*z+c"         # z = "z^2 + c"
 # You can generate different types of fractals
 fractals = {
     'mandelbrot': True,
-    'juliaset': False,
+    'juliaset': True,
     'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
@@ -236,6 +236,10 @@ shift_palette = (0, 0)   # This shift the palette, you can set negative and posi
 # Julia set parameters
 juliaset_c_real = -0.8
 juliaset_c_imag = 0.16
+
+# Quaternion parameters
+quaternion_j = 0.0
+quaternion_k = 0.0
 
 # Makes the part that converges visible
 lake = True
@@ -272,7 +276,7 @@ if n_coordinates>0:
 
 
 
-def generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
+def generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k):
     print("\nYour coordinates: ", xmin, xmax, ymin, ymax, "\n")
 
     array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
@@ -297,7 +301,7 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake)
+            fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
@@ -339,12 +343,12 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
 
             
             
-def generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette):
+def generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k):
     
     if zoom:
         assert fractals["sandpile"]== False, "Error: Can't zoom on sandpile."
         # The first image generated
-        generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+        generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
         
         xmin1, xmax1, ymin1, ymax1 =  xmin, xmax, ymin, ymax
         
@@ -366,10 +370,10 @@ def generate_wrapper(fractals, expression, width, height, top_colors, max_grains
                 ymin = y_center - heighto / 2
                 ymax = y_center + heighto / 2
         
-            generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+            generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
     else:
             # Normal mode without zoom
-            img_names = generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+            img_names = generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
             return img_names
 
 
@@ -526,6 +530,8 @@ def process_form_data(params):
     grid_length = int(params.get('grid_length'))
     coordinates = np.array([(column_aim,row_aim,grid_length)])
     continue_aim = "continue_aim" in params
+    quaternion_j = float(params.get('quaternion_j', [0.0]))
+    quaternion_k = float(params.get('quaternion_k', [0.0]))
 
     if continue_aim and grid_length != 1:
 
@@ -549,7 +555,7 @@ def process_form_data(params):
         return
 
 
-    paths = generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake])
+    paths = generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake],quaternion_j, quaternion_k)
     
     #print((paths))
     return paths
@@ -683,7 +689,7 @@ def main():
     
     if args.noserver:
         # Let's Run
-        generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette)
+        generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
         # n_coordinates is how many times it will use the array coordinates.
         if video_out:
             imgs_to_video(n_coordinates)
