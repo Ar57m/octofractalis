@@ -135,7 +135,7 @@ def palette_load(palette, gradient, top_colors=4, lake_palette=False, lake=False
         del lake_palette
         sorted_indices = np.argsort(counts)[::-1]
         array_top_colors_lake = unique_colors[sorted_indices][:top_colors]
-        print(generate_gradient(array_top_colors, gradient),array_top_colors)
+
         return generate_gradient(array_top_colors, gradient), generate_gradient(array_top_colors_lake, gradient) 
 
 
