@@ -211,9 +211,9 @@ expression = "z*z+c"         # z = "z^2 + c"
 
 # You can generate different types of fractals
 fractals = {
-    'mandelbrot': False,
-    'juliaset': False,
-    'lyapunov': True,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
+    'mandelbrot': True,
+    'juliaset': True,
+    'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
     'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
 }
 
@@ -234,7 +234,7 @@ gradient = 16        # Amount of colors between the colors
 top_colors = 24
 shift_palette = (0, 0)   # This shift the palette, you can set negative and positive integers.
 
-# Julia set parameters
+# Julia set parameters / Lyapunov uses it as the imaginary part if juliaset is off
 juliaset_c_real = -0.8
 juliaset_c_imag = 0.16
 
@@ -252,7 +252,7 @@ array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lak
 
 getcontext().prec = 28
 # Here you can move around
-xmin, xmax, ymin, ymax = Decimal("-6.6"),Decimal("6.6"),Decimal("-6.6"),Decimal("6.6")
+xmin, xmax, ymin, ymax = Decimal("-2.7"),Decimal("2.7"),Decimal("-2.7"),Decimal("2.7")
 
 
 
