@@ -135,6 +135,7 @@ def palette_load(palette, gradient, top_colors=4, lake_palette=False, lake=False
         del lake_palette
         sorted_indices = np.argsort(counts)[::-1]
         array_top_colors_lake = unique_colors[sorted_indices][:top_colors]
+        print(generate_gradient(array_top_colors, gradient),array_top_colors)
         return generate_gradient(array_top_colors, gradient), generate_gradient(array_top_colors_lake, gradient) 
 
 
@@ -499,12 +500,11 @@ def process_form_data(params):
 
     expression = params.get('expression', [''])
 
-    fractals = {
-        'mandelbrot': 'fractals[mandelbrot]' in params,
-        'juliaset': 'fractals[juliaset]' in params,
-        'lyapunov': 'fractals[lyapunov]' in params,
-        'sandpile': 'fractals[sandpile]' in params
-    }
+    fractals = params.get("fractals", {
+    'mandelbrot': False,
+    'juliaset': False,
+    'lyapunov': False,
+    }) 
 
     width = int(params.get('width', [0]))
     height = int(params.get('height', [0]))
@@ -554,7 +554,7 @@ def process_form_data(params):
         print(f"Lake palette file does not exist: {lake_palette}")
         return
 
-
+    
     paths = generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake],quaternion_j, quaternion_k)
     
     #print((paths))
@@ -574,7 +574,7 @@ def server(port):
     import http.server
     import socketserver
     import signal
-
+    import json
 
 
 
@@ -588,61 +588,34 @@ def server(port):
 
     class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         
+
+
         def do_POST(self):
             global received_params, stop_gen
 
-            # Get the content type and boundary from headers
+
             content_type = self.headers.get('Content-Type')
-            if not content_type:
+            if content_type != 'application/json; charset=utf-8':
                 self.send_response(400)
                 self.end_headers()
                 return
 
-            # Extract boundary from content type
-            boundary = None
-            for part in content_type.split(';'):
-                if 'boundary=' in part:
-                    boundary = part.split('=')[1].strip()
-                    break
-            
-            if not boundary:
-                self.send_response(400)
-                self.end_headers()
-                return
-
-            # Read the entire body of the request
             content_length = int(self.headers['Content-Length'])
             body = self.rfile.read(content_length)
-
-            # Parse the multipart form data
-            parts = body.split(f'--{boundary}'.encode())
-            for part in parts:
-                if part.strip() and not part.startswith(b'--'):
-                    # Extract headers and body from part
-                    headers, payload = part.split(b'\r\n\r\n', 1)
-                    headers = headers.decode('utf-8')
-                    payload = payload.rstrip(b'--').decode('utf-8')
-
-                    # Extract form field name
-                    disposition = [h for h in headers.split('\r\n') if h.startswith('Content-Disposition:')]
-                    if disposition:
-                        content_disposition = disposition[0]
-                        field_name = None
-                        for param in content_disposition.split(';'):
-                            if 'name=' in param:
-                                field_name = param.split('=')[1].strip('" ')
-                                break
-                        if field_name:
-                            received_params[field_name] = payload.strip()
+            try:
+                received_params = json.loads(body.decode('utf-8'))
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.end_headers()
+                return
 
             required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
             if all(key in received_params for key in required_keys):
-                #print(received_params)
                 fractal_result = ",".join(process_form_data(received_params))
                 received_params.clear()
 
                 self.send_response(200)
-                self.send_header('Content-type', 'application/json')
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.end_headers()
                 self.wfile.write(fractal_result.encode('utf-8'))
             else:

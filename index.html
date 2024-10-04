@@ -385,7 +385,44 @@
 
         fetch(url, {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: JSON.stringify({
+                width: formData.get('width'),
+                height: formData.get('height'),
+                max_iter: formData.get('max_iter'),
+                top_colors: formData.get('top_colors'),
+                max_grains: formData.get('max_grains'),
+                juliaset_c_real: formData.get('juliaset_c_real'),
+                juliaset_c_imag: formData.get('juliaset_c_imag'),
+                xmin: formData.get('xmin'),
+                xmax: formData.get('xmax'),
+                ymin: formData.get('ymin'),
+                ymax: formData.get('ymax'),
+                palette: formData.get('palette'),
+                lake_palette: formData.get('lake_palette'),
+                expression: formData.get('expression'),
+                fractals: {
+                    mandelbrot: formData.get('fractals[mandelbrot]') === 'on',
+                    juliaset: formData.get('fractals[juliaset]') === 'on',
+                    lyapunov: formData.get('fractals[lyapunov]') === 'on',
+                    sandpile: formData.get('fractals[sandpile]') === 'on'
+                },
+                use_palette: formData.get('use_palette') === 'on',
+                gradient: formData.get('gradient'),
+                lake: formData.get('lake') === 'on',
+                shift_palette: formData.get('shift_palette'),
+                shift_palette_lake: formData.get('shift_palette_lake'),
+                column_aim: formData.get('column_aim'),
+                row_aim: formData.get('row_aim'),
+                grid_length: formData.get('grid_length'),
+                continue_aim: formData.get('continue_aim') === 'on',
+                quaternion_j: formData.get('quaternion_j'),
+                quaternion_k: formData.get('quaternion_k'),
+                // zoom: formData.get('zoom') === 'on',
+                // max_zoom: formData.get('max_zoom')
+            })
         })
         .then(response => response.text())
         .then(fractalResult => {
@@ -451,7 +488,7 @@
             fetch('/stop', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json; charset=utf-8'
                 },
                 body: JSON.stringify({ action: 'stop' })
             })
