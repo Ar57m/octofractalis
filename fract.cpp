@@ -480,7 +480,7 @@ extern "C" {
 
 
 
-    void sandpile(uint8_t* output, uint16_t width, uint16_t height, uint32_t n_grains, uint16_t max_grains=3) {
+    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains, const uint16_t max_grains=3) {
         // Create a 2D array to store the sandpile
         std::signal(SIGINT, signal_handler);
         std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
@@ -514,7 +514,9 @@ extern "C" {
 
 
 
-    void process_array(uint32_t* input_array, uint8_t* output_array, uint16_t width, uint16_t height, double max_value, uint16_t batch_size, double npmax) {
+
+
+    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width, const uint16_t height, const double max_value, const uint16_t batch_size, const double npmax) {
         std::signal(SIGINT, signal_handler);
         // Iterate over each batch
         
