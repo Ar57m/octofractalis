@@ -505,7 +505,8 @@ def process_form_data(params):
     'mandelbrot': False,
     'juliaset': False,
     'lyapunov': False,
-    }) 
+    'sandpile': False,
+    })
 
     width = int(params.get('width', [1024]))
     height = int(params.get('height', [1024]))
