@@ -268,6 +268,21 @@ struct Quaternion {
     inline Quaternion operator-(const Quaternion& q) const {
         return Quaternion(real - q.real, i - q.i, j - q.j, k - q.k);
     }
+    inline friend Quaternion operator-(double scalar, const Quaternion& q) {
+        return Quaternion(scalar - q.real, -q.i, -q.j, -q.k);
+    }
+
+    Quaternion& operator+=(const Quaternion& q) {
+        real += q.real;
+        i += q.i;
+        j += q.j;
+        k += q.k;
+        return *this;
+    }
+
+    inline friend Quaternion operator*(double scalar, const Quaternion& q) {
+        return Quaternion(scalar * q.real, scalar * q.i, scalar * q.j, scalar * q.k);
+    }
 
     Quaternion operator*(const Quaternion& q) const {
         return Quaternion(
