@@ -446,34 +446,108 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin=3.4, const double xmax=4.0, const double ymin=2.5, const double ymax=3.4) {
+    void lyapunov(uint16_t* output, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const bool use_complex_ab, const double quaternion_j, const double quaternion_k) {
         
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
+        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        complex_a = !use_complex_ab ? 0.0 : complex_a;
+        complex_b = !use_complex_ab ? 0.0 : complex_b;
+        const std::string expression = std::string(exp);
 
-        #pragma omp parallel for schedule(dynamic)
-        for (int i = 0; i < width; ++i) {
-            for (int j = 0; j < height; ++j) {
-                double x = xmin + i * dx;
-                double y = ymin + j * dy;
-                Complex a(0.5 + x * 0.5, 0.0);
-                Complex b(0.5 + y * 0.5, 0.0);
-                Complex l(0.0, 0.0);
-                Complex v(0.5, 0.0);
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
 
-                for (int k = 0; k < max_iter; ++k) {
-                    if (k % 12 < 6) {
-                        v = b * v * (1 - v);
-                        l += noNan(log((b * (1 - 2 * v)).abs()));
-                    } else {
-                        v = a * v * (1 - v);
-                        l += noNan(log((a * (1 - 2 * v)).abs()));
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    double x = xmin + i * dx;
+                    double y = ymin + j * dy;
+                    Complex a(0.5 + x * 0.5, complex_a);
+                    Complex b(0.5 + y * 0.5, complex_b);
+                    Complex l(0.0, 0.0);
+                    Complex v(0.5, 0.0);
+
+                    for (int k = 0; k < max_iter; ++k) {
+                        if (k % 12 < 6) {
+                            v = b * v * (1 - v);
+                            l += noNan(log((b * (1 - 2 * v)).abs()));
+                        } else {
+                            v = a * v * (1 - v);
+                            l += noNan(log((a * (1 - 2 * v)).abs()));
+                        }
                     }
+                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    
                 }
-                update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
-                
+            }
+
+        } else if (quatern) {
+            
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    double x = xmin + i * dx;
+                    double y = ymin + j * dy;
+                    Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
+                    Quaternion l(0.0, 0.0);
+                    Quaternion v(0.5, 0.0);
+
+                    for (int k = 0; k < max_iter; ++k) {
+                        if (k % 12 < 6) {
+                            v = b * v * (1.0 - v);
+                            l += noNan(log((b * (1 - 2.0 * v)).abs()));
+                        } else {
+                            v = a * v * (1.0 - v);
+                            l += noNan(log((a * (1 - 2.0 * v)).abs()));
+                        }
+                    }
+                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    
+                }
+            }
+
+        } else {
+
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = 0; i < width; ++i) {
+                Complex l, v, temp;
+                std::map<std::string, std::function<Complex()>> variables = {
+                    {"rt", [&v]() { return v; }},
+                    {"rw", [&l]() { return l; }},
+                    {"rk", [&temp]() { return temp; }},
+                    {"pi", [&]() { return pi; }},
+                    {"e", [&]() { return e;   }},
+                };
+
+                //Parser parser(x % 2 < 1 ? expression : exp, variables);
+                Parser parser( expression, variables);
+                auto ast = parser.parse();
+                for (int j = 0; j < height; ++j) {
+                    double x = xmin + i * dx;
+                    double y = ymin + j * dy;
+                    Complex a(0.5 + x * 0.5, complex_a);
+                    Complex b(0.5 + y * 0.5, complex_b);
+                    l = Complex (0.0, 0.0);
+                    v = Complex (0.5, 0.0);
+
+
+                    for (int k = 0; k < max_iter; ++k) {
+                        if (k % 12 < 6) {
+                            v = b * v * (1 - v);
+                            temp = b;
+                            l += (ast->evaluate());
+                        } else {
+                            v = a * v * (1 - v);
+                            temp = a;
+                            l += (ast->evaluate());
+                        }
+                    }
+                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    
+                }
             }
         }
     }
