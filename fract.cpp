@@ -13,6 +13,9 @@
 #include <functional>
 #include <stdexcept>
 #include <sstream>
+#include "complex.h"
+
+
 
 void signal_handler(int signal) {
     std::cout << "(Ctrl+C)" << std::endl;
@@ -33,253 +36,6 @@ double noNan(double value) {
 
 
 
-
-
-struct Complex {
-    double real;
-    double imag;
-
-    Complex(double r = 0.0, double i = 0.0) : real(r), imag(i) {}
-
-
-    Complex noNan() const {
-        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
-        double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && !std::isinf(imag)) ? imag : 0;
-        return Complex(realPart, imagPart);
-    }
-
-
-
-
-    // Sum
-    Complex operator+(const Complex& other) const {
-        return Complex(real + other.real, imag + other.imag);
-    }
-
-    Complex operator+(double value) const {
-        return Complex(real + value, imag);
-    }
-
-    Complex operator+() const {
-    return Complex(+real, +imag);
-    }
-    
-    Complex& operator+=(const Complex& other) {
-        real += other.real;
-        imag += other.imag;
-        return *this;
-    }
-
-    Complex& operator+=(double value) {
-        real += value;
-        return *this;
-    }
-    friend Complex operator+(double value, const Complex& c) {
-        return Complex(c.real + value, c.imag);
-    }
-
-    // Sub
-    Complex operator-(const Complex& other) const {
-        return Complex(real - other.real, imag - other.imag);
-    }
-    Complex operator-(double value) const {
-        return Complex(real - value, imag);
-    }
-
-    Complex operator-() const {
-    return Complex(-real, -imag);
-    }
-
-    Complex& operator-=(const Complex& other) {
-        real -= other.real;
-        imag -= other.imag;
-        return *this;
-    }
-
-    Complex& operator-=(double value) {
-        real -= value;
-        return *this;
-    }
-
-    friend Complex operator-(double value, const Complex& c) {
-        return Complex(value - c.real, c.imag);
-    } 
-
-    // Mul
-    Complex operator*(const Complex& other) const {
-        return Complex(real * other.real - imag * other.imag, real * other.imag + imag * other.real);
-    }
-
-    Complex operator*(double scalar) const {
-        return Complex(real * scalar, imag * scalar);
-    }
-
-    Complex& operator*=(const Complex& other) {
-        double new_real = real * other.real - imag * other.imag;
-        double new_imag = real * other.imag + imag * other.real;
-
-        real = new_real;
-        imag = new_imag;
-        return *this;
-    }
-
-    Complex& operator*=(double value) {
-        real *= value;
-        imag *= value;
-        return *this;
-    }
-
-    friend Complex operator*(double scalar, const Complex& c) {
-        return c * scalar;
-    }
-
-    // Division
-    Complex operator/(const Complex& other) const {
-        double denom = other.real * other.real + other.imag * other.imag;
-        return Complex((real * other.real + imag * other.imag) / denom,
-                       (imag * other.real - real * other.imag) / denom);
-    }
-
-    Complex operator/(double value) const {
-        return Complex(real / value, imag / value);
-    }
-
-    friend Complex operator/(double value, const Complex& c) {
-        double denom = c.real * c.real + c.imag * c.imag;
-        return Complex((value * c.real) / denom, (-value * c.imag) / denom);
-    }
-
-    // Conj
-    Complex conj() const {
-        return Complex(real, -imag);
-    }
-
-    // abs
-    double abs() const {
-        return std::sqrt(real * real + imag * imag);
-    }
-
-    // sqrt
-    Complex sqrt() const {
-        double magnitude = std::sqrt(abs());
-        double angle = std::atan2(imag, real) / 2.0;
-        return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
-    }
-    
-    // arg
-    double arg() const {
-        return std::atan2(imag, real);
-    }
-
-    // root
-    Complex root(const Complex& n1) const {
-        if (n1.real == 0 && n1.imag == 0) {
-            return Complex(0,0);
-        } else {
-            Complex result = (this->log())/n1;
-            double magnitude = std::exp(result.real);
-            return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
-        }
-    }
-
-    // log
-    Complex log() const {
-        if (real == 0 && imag == 0) {
-            return Complex(0,0);
-        } else {
-            return Complex(std::log(abs()), std::atan2(imag, real));
-        }
-    }
-
-    // pow
-    Complex pow(const Complex& exponent) const {
-        Complex log_z = this->log();
-        Complex result = exponent * log_z;
-        double magnitude = std::exp(result.real);
-        return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
-    }
-
-    // pow
-    Complex pow(double exponent) const {
-        double magnitude = std::pow(abs(), exponent);
-        double angle = std::atan2(imag, real) * exponent;
-        return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
-    }
-
-
-
-    // Sin
-    Complex sin() const {
-        return Complex(std::sin(real) * std::cosh(imag), std::cos(real) * std::sinh(imag));
-    }
-
-    // Cos
-    Complex cos() const {
-        return Complex(std::cos(real) * std::cosh(imag), -std::sin(real) * std::sinh(imag));
-    }
-
-    // Tanh
-    Complex tanh() const {
-        return this->sinh() / this->cosh(); 
-    }
-
-    // Sinh
-    Complex sinh() const {
-        return Complex(std::sinh(real) * std::cos(imag), std::cosh(real) * std::sin(imag));
-    }
-
-    // Cosh
-    Complex cosh() const {
-        return Complex(std::cosh(real) * std::cos(imag), std::sinh(real) * std::sin(imag));
-    }
-
-    // Log10
-    Complex log10() const {
-        return log() / std::log(10.0);
-    }
-
-    // Log nthing
-    Complex logn(const Complex& base) const {
-        return this->log() / base.log();
-    }
-
-    Complex maximum(const Complex& arg2) const {
-        return this->abs() < arg2.abs() ? arg2 : *this;
-    }
-
-    Complex minimum(const Complex& arg2) const {
-        return this->abs() > arg2.abs() ? arg2 : *this;
-    }
-
-    Complex round() const {
-        return Complex(std::round(real), std::round(imag));
-    }
-
-    Complex gamma() const {
-        Complex z = *this;
-        
-        if (z.real <= 0 && z.imag == 0) {
-            return Complex(0,0);
-        }
-        const double sqrt_2_pi = std::sqrt(2 * 3.1415926535897932384626433832795028841971693993751);
-
-        Complex e(2.7182818284590452353602874713526624977572470937000,0);
-        return sqrt_2_pi * e.pow(z * (z.log() - 1.0));
-    }
-
-    Complex zeta() const {
-        Complex sum(0, 0);
-        const int N = 100;  // Number of terms for approximation
-        for (int n = 1; n <= N; ++n) {
-            sum = sum + Complex(n, 0).pow(-(*this));
-        }
-        return sum;
-    }
-    friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
-        os << "(" << c.real << " + " << c.imag << "i)";
-        return os;
-    }
-};
 
 
 
@@ -546,7 +302,7 @@ void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
 
 
 extern "C" {
-    void scale(const float* input_tensor, float* scaled_tensor, int input_size, float new_min, float new_max) {
+    void scale(const float* input_tensor, float* scaled_tensor, const int input_size, const float new_min, const float new_max) {
         std::signal(SIGINT, signal_handler);
         float current_min = *std::min_element(input_tensor, input_tensor + input_size);
         float current_max = *std::max_element(input_tensor, input_tensor + input_size);
@@ -565,21 +321,22 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, const char* exp,const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake) {
+    void fractal(uint16_t* output, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k) {
 
         std::signal(SIGINT, signal_handler);
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-
+        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
 
         const std::string expression = std::string(exp);
 
-        if (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw" ) {
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
                 for (int y = 0; y < height; ++y) {
+                    
                     double r_part = xmin + x * dx;
                     double i_part = ymin + y * dy;
                     
@@ -597,12 +354,47 @@ extern "C" {
     
                     while (z.abs() < 2 && iteration < max_iter) {
     
-                        z = (z*z)+c;
+                        z = ((z*z)+c).noNan();
                         ++iteration;
                     }
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
             }
+
+
+        } else if ( quatern ) {
+
+
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+
+                for (int y = 0; y < height; ++y) {
+                    
+                    double r_part = xmin + x * dx;
+                    double i_part = ymin + y * dy;
+                    
+                    Quaternion c, z;
+                    if (juliaset) {
+                        c = Quaternion (c_real, c_imag);
+                        z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
+                    } else {
+                        c = Quaternion (r_part, i_part);
+                        z = Quaternion (0.0, 0.0, quaternion_j, quaternion_k);
+                    }
+
+                    uint16_t iteration = 0;
+                    
+    
+                    while (z.abs() < 2 && iteration < max_iter) {
+    
+                        z = ((z*z)+c).noNan();
+                        ++iteration;
+                    }
+                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
+                }
+            }
+
+
         } else {
             
             int y;
@@ -654,41 +446,115 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin=3.4, const double xmax=4.0, const double ymin=2.5, const double ymax=3.4) {
+    void lyapunov(uint16_t* output, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const bool use_complex_ab, const double quaternion_j, const double quaternion_k) {
         
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
+        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        complex_a = !use_complex_ab ? 0.0 : complex_a;
+        complex_b = !use_complex_ab ? 0.0 : complex_b;
+        const std::string expression = std::string(exp);
 
-        #pragma omp parallel for schedule(dynamic)
-        for (int i = 0; i < width; ++i) {
-            for (int j = 0; j < height; ++j) {
-                double x = xmin + i * dx;
-                double y = ymin + j * dy;
-                Complex a(0.5 + x * 0.5, 0.0);
-                Complex b(0.5 + y * 0.5, 0.0);
-                Complex l(0.0, 0.0);
-                Complex v(0.5, 0.0);
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
 
-                for (int k = 0; k < max_iter; ++k) {
-                    if (k % 12 < 6) {
-                        v = b * v * (1 - v);
-                        l += noNan(log((b * (1 - 2 * v)).abs()));
-                    } else {
-                        v = a * v * (1 - v);
-                        l += noNan(log((a * (1 - 2 * v)).abs()));
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    double x = xmin + i * dx;
+                    double y = ymin + j * dy;
+                    Complex a(0.5 + x * 0.5, complex_a);
+                    Complex b(0.5 + y * 0.5, complex_b);
+                    Complex l(0.0, 0.0);
+                    Complex v(0.5, 0.0);
+
+                    for (int k = 0; k < max_iter; ++k) {
+                        if (k % 12 < 6) {
+                            v = b * v * (1 - v);
+                            l += noNan(log((b * (1 - 2 * v)).abs()));
+                        } else {
+                            v = a * v * (1 - v);
+                            l += noNan(log((a * (1 - 2 * v)).abs()));
+                        }
                     }
+                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    
                 }
-                update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
-                
+            }
+
+        } else if (quatern) {
+            
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    double x = xmin + i * dx;
+                    double y = ymin + j * dy;
+                    Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
+                    Quaternion l(0.0, 0.0);
+                    Quaternion v(0.5, 0.0);
+
+                    for (int k = 0; k < max_iter; ++k) {
+                        if (k % 12 < 6) {
+                            v = b * v * (1.0 - v);
+                            l += noNan(log((b * (1 - 2.0 * v)).abs()));
+                        } else {
+                            v = a * v * (1.0 - v);
+                            l += noNan(log((a * (1 - 2.0 * v)).abs()));
+                        }
+                    }
+                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    
+                }
+            }
+
+        } else {
+
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = 0; i < width; ++i) {
+                Complex l, v, temp;
+                std::map<std::string, std::function<Complex()>> variables = {
+                    {"rt", [&v]() { return v; }},
+                    {"rw", [&l]() { return l; }},
+                    {"rk", [&temp]() { return temp; }},
+                    {"pi", [&]() { return pi; }},
+                    {"e", [&]() { return e;   }},
+                };
+
+                //Parser parser(x % 2 < 1 ? expression : exp, variables);
+                Parser parser( expression, variables);
+                auto ast = parser.parse();
+                for (int j = 0; j < height; ++j) {
+                    double x = xmin + i * dx;
+                    double y = ymin + j * dy;
+                    Complex a(0.5 + x * 0.5, complex_a);
+                    Complex b(0.5 + y * 0.5, complex_b);
+                    l = Complex (0.0, 0.0);
+                    v = Complex (0.5, 0.0);
+
+
+                    for (int k = 0; k < max_iter; ++k) {
+                        if (k % 12 < 6) {
+                            v = b * v * (1 - v);
+                            temp = b;
+                            l += (ast->evaluate());
+                        } else {
+                            v = a * v * (1 - v);
+                            temp = a;
+                            l += (ast->evaluate());
+                        }
+                    }
+                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    
+                }
             }
         }
     }
 
 
 
-    void sandpile(uint8_t* output, uint16_t width, uint16_t height, uint32_t n_grains, uint16_t max_grains=3) {
+    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains, const uint16_t max_grains=3) {
         // Create a 2D array to store the sandpile
         std::signal(SIGINT, signal_handler);
         std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
@@ -722,7 +588,9 @@ extern "C" {
 
 
 
-    void process_array(uint32_t* input_array, uint8_t* output_array, uint16_t width, uint16_t height, double max_value, uint16_t batch_size, double npmax) {
+
+
+    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width, const uint16_t height, const double max_value, const uint16_t batch_size, const double npmax) {
         std::signal(SIGINT, signal_handler);
         // Iterate over each batch
         
