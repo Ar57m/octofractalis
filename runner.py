@@ -21,7 +21,7 @@ lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_floa
 lib.scale.restype = None
 
 fractal.argtypes = [POINTER(c_uint16), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double]
-lyapunov.argtypes = [POINTER(c_uint16), c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double]
+lyapunov.argtypes = [POINTER(c_uint16), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_double, c_double]
 sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
 
 
@@ -196,11 +196,11 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
 
 
 
-width = int(4096) # I'm using ratio 1/1
-height = int(4096) #2304
+width = int(1024) # I'm using ratio 1/1
+height = int(1024) #2304
 
 # Number of iterations
-max_iter = 1000
+max_iter = 500
 
 # Sandpile max grains
 max_grains = 3
@@ -234,7 +234,7 @@ gradient = 16        # Amount of colors between the colors
 top_colors = 24
 shift_palette = (0, 0)   # This shift the palette, you can set negative and positive integers.
 
-# Julia set parameters
+# Julia set parameters / Lyapunov uses it as the imaginary part if juliaset is off
 juliaset_c_real = -0.8
 juliaset_c_imag = 0.16
 
@@ -252,7 +252,7 @@ array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lak
 
 getcontext().prec = 28
 # Here you can move around
-xmin, xmax, ymin, ymax = Decimal("-2.6"),Decimal("2.6"),Decimal("-2.6"),Decimal("2.6")
+xmin, xmax, ymin, ymax = Decimal("-2.7"),Decimal("2.7"),Decimal("-2.7"),Decimal("2.7")
 
 
 
@@ -312,7 +312,7 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
         if (key == "lyapunov") and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), width, height, max_iter, xmin, xmax, ymin, ymax)
+            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, not fractals.get('juliaset'), quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
@@ -423,13 +423,14 @@ def imgs_to_video(n_coordinates):
 
 
 # stop_gen = False
-import multiprocessing
+from multiprocessing import Process, Value
 
-
+fractal_process = None
+stop_flag = Value('b', False)
 
 
 received_params = {}
-stop_gen = multiprocessing.Event()
+# stop_gen = multiprocessing.Event()
 
 
 
@@ -498,7 +499,7 @@ def process_form_data(params):
 
 
 
-    expression = params.get('expression', [''])
+    expression = params.get('expression', ['z*z+c'])
 
     fractals = params.get("fractals", {
     'mandelbrot': False,
@@ -506,20 +507,20 @@ def process_form_data(params):
     'lyapunov': False,
     }) 
 
-    width = int(params.get('width', [0]))
-    height = int(params.get('height', [0]))
-    max_iter = int(params.get('max_iter', [0]))
-    top_colors = int(params.get('top_colors', [0]))
-    max_grains = int(params.get('max_grains', [0]))
-    juliaset_c_real = float(params.get('juliaset_c_real', [0.0]))
-    juliaset_c_imag = float(params.get('juliaset_c_imag', [0.0]))
+    width = int(params.get('width', [1024]))
+    height = int(params.get('height', [1024]))
+    max_iter = int(params.get('max_iter', [400]))
+    top_colors = int(params.get('top_colors', [24]))
+    max_grains = int(params.get('max_grains', [3]))
+    juliaset_c_real = float(params.get('juliaset_c_real', [-0.8]))
+    juliaset_c_imag = float(params.get('juliaset_c_imag', [0.16]))
 
-    use_palette = 'use_palette' in params
+    use_palette = bool(params.get('use_palette', True))
     palette = params.get('palette', [''])
     palette = download_image(palette)
-    gradient = int(params.get('gradient', [0]))
+    gradient = int(params.get('gradient', [16]))
 
-    lake = 'lake' in params
+    lake = bool(params.get('lake', True))
     lake_palette = params.get('lake_palette', [''])
     lake_palette = download_image(lake_palette)
 
@@ -529,7 +530,7 @@ def process_form_data(params):
     row_aim = int(params.get('row_aim'))
     grid_length = int(params.get('grid_length'))
     coordinates = np.array([(column_aim,row_aim,grid_length)])
-    continue_aim = "continue_aim" in params
+    continue_aim = bool(params.get('continue_aim', False))
     quaternion_j = float(params.get('quaternion_j', [0.0]))
     quaternion_k = float(params.get('quaternion_k', [0.0]))
 
@@ -537,10 +538,10 @@ def process_form_data(params):
 
         xmin, xmax, ymin, ymax = divide_in_squares(coordinates, xmin, xmax, ymin, ymax) 
     else:
-        xmin = Decimal(params.get('xmin', [0.0]))
-        xmax = Decimal(params.get('xmax', [0.0]))
-        ymin = Decimal(params.get('ymin', [0.0]))
-        ymax = Decimal(params.get('ymax', [0.0]))
+        xmin = Decimal(params.get('xmin', [-2.0]))
+        xmax = Decimal(params.get('xmax', [2.0]))
+        ymin = Decimal(params.get('ymin', [-2.0]))
+        ymax = Decimal(params.get('ymax', [2.0]))
 
     
     zoom = False
