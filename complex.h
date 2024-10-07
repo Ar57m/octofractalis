@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <limits>
 
 struct Complex {
     double real;
@@ -11,12 +12,19 @@ struct Complex {
     Complex(double r = 0.0, double i = 0.0) : real(r), imag(i) {}
 
 
+    // Complex noNan() const {
+    //     double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
+    //     double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && !std::isinf(imag)) ? imag : 0;
+    //     return Complex(realPart, imagPart);
+    // }
+
     Complex noNan() const {
-        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
-        double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && !std::isinf(imag)) ? imag : 0;
+        
+        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && std::abs(real) < 1e300) ? real : 0;
+        double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && std::abs(imag) < 1e300) ? imag : 0;
+
         return Complex(realPart, imagPart);
     }
-
 
 
 
@@ -128,6 +136,10 @@ struct Complex {
         return std::sqrt(real * real + imag * imag);
     }
 
+    inline Complex c_abs() const {
+        return Complex (std::sqrt(real * real + imag * imag), 0);
+    }
+
     // sqrt
     Complex sqrt() const {
         double magnitude = std::sqrt(abs());
@@ -185,6 +197,11 @@ struct Complex {
     // Cos
     Complex cos() const {
         return Complex(std::cos(real) * std::cosh(imag), -std::sin(real) * std::sinh(imag));
+    }
+
+    // Tan
+    Complex tan() const {
+        return Complex(std::sin(real) / std::cos(real), std::sin(imag) / std::cos(imag));
     }
 
     // Tanh
@@ -301,6 +318,10 @@ struct Quaternion {
         return std::sqrt(real * real + i * i + j * j + k * k);
     }
 
+    inline Quaternion q_abs() const {
+        return Quaternion(std::sqrt(real * real + i * i + j * j + k * k),0);
+    }
+
     Quaternion operator/(const Quaternion& q) const {
         Quaternion conj_q = q.conj();
         double norm_q2 = q.abs() * q.abs();
@@ -313,10 +334,10 @@ struct Quaternion {
     }
     
     Quaternion noNan() const {
-        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
-        double iPart = (std::abs(i) > 1e-13 && !std::isnan(i) && !std::isinf(i)) ? i : 0;
-        double jPart = (std::abs(j) > 1e-13 && !std::isnan(j) && !std::isinf(j)) ? j : 0;
-        double kPart = (std::abs(k) > 1e-13 && !std::isnan(k) && !std::isinf(k)) ? k : 0;
+        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && (std::abs(real) < 1e300)) ? real : 0;
+        double iPart = (std::abs(i) > 1e-13 && !std::isnan(i) && (std::abs(i) < 1e300)) ? i : 0;
+        double jPart = (std::abs(j) > 1e-13 && !std::isnan(j) && (std::abs(j) < 1e300)) ? j : 0;
+        double kPart = (std::abs(k) > 1e-13 && !std::isnan(k) && (std::abs(k) < 1e300)) ? k : 0;
         return Quaternion(realPart, iPart, jPart, kPart);
     }
 

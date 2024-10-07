@@ -27,7 +27,7 @@ double pi = 3.1415926535897932384626433832795028841971693993751;
 double e =  2.7182818284590452353602874713526624977572470937000;
 
 double noNan(double value) {
-    if (std::isnan(value) || std::isinf(value)) {
+    if (std::isnan(value) || !(std::abs(value) < 1e300)) {
         return 0;
     } else {
         return value;
@@ -252,6 +252,7 @@ private:
         static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
             {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
             {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
+            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan(); }); }},
             {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
             {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log(); }); }},
             {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10(); }); }},
@@ -291,7 +292,7 @@ void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
     if ((temp < 2 && lake)) {
         output[y * width + x] = static_cast<uint16_t>(std::round((temp / (temp + 1)) * max_iter)) + max_iter;
     } else if ( lya) {
-        output[y * width + x] = static_cast<uint16_t>((std::round((temp / (temp + 1)) * max_iter)));
+        output[y * width + x] = static_cast<uint16_t>((std::round((temp / (temp + max_iter/10)) * max_iter)));
     } else {
         output[y * width + x] = iteration;
     }
@@ -331,7 +332,6 @@ extern "C" {
         const std::string expression = std::string(exp);
 
         if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
-
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
@@ -357,6 +357,7 @@ extern "C" {
                         z = ((z*z)+c).noNan();
                         ++iteration;
                     }
+
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
             }
@@ -422,7 +423,7 @@ extern "C" {
     
 
                     if (juliaset) {
-                        c = Complex (-0.8, 0.16);
+                        c = Complex (c_real, c_imag);
                         z = Complex (r_part, i_part);
                     } else {
                         c = Complex (r_part, i_part);
@@ -472,10 +473,10 @@ extern "C" {
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
                             v = b * v * (1 - v);
-                            l += noNan(log((b * (1 - 2 * v)).abs()));
+                            l += (((b * (1 - 2 * v)).c_abs()).log()).noNan();
                         } else {
                             v = a * v * (1 - v);
-                            l += noNan(log((a * (1 - 2 * v)).abs()));
+                            l += (((a * (1 - 2 * v)).c_abs()).log()).noNan();
                         }
                     }
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
@@ -498,10 +499,10 @@ extern "C" {
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
-                            l += noNan(log((b * (1 - 2.0 * v)).abs()));
+                            l += (((b * (1 - 2 * v)).q_abs()).log()).noNan();
                         } else {
                             v = a * v * (1.0 - v);
-                            l += noNan(log((a * (1 - 2.0 * v)).abs()));
+                            l += (((a * (1 - 2 * v)).q_abs()).log()).noNan();
                         }
                     }
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
@@ -538,11 +539,11 @@ extern "C" {
                         if (k % 12 < 6) {
                             v = b * v * (1 - v);
                             temp = b;
-                            l += (ast->evaluate());
+                            l += (ast->evaluate()).noNan();
                         } else {
                             v = a * v * (1 - v);
                             temp = a;
-                            l += (ast->evaluate());
+                            l += (ast->evaluate()).noNan();
                         }
                     }
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
