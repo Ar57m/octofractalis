@@ -165,11 +165,7 @@ struct Complex {
 
     // log
     Complex log() const {
-        if (real == 0 && imag == 0) {
-            return Complex(0,0);
-        } else {
-            return Complex(std::log(abs()), std::atan2(imag, real));
-        }
+        return Complex(std::log(abs()), std::atan2(imag, real));
     }
 
     // pow
@@ -179,6 +175,7 @@ struct Complex {
         double magnitude = std::exp(result.real);
         return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
     }
+
 
     // pow
     Complex pow(double exponent) const {
@@ -239,6 +236,32 @@ struct Complex {
 
     Complex round() const {
         return Complex(std::round(real), std::round(imag));
+    }
+
+    Complex circle(const Complex radius) const {
+        double angle = std::atan2(imag, real);
+        double rad = radius.abs();
+        return Complex(std::cos(angle) * rad, std::sin(angle) * rad);
+    }
+
+    Complex square(const Complex sideLength) const {
+        double side = sideLength.abs()/2.0;
+        double x_proj = (real > 0) ? side : -side;
+        double y_proj = (imag > 0) ? side : -side;
+        return Complex(x_proj, y_proj);
+    }
+
+    Complex triangle(const Complex sideLength) const {
+        double side = sideLength.abs();
+        double height = std::sqrt(3) / 2 * side;
+        double x_proj = (real > 0) ? side / 2 : -side / 2;
+        double y_proj = (imag > 0) ? height / 3 : -height / 3;
+        return Complex(x_proj, y_proj);
+    }
+
+    Complex ellipsoid(Complex radiusX, Complex radiusY) const {
+        double angle = std::atan2(imag, real);
+        return Complex(std::cos(angle) * radiusX.abs(), std::sin(angle) * radiusY.abs());
     }
 
     Complex gamma() const {
@@ -334,7 +357,7 @@ struct Quaternion {
     }
     
     Quaternion noNan() const {
-        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && (std::abs(real) < 1e300)) ? real : 0;
+        double realPart = (std::abs(real) > 1e-13 && (std::abs(real) < 1e300)) ? real : 0;
         double iPart = (std::abs(i) > 1e-13 && (std::abs(i) < 1e300)) ? i : 0;
         double jPart = (std::abs(j) > 1e-13 && (std::abs(j) < 1e300)) ? j : 0;
         double kPart = (std::abs(k) > 1e-13 && (std::abs(k) < 1e300)) ? k : 0;
