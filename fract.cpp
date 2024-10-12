@@ -163,7 +163,7 @@ private:
     }
 
     std::shared_ptr<ASTNode> parseFactor() {
-        skipWhitespace();
+        // skipWhitespace();
 
         if (expr[pos] == '+') {
             ++pos;
@@ -198,7 +198,7 @@ private:
             name += expr[pos++];
         }
 
-        skipWhitespace();
+        // skipWhitespace();
         if (pos < expr.size() && expr[pos] == '(') {
             return parseFunction(name);
         }
@@ -211,7 +211,7 @@ private:
     }
 
     std::shared_ptr<ASTNode> parseNumber() {
-        skipWhitespace();
+        // skipWhitespace();
         std::string number;
         bool hasImaginaryPart = false;
 
@@ -235,41 +235,41 @@ private:
     std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
         ++pos;  // Skip '('
 
-        skipWhitespace(); // Skip any leading whitespace before parsing expressions
+        // skipWhitespace(); // Skip any leading whitespace before parsing expressions
         auto arg1 = parseExpression(); // Parse the first argument
 
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
 
-        skipWhitespace(); // Skip any whitespace after the first argument
+        // skipWhitespace(); // Skip any whitespace after the first argument
 
         // Parse binary functions (expecting a second argument)
         if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle" ) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
-                skipWhitespace(); // Skip any whitespace before the second argument
+                // skipWhitespace(); // Skip any whitespace before the second argument
                 arg2 = parseExpression();  // Parse the second argument for binary functions
             } else {
                 throw std::runtime_error("Expected ',' between arguments for " + func);
             }
         }
-
+        // skipWhitespace();
         // Parse functions that expect a third argument
         if (func == "ellipsoid") {
-            skipWhitespace();
+            // skipWhitespace();
             if (expr[pos] == ',') {
                 ++pos;
-                skipWhitespace();
+                // skipWhitespace();
                 arg2 = parseExpression();
                 ++pos;
-                skipWhitespace();
+                // skipWhitespace();
                 arg3 = parseExpression();
             } else {
                 throw std::runtime_error("Expected ',' between arguments for " + func);
             }
         }
 
-        skipWhitespace();
+        // skipWhitespace();
 
         if (expr[pos] != ')') {
             throw std::runtime_error("Expected ')' to close the function " + func);
@@ -313,11 +313,11 @@ private:
     }
 
 
-    void skipWhitespace() {
-        while (pos < expr.size() && isspace(expr[pos])) {
-            ++pos;
-        }
-    }
+    // void skipWhitespace() {
+    //     while (pos < expr.size() && isspace(expr[pos])) {
+    //         ++pos;
+    //     }
+    // }
 };
 
 
