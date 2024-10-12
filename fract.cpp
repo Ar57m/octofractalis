@@ -99,6 +99,22 @@ public:
     }
 };
 
+class TernaryFunctionNode : public ASTNode {
+    std::shared_ptr<ASTNode> operand1, operand2, operand3;
+    std::function<Complex(const Complex&, const Complex&, const Complex&)> func;
+public:
+
+    TernaryFunctionNode(const std::shared_ptr<ASTNode>& operand1,
+                        const std::shared_ptr<ASTNode>& operand2,
+                        const std::shared_ptr<ASTNode>& operand3,
+                        std::function<Complex(const Complex&, const Complex&, const Complex&)> func)
+        : operand1(operand1), operand2(operand2), operand3(operand3), func(func) {}
+
+    Complex evaluate() const override {
+        return func(operand1->evaluate(), operand2->evaluate(), operand3->evaluate());
+    }
+};
+
 // Parser
 class Parser {
 public:
@@ -119,10 +135,10 @@ private:
         while (pos < expr.size()) {
             if (expr[pos] == '+') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return a + b; });
+                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a + b).noNan(); });
             } else if (expr[pos] == '-') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return a - b; });
+                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a - b).noNan(); });
             } else {
                 break;
             }
@@ -135,10 +151,10 @@ private:
         while (pos < expr.size()) {
             if (expr[pos] == '*') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return a * b; });
+                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a * b).noNan(); });
             } else if (expr[pos] == '/') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return a / b; });
+                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a / b).noNan(); });
             } else {
                 break;
             }
@@ -218,16 +234,17 @@ private:
 
     std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
         ++pos;  // Skip '('
-        
+
         skipWhitespace(); // Skip any leading whitespace before parsing expressions
         auto arg1 = parseExpression(); // Parse the first argument
-        
+
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
-        
+        std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
+
         skipWhitespace(); // Skip any whitespace after the first argument
 
         // Parse binary functions (expecting a second argument)
-        if (func == "logn" || func == "pow" || func == "root"|| func == "max"|| func == "min") {
+        if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle" ) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
                 skipWhitespace(); // Skip any whitespace before the second argument
@@ -237,44 +254,64 @@ private:
             }
         }
 
-        skipWhitespace(); // Skip any trailing whitespace before closing the parentheses
+        // Parse functions that expect a third argument
+        if (func == "ellipsoid") {
+            skipWhitespace();
+            if (expr[pos] == ',') {
+                ++pos;
+                skipWhitespace();
+                arg2 = parseExpression();
+                ++pos;
+                skipWhitespace();
+                arg3 = parseExpression();
+            } else {
+                throw std::runtime_error("Expected ',' between arguments for " + func);
+            }
+        }
+
+        skipWhitespace();
 
         if (expr[pos] != ')') {
             throw std::runtime_error("Expected ')' to close the function " + func);
         }
         ++pos;  // Skip ')'
 
-        // Mapping functions to nodes (unary and binary)
-        static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
-            {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
-            {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
-            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan().noNan(); }); }},
-            {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
-            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log().noNan(); }); }},
-            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10().noNan(); }); }},
-            {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sinh(); }); }},
-            {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cosh(); }); }},
-            {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
-            {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return noNan(a.arg()); }); }},
-            {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
-            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.abs(); }); }},
-            {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
-            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b).noNan(); }); }},
-            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b).noNan(); }); }},
-            {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); }); }},
-            {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.maximum(b); }); }},
-            {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
-            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma().noNan(); }); }},
-            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta().noNan(); }); }},
+        // Mapping functions to nodes (unary, binary, and ternary)
+        static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
+            {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
+            {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
+            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan().noNan(); }); }},
+            {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
+            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log().noNan(); }); }},
+            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10().noNan(); }); }},
+            {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sinh(); }); }},
+            {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cosh(); }); }},
+            {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
+            {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return noNan(a.arg()); }); }},
+            {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
+            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.abs(); }); }},
+            {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
+            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b).noNan(); }); }},
+            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b).noNan(); }); }},
+            {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); }); }},
+            {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.maximum(b); }); }},
+            {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
+            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma().noNan(); }); }},
+            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta().noNan(); }); }},
+            {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Complex& a, const Complex& b, const Complex& c) { return a.ellipsoid(b,c).noNan(); }); }},
+            {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.circle(b).noNan(); }); }},
+            {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.square(b).noNan(); }); }},
+            {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.triangle(b).noNan(); }); }},
         };
 
         auto it = functionMap.find(func);
         if (it != functionMap.end()) {
-            return it->second(arg1, arg2);  // Call the mapped function
+            return it->second(arg1, arg2, arg3);  // Call the mapped function
         } else {
-            throw std::runtime_error("Unknown function: " + func);
+            throw std::runtime_error("Function not recognized: " + func);
         }
     }
+
 
     void skipWhitespace() {
         while (pos < expr.size() && isspace(expr[pos])) {
