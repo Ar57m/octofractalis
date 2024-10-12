@@ -196,11 +196,11 @@ all_parameters = {
 
 
 
-    'width' : int(200), # I'm using ratio 1/1
-    'height' : int(200), #2304
+    'width' : int(1024), # I'm using ratio 1/1
+    'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 60000,
+    'max_iter' : 1000,
 
     # Sandpile max grains
     'max_grains' : 3,
@@ -211,10 +211,10 @@ all_parameters = {
 
     # You can generate different types of fractals
     'fractals' : {
-        'mandelbrot': False,
-        'juliaset': False,
+        'mandelbrot': True,
+        'juliaset': True,
         'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
-        'sandpile': True,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
+        'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
 
 
