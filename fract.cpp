@@ -248,24 +248,24 @@ private:
         static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
             {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
             {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
-            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan(); }); }},
+            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan().noNan(); }); }},
             {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
-            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log(); }); }},
-            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10(); }); }},
+            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log().noNan(); }); }},
+            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10().noNan(); }); }},
             {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sinh(); }); }},
             {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cosh(); }); }},
             {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
-            {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.arg(); }); }},
+            {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return noNan(a.arg()); }); }},
             {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
             {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.abs(); }); }},
             {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
-            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b); }); }},
-            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b); }); }},
+            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b).noNan(); }); }},
+            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b).noNan(); }); }},
             {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); }); }},
             {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.maximum(b); }); }},
             {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
-            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma(); }); }},
-            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta(); }); }},
+            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma().noNan(); }); }},
+            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta().noNan(); }); }},
         };
 
         auto it = functionMap.find(func);
@@ -349,11 +349,9 @@ extern "C" {
                     
     
                     while (z.abs() < 2 && iteration < max_iter) {
-    
                         z = ((z*z)+c).noNan();
                         ++iteration;
                     }
-
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
             }
@@ -397,7 +395,7 @@ extern "C" {
             int y;
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Complex z, c;
+                Complex z,c;
     
                 std::map<std::string, std::function<Complex()>> variables = {
                     {"rt", [&z]() { return z; }},
@@ -426,16 +424,13 @@ extern "C" {
                         z = Complex (0.0, 0.0);
                     }
 
-    
-                    double temp = z.abs();
                     uint16_t iteration = 0;
     
-                    while (temp < 2 && iteration < max_iter) {
+                    while (z.abs() < 2 && iteration < max_iter) {
                         z = (ast->evaluate()).noNan();
-                        temp = z.abs();
                         ++iteration;
                     }
-                    update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
+                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
             }
        } 

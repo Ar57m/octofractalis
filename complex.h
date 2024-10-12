@@ -165,11 +165,7 @@ struct Complex {
 
     // log
     Complex log() const {
-        if (real == 0 && imag == 0) {
-            return Complex(0,0);
-        } else {
-            return Complex(std::log(abs()), std::atan2(imag, real));
-        }
+        return Complex(std::log(abs()), std::atan2(imag, real));
     }
 
     // pow
@@ -179,6 +175,7 @@ struct Complex {
         double magnitude = std::exp(result.real);
         return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
     }
+
 
     // pow
     Complex pow(double exponent) const {
