@@ -334,7 +334,7 @@ struct Quaternion {
     }
     
     Quaternion noNan() const {
-        double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && (std::abs(real) < 1e300)) ? real : 0;
+        double realPart = (std::abs(real) > 1e-13 && (std::abs(real) < 1e300)) ? real : 0;
         double iPart = (std::abs(i) > 1e-13 && (std::abs(i) < 1e300)) ? i : 0;
         double jPart = (std::abs(j) > 1e-13 && (std::abs(j) < 1e300)) ? j : 0;
         double kPart = (std::abs(k) > 1e-13 && (std::abs(k) < 1e300)) ? k : 0;

@@ -192,109 +192,144 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
     return xmin, xmax, ymin, ymax
 
 
+all_parameters = {
 
 
 
+    'width' : int(200), # I'm using ratio 1/1
+    'height' : int(200), #2304
 
-width = int(1024) # I'm using ratio 1/1
-height = int(1024) #2304
+    # Number of iterations
+    'max_iter' : 60000,
 
-# Number of iterations
-max_iter = 500
-
-# Sandpile max grains
-max_grains = 3
+    # Sandpile max grains
+    'max_grains' : 3,
 
 
-# The equation
-expression = "z*z+c"         # z = "z^2 + c"
+    # The equation
+    'expression' : "z*z+c",         # z = "z^2 + c"
 
-# You can generate different types of fractals
-fractals = {
-    'mandelbrot': True,
-    'juliaset': True,
-    'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
-    'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
+    # You can generate different types of fractals
+    'fractals' : {
+        'mandelbrot': False,
+        'juliaset': False,
+        'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
+        'sandpile': True,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
+    },
+
+
+    'zoom' : False,
+    'max_zoom' : 10, # How many images # it's gonna generate  +n_coordinates more images than expected
+    'per_zoom' : Decimal("0.9"), # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
+    'video_out' : False, # If you want to generate a video with the images using ffmpeg
+    'imgfromvidfolder' : "",       # Folder to save all the imgs, it will be on ./images/yourfoldername try "imgs/"
+    
+
+
+    'palette' : "./palettes/palette.png",  # Palette location
+    'use_palette' : True,
+    'gradient' : 16,        # Amount of colors between the colors
+
+    # How many top colors to use from the palette.png
+    'top_colors' : 24,
+    'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
+
+    # Julia set parameters / Lyapunov uses it as the imaginary part if juliaset is off
+    'juliaset_c_real' : -0.8*1,
+    'juliaset_c_imag' : 0.16*1,
+
+    # Quaternion parameters
+    'quaternion_j' : 0.0,
+    'quaternion_k' : 0.0,
+
+    # Makes the part that converges visible
+    'lake' : True,
+    # Palette path to another palette image
+    'lake_palette' : "./palettes/lake_palette.png",
+    # # Here it's loading the palette before the generation and conversion
+    # 'array_top_colors' : palette_load(palette, gradient, top_colors, lake_palette, lake),
+
+
+
+    # Here you can move around
+    'xmin': Decimal("-2.7")* 1,
+    'xmax': Decimal("2.7") * 1,
+    'ymin': Decimal("-2.7")* 1,
+    'ymax': Decimal("2.7") * 1,
+
+
+    # This part is to help you aim
+    'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
+    #                       ([(column, row, grid n*n)])
+    'coordinates' : np.array([(1,2,3),(2,2,3),(2,1,2),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]),
+
+    #coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
+    #coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
 }
 
 
-zoom = False
-max_zoom = 10 # How many images # it's gonna generate  +n_coordinates more images than expected
-per_zoom = Decimal("0.9") # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
-video_out = False # If you want to generate a video with the images using ffmpeg
-imgfromvidfolder = ""       # Folder to save all the imgs, it will be on ./images/yourfoldername try "imgs/"
-os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and video_out else None
-
-
-palette = "./palettes/palette.png"  # Palette location
-use_palette = True
-gradient = 16        # Amount of colors between the colors
-
-# How many top colors to use from the palette.png
-top_colors = 24
-shift_palette = (0, 0)   # This shift the palette, you can set negative and positive integers.
-
-# Julia set parameters / Lyapunov uses it as the imaginary part if juliaset is off
-juliaset_c_real = -0.8
-juliaset_c_imag = 0.16
-
-# Quaternion parameters
-quaternion_j = 0.0
-quaternion_k = 0.0
-
-# Makes the part that converges visible
-lake = True
-# Palette path to another palette image
-lake_palette = "./palettes/lake_palette.png"
-# Here it's loading the palette before the generation and conversion
-array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
-
-
 getcontext().prec = 28
-# Here you can move around
-xmin, xmax, ymin, ymax = Decimal("-2.7"),Decimal("2.7"),Decimal("-2.7"),Decimal("2.7")
+
+imgfromvidfolder = all_parameters['imgfromvidfolder']
+os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and all_parameters['video_out'] else None
 
 
-
-# This part is to help you aim
-n_coordinates = 0   #  Number of coordinates to use, set False to not use it
-#                       ([(column, row, grid n*n)])
-coordinates = np.array([(1,2,3),(2,2,3),(2,1,2),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
-
-#coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
-#coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
-
-
-
-
-# Uncomment the code below if you want to start at certain location
+n_coordinates = all_parameters['n_coordinates']
 if n_coordinates>0:
-    xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(n_coordinates), :], xmin, xmax, ymin, ymax)
+    coordinates = all_parameters['coordinates']
+    all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = divide_in_squares(coordinates[:(n_coordinates), :], all_parameters["xmin"], all_parameters["xmax"], all_parameters["ymin"], all_parameters["ymax"])
+
+
+all_parameters['array_top_colors'] = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'], all_parameters['lake_palette'], all_parameters['lake'])
 
 
 
 
 
-
-
-def generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, n_iter, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k):
+def generate(all_parameters):
+    
+    xmin, xmax, ymin, ymax = all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax']
     print("\nYour coordinates: ", xmin, xmax, ymin, ymax, "\n")
 
-    array_top_colors = palette_load(palette, gradient, top_colors, lake_palette, lake)
+    lake = all_parameters['lake']
+
     prefix = ""
     img_names = []
 
+    expression = all_parameters['expression']
     print(expression.replace(" ", ""))
     expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
-
+    array_top_colors = all_parameters['array_top_colors']
     
-    if zoom:
-        max_zoom = str(max_zoom)
+    if all_parameters['zoom']:
+        max_zoom = str(all_parameters['max_zoom'])
         target_length = len(max_zoom)+1
-        n_iter = str(n_iter)
+        n_iter = str(all_parameters["n_iter"])
         n_iter = n_iter.zfill(target_length)
         prefix = n_iter+"-"
-        
+    else:
+        array_top_colors = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'], all_parameters['lake_palette'], lake)
+
+    
+ 
+    fractals = all_parameters["fractals"]
+    width = all_parameters["width"]
+    height = all_parameters["height"]
+    max_iter = all_parameters["max_iter"]
+    max_grains = all_parameters["max_grains"]
+    xmin = all_parameters["xmin"]
+    xmax = all_parameters["xmax"]
+    ymin = all_parameters["ymin"]
+    ymax = all_parameters["ymax"]
+    juliaset_c_real = all_parameters["juliaset_c_real"]
+    juliaset_c_imag = all_parameters["juliaset_c_imag"]
+    lake = all_parameters["lake"]
+    use_palette = all_parameters["use_palette"]
+    shift_palette = all_parameters["shift_palette"]
+    quaternion_j = all_parameters["quaternion_j"]
+    quaternion_k = all_parameters["quaternion_k"]
+
+
     for key, value in fractals.items():
 
         
@@ -329,6 +364,7 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
             
             
         if "gen_array" in locals():
+            imgfromvidfolder = all_parameters['imgfromvidfolder']
             start_time = time.perf_counter()
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette:
@@ -344,17 +380,24 @@ def generate(fractals, expression, width, height, top_colors, max_grains, julias
 
             
             
-def generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k):
+def generate_wrapper(all_parameters):
     
-    if zoom:
+    if all_parameters['zoom']:
+        fractals = all_parameters['fractals']
         assert fractals["sandpile"]== False, "Error: Can't zoom on sandpile."
         # The first image generated
-        generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
+        n_coordinates = all_parameters['n_coordinates']
+        max_zoom = all_parameters['max_zoom']
+        all_parameters["n_iter"] = 0
+        coordinates = all_parameters['coordinates']
+        per_zoom = all_parameters['per_zoom']
+
+        generate(all_parameters)
+
+        xmin1, xmax1, ymin1, ymax1 =  all_parameters["xmin"], all_parameters["xmax"], all_parameters["ymin"], all_parameters["ymax"]
+        xmin, xmax, ymin, ymax = xmin1, xmax1, ymin1, ymax1
         
-        xmin1, xmax1, ymin1, ymax1 =  xmin, xmax, ymin, ymax
-        
-        
-        
+    
         for i in range(n_coordinates+max_zoom): 
             if (i < n_coordinates) and (n_coordinates !=False):
                 xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(i+1), :], xmin1, xmax1, ymin1, ymax1)
@@ -363,18 +406,24 @@ def generate_wrapper(fractals, expression, width, height, top_colors, max_grains
                 x_center = (xmin + xmax) / 2
                 y_center = (ymin + ymax) / 2
                 
-                widtho = (xmax - xmin) * per_zoom
-                heighto = (ymax - ymin) * per_zoom
+                width = (xmax - xmin) * per_zoom
+                height = (ymax - ymin) * per_zoom
                 
-                xmin = x_center - widtho / 2
-                xmax = x_center + widtho / 2
-                ymin = y_center - heighto / 2
-                ymax = y_center + heighto / 2
-        
-            generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, i+1, n_coordinates+max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
+                xmin = x_center - width / 2
+                xmax = x_center + width / 2
+                ymin = y_center - height / 2
+                ymax = y_center + height / 2
+
+            all_parameters["n_iter"] = i+1
+            all_parameters["xmin"] = xmin
+            all_parameters["xmax"] = xmax
+            all_parameters["ymin"] = ymin
+            all_parameters["ymax"] = ymax
+
+            generate(all_parameters)
     else:
             # Normal mode without zoom
-            img_names = generate(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, 0, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
+            img_names = generate(all_parameters)
             return img_names
 
 
@@ -384,15 +433,18 @@ def generate_wrapper(fractals, expression, width, height, top_colors, max_grains
 
 
 
-def imgs_to_video(n_coordinates):
+def imgs_to_video(all_parameters):
     import subprocess
-    
+
+    imgfromvidfolder = all_parameters['imgfromvidfolder']
+    n_coordinates = all_parameters['n_coordinates']
+
     image_folder = "./images/" + imgfromvidfolder
     
     fps = 10
     frac = ["colorful_mandelbrot", "colorful_juliaset", "colorful_lyapunov"]
     image_files = sorted([f for f in os.listdir(image_folder) if f.endswith('.png') and re.search(r"\d+-", f) and 'colorful' in f])
-    print(image_files)
+
     for i, n in enumerate(frac):
         
         filtered_files = [f for f in image_files if n in f]
@@ -423,10 +475,7 @@ def imgs_to_video(n_coordinates):
 
 
 # stop_gen = False
-from multiprocessing import Process, Value
-
-fractal_process = None
-stop_flag = Value('b', False)
+import multiprocessing
 
 
 received_params = {}
@@ -436,7 +485,7 @@ received_params = {}
 
 
 def process_form_data(params):
-    global xmin, xmax, ymin, ymax
+    global all_parameters
 
 
 
@@ -499,65 +548,71 @@ def process_form_data(params):
 
 
 
-    expression = params.get('expression', ['z*z+c'])
+    all_parameters['expression'] = params.get('expression', ['z*z+c'])
 
-    fractals = params.get("fractals", {
+    all_parameters['fractals'] = params.get("fractals", {
     'mandelbrot': False,
     'juliaset': False,
     'lyapunov': False,
     'sandpile': False,
     })
 
-    width = int(params.get('width', [1024]))
-    height = int(params.get('height', [1024]))
-    max_iter = int(params.get('max_iter', [400]))
-    top_colors = int(params.get('top_colors', [24]))
-    max_grains = int(params.get('max_grains', [3]))
-    juliaset_c_real = float(params.get('juliaset_c_real', [-0.8]))
-    juliaset_c_imag = float(params.get('juliaset_c_imag', [0.16]))
+    all_parameters['width'] = int(params.get('width', [1024]))
+    all_parameters['height'] = int(params.get('height', [1024]))
+    all_parameters['max_iter'] = int(params.get('max_iter', [400]))
+    all_parameters['top_colors'] = int(params.get('top_colors', [24]))
+    all_parameters['max_grains'] = int(params.get('max_grains', [3]))
+    all_parameters['juliaset_c_real'] = float(params.get('juliaset_c_real', [-0.8]))
+    all_parameters['juliaset_c_imag'] = float(params.get('juliaset_c_imag', [0.16]))
 
-    use_palette = bool(params.get('use_palette', True))
-    palette = params.get('palette', [''])
+    all_parameters['use_palette'] = bool(params.get('use_palette', True))
+    palette = params.get('palette', ['./palettes/palette.png'])
     palette = download_image(palette)
-    gradient = int(params.get('gradient', [16]))
-
-    lake = bool(params.get('lake', True))
-    lake_palette = params.get('lake_palette', [''])
+    all_parameters['palette'] = palette
+    all_parameters['gradient'] = int(params.get('gradient', [16]))
+    all_parameters['lake'] = bool(params.get('lake', True))
+    lake_palette = params.get('lake_palette', ['./palettes/lake_palette.png'])
     lake_palette = download_image(lake_palette)
+    all_parameters['lake_palette'] = lake_palette
+    all_parameters['shift_palette'] = (int(params.get('shift_palette', [0])), int(params.get('shift_palette_lake',[0])))
 
-    shift_palette = int(params.get('shift_palette'))
-    shift_palette_lake = int(params.get('shift_palette_lake'))
-    column_aim = int(params.get('column_aim'))
-    row_aim = int(params.get('row_aim'))
-    grid_length = int(params.get('grid_length'))
+    grid_length = int(params.get('grid_length', [3]))
+    column_aim = min(int(params.get('column_aim', [2])), grid_length)
+    row_aim = min(int(params.get('row_aim', [2])), grid_length)
+
     coordinates = np.array([(column_aim,row_aim,grid_length)])
-    continue_aim = bool(params.get('continue_aim', False))
-    quaternion_j = float(params.get('quaternion_j', [0.0]))
-    quaternion_k = float(params.get('quaternion_k', [0.0]))
+    all_parameters['column_aim'] = column_aim
+    all_parameters['row_aim'] = row_aim
+    all_parameters['grid_length'] = grid_length
+    all_parameters['coordinates'] = coordinates
+    all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
 
-    if continue_aim and grid_length != 1:
+    all_parameters['quaternion_j'] = float(params.get('quaternion_j', [0.0]))
+    all_parameters['quaternion_k'] = float(params.get('quaternion_k', [0.0]))
 
-        xmin, xmax, ymin, ymax = divide_in_squares(coordinates, xmin, xmax, ymin, ymax) 
+    if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
+        xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
+        all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
     else:
-        xmin = Decimal(params.get('xmin', [-2.0]))
-        xmax = Decimal(params.get('xmax', [2.0]))
-        ymin = Decimal(params.get('ymin', [-2.0]))
-        ymax = Decimal(params.get('ymax', [2.0]))
+        all_parameters['xmin'] = Decimal(params.get('xmin', [-2.7]))
+        all_parameters['xmax'] = Decimal(params.get('xmax', [2.7]))
+        all_parameters['ymin'] = Decimal(params.get('ymin', [-2.7]))
+        all_parameters['ymax'] = Decimal(params.get('ymax', [2.7]))
 
     
     zoom = False
     max_zoom = 20
 
 
-    if use_palette and not os.path.exists(palette):
+    if all_parameters['use_palette'] and not os.path.exists(palette):
         print(f"Palette file does not exist: {palette}")
         return
-    if lake and not os.path.exists(lake_palette):
+    if all_parameters['lake'] and not os.path.exists(lake_palette):
         print(f"Lake palette file does not exist: {lake_palette}")
         return
 
     
-    paths = generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, [shift_palette, shift_palette_lake],quaternion_j, quaternion_k)
+    paths = generate_wrapper(all_parameters)
     
     #print((paths))
     return paths
@@ -566,10 +621,6 @@ def process_form_data(params):
 
 
 def server(port):
-    global xmin, xmax, ymin, ymax
-    xmin_xmax = np.array([(-(2.0)), ((2.0))], dtype=np.float64)
-    ymin_ymax = np.array([-(2.0), (2.0)], dtype=np.float64)
-    xmin, xmax, ymin, ymax = xmin_xmax[0], xmin_xmax[1], ymin_ymax[0], ymin_ymax[1]
 
 
 
@@ -644,7 +695,7 @@ def server(port):
 
 
 def main():
-    global video_out, n_coordinates
+    global all_parameters
     parser = argparse.ArgumentParser(description='Process some arguments.')
 
     # Add the --noserver flag
@@ -664,10 +715,10 @@ def main():
     
     if args.noserver:
         # Let's Run
-        generate_wrapper(fractals, expression, width, height, top_colors, max_grains, juliaset_c_real, juliaset_c_imag, use_palette, palette, lake, lake_palette, gradient, zoom, max_zoom, max_iter, xmin, xmax, ymin, ymax, shift_palette, quaternion_j, quaternion_k)
+        generate_wrapper(all_parameters)
         # n_coordinates is how many times it will use the array coordinates.
-        if video_out:
-            imgs_to_video(n_coordinates)
+        if all_parameters['video_out']:
+            imgs_to_video(all_parameters)
 
     else:
 
