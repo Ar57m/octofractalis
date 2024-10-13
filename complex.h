@@ -18,12 +18,12 @@ struct Complex {
     //     return Complex(realPart, imagPart);
     // }
 
-    Complex noNan() const {
+    inline Complex noNan() const {
         
-        double realPart = (std::abs(real) > 1e-13 && std::abs(real) < 1e300) ? real : 0;
-        double imagPart = (std::abs(imag) > 1e-13 && std::abs(imag) < 1e300) ? imag : 0;
+        double realPart = std::abs(real);
+        double imagPart = std::abs(imag);
 
-        return Complex(realPart, imagPart);
+        return Complex((realPart > 1e-13 && realPart < 1e300) ? real : 0, (imagPart > 1e-13 && imagPart < 1e300) ? imag : 0);
     }
 
 

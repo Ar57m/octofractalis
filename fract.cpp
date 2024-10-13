@@ -115,6 +115,15 @@ public:
     }
 };
 
+
+// Zeroing if something is wrong to not crash
+static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> error_zero = {
+    {"zero", [](std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<ConstantNode>(Complex(0.0, 0.0)); }}
+};
+
+bool printerror = false;
+
+
 // Parser
 class Parser {
 public:
@@ -125,10 +134,19 @@ public:
         return parseExpression();
     }
 
+
 private:
+
     std::string expr;
     size_t pos;
     std::map<std::string, std::function<Complex()>> variables;
+
+    void print_error(bool& value,  const std::string& message) {
+        if (!value) {
+            std::cout << message << std::endl;
+            value = true;
+        }
+    }
 
     std::shared_ptr<ASTNode> parseExpression() {
         auto node = parseTerm();
@@ -163,7 +181,6 @@ private:
     }
 
     std::shared_ptr<ASTNode> parseFactor() {
-        // skipWhitespace();
 
         if (expr[pos] == '+') {
             ++pos;
@@ -182,13 +199,15 @@ private:
             ++pos;
             auto node = parseExpression();
             if (expr[pos] != ')') {
-                throw std::runtime_error("Expected ')'");
+                print_error(printerror,"Expected ')'" "\n");
+                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
             ++pos;
             return node;
         }
 
-        throw std::runtime_error("Unexpected character in expression");
+        print_error(printerror,"Unexpected character in expression" "\n");
+        return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
     }
 
 
@@ -198,7 +217,6 @@ private:
             name += expr[pos++];
         }
 
-        // skipWhitespace();
         if (pos < expr.size() && expr[pos] == '(') {
             return parseFunction(name);
         }
@@ -206,12 +224,12 @@ private:
         if (variables.find(name) != variables.end()) {
             return std::make_shared<VariableNode>(variables.at(name));
         } else {
-            throw std::runtime_error("Unknown variable: " + name);
+            print_error(printerror,"Unknown variable: " + name + "\n");
+            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
     }
 
     std::shared_ptr<ASTNode> parseNumber() {
-        // skipWhitespace();
         std::string number;
         bool hasImaginaryPart = false;
 
@@ -235,44 +253,42 @@ private:
     std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
         ++pos;  // Skip '('
 
-        // skipWhitespace(); // Skip any leading whitespace before parsing expressions
         auto arg1 = parseExpression(); // Parse the first argument
 
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
 
-        // skipWhitespace(); // Skip any whitespace after the first argument
 
         // Parse binary functions (expecting a second argument)
         if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle" ) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
-                // skipWhitespace(); // Skip any whitespace before the second argument
                 arg2 = parseExpression();  // Parse the second argument for binary functions
             } else {
-                throw std::runtime_error("Expected ',' between arguments for " + func);
+                print_error(printerror,"Expected ',' between arguments for " + func + "\n");
+                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
         }
-        // skipWhitespace();
         // Parse functions that expect a third argument
         if (func == "ellipsoid") {
-            // skipWhitespace();
+
             if (expr[pos] == ',') {
                 ++pos;
-                // skipWhitespace();
+  
                 arg2 = parseExpression();
                 ++pos;
-                // skipWhitespace();
+
                 arg3 = parseExpression();
             } else {
-                throw std::runtime_error("Expected ',' between arguments for " + func);
+                print_error(printerror,"Expected ',' between arguments for " + func + "\n");
+                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
         }
 
-        // skipWhitespace();
 
         if (expr[pos] != ')') {
-            throw std::runtime_error("Expected ')' to close the function " + func);
+            print_error(printerror,"Expected ')' to close the function " + func + "\n");
+            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
         ++pos;  // Skip ')'
 
@@ -308,7 +324,8 @@ private:
         if (it != functionMap.end()) {
             return it->second(arg1, arg2, arg3);  // Call the mapped function
         } else {
-            throw std::runtime_error("Function not recognized: " + func);
+            print_error(printerror,"Function not recognized: " + func + "\n");
+            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
     }
 
@@ -355,12 +372,13 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k) {
+    void fractal(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k) {
 
         std::signal(SIGINT, signal_handler);
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        *failed_gen = *failed_gen == 0 ? 1 : 1;
 
         const std::string expression = std::string(exp);
 
@@ -430,6 +448,7 @@ extern "C" {
         } else {
             
             int y;
+            *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Complex z,c;
@@ -462,12 +481,15 @@ extern "C" {
                     }
 
                     uint16_t iteration = 0;
+                    double temp = z.abs();
     
-                    while (z.abs() < 2 && iteration < max_iter) {
+                    while (temp < 2 && iteration < max_iter) {
                         z = (ast->evaluate()).noNan();
+                        temp = z.abs();
                         ++iteration;
                     }
-                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
+                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
+                    update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
                 }
             }
        } 
@@ -475,7 +497,7 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const bool use_complex_ab, const double quaternion_j, const double quaternion_k) {
+    void lyapunov(uint16_t* output, double* failed_gen,const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const bool use_complex_ab, const double quaternion_j, const double quaternion_k) {
         
         std::signal(SIGINT, signal_handler);
         
@@ -484,6 +506,8 @@ extern "C" {
         const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
         complex_a = !use_complex_ab ? 0.0 : complex_a;
         complex_b = !use_complex_ab ? 0.0 : complex_b;
+        *failed_gen = *failed_gen == 0 ? 1 : 1;
+
         const std::string expression = std::string(exp);
 
         if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
@@ -540,6 +564,8 @@ extern "C" {
 
         } else {
 
+            
+            *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 Complex l, v, temp;
@@ -574,7 +600,9 @@ extern "C" {
                             l += (ast->evaluate()).noNan();
                         }
                     }
-                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
+                    double labs = l.abs();
+                    *failed_gen = labs > *failed_gen ? labs : *failed_gen;
+                    update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
                 }
             }

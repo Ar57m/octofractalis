@@ -20,8 +20,8 @@ lib.process_array.restype = None
 lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_float] 
 lib.scale.restype = None
 
-fractal.argtypes = [POINTER(c_uint16), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double]
-lyapunov.argtypes = [POINTER(c_uint16), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_double, c_double]
+fractal.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double]
+lyapunov.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_double, c_double]
 sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
 
 
@@ -212,7 +212,7 @@ all_parameters = {
     # You can generate different types of fractals
     'fractals' : {
         'mandelbrot': True,
-        'juliaset': True,
+        'juliaset': False,
         'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
@@ -300,7 +300,7 @@ def generate(all_parameters):
     print(expression.replace(" ", ""))
     expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
     array_top_colors = all_parameters['array_top_colors']
-    
+
     if all_parameters['zoom']:
         max_zoom = str(all_parameters['max_zoom'])
         target_length = len(max_zoom)+1
@@ -329,6 +329,8 @@ def generate(all_parameters):
     quaternion_j = all_parameters["quaternion_j"]
     quaternion_k = all_parameters["quaternion_k"]
 
+    failed_gen = 0
+
 
     for key, value in fractals.items():
 
@@ -337,7 +339,8 @@ def generate(all_parameters):
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k)
+            failed_gen = np.empty((1,), dtype=np.float64)
+            fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
@@ -347,7 +350,8 @@ def generate(all_parameters):
         if (key == "lyapunov") and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, not fractals.get('juliaset'), quaternion_j, quaternion_k)
+            failed_gen = np.empty((1,), dtype=np.float64)
+            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, not fractals.get('juliaset'), quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
@@ -367,18 +371,20 @@ def generate(all_parameters):
             imgfromvidfolder = all_parameters['imgfromvidfolder']
             start_time = time.perf_counter()
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-            if use_palette:
+            if use_palette and failed_gen[0] > 0:
                 create_image(gen_array.reshape(width, height), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
                 img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
-            else:
+            elif failed_gen[0] > 0:
                 process_image(gen_array, (2**24-1), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key )
                 img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key+".png")
+            else:
+                img_names.append("./failed_gen.png")
             end_time = time.perf_counter()
             del gen_array
             print("Took ", end_time - start_time, "seconds to convert\n")
     return img_names
 
-            
+
             
 def generate_wrapper(all_parameters):
     
