@@ -612,36 +612,38 @@ extern "C" {
 
 
     void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains, const uint16_t max_grains=3) {
-        // Create a 2D array to store the sandpile
-        std::signal(SIGINT, signal_handler);
-        std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
-
-        // Add grains to the center of the sandpile
-        sandpile[height / 2][width / 2] = n_grains;
-
-        bool unstable = true;
-        while (unstable) {
-            unstable = false;
-
-            // Process each cell in the sandpile
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    if (sandpile[y][x] > max_grains) {
-                        // Distribute grains to neighboring cells
-                        if (y > 0) sandpile[y-1][x] += sandpile[y][x] / 4;
-                        if (y < height-1) sandpile[y+1][x] += sandpile[y][x] / 4;
-                        if (x > 0) sandpile[y][x-1] += sandpile[y][x] / 4;
-                        if (x < width-1) sandpile[y][x+1] += sandpile[y][x] / 4;
-
-                        // Remove grains from current cell
-                        sandpile[y][x] %= 4;
-                        unstable = true;
+            std::signal(SIGINT, signal_handler);
+            std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
+        
+            // Add grains to the center of the sandpile
+            sandpile[height / 2][width / 2] = n_grains;
+        
+            bool unstable = true;
+            while (unstable) {
+                unstable = false;
+        
+                // Process each cell in the sandpile
+                for (int y = 0; y < height; ++y) {
+                    for (int x = 0; x < width; ++x) {
+                        // Distribute grains if the number of grains in the cell is greater than max_grains
+                        uint32_t grains_to_distribute = sandpile[y][x]; 
+                        if (grains_to_distribute > max_grains &&  grains_to_distribute > 3) {
+                            grains_to_distribute /= 4;
+                            // Distribute grains to neighboring cells
+                            if (y > 0) sandpile[y-1][x] += grains_to_distribute;
+                            if (y < height-1) sandpile[y+1][x] += grains_to_distribute;
+                            if (x > 0) sandpile[y][x-1] += grains_to_distribute;
+                            if (x < width-1) sandpile[y][x+1] += grains_to_distribute;
+        
+                            // Remove grains from current cell
+                            sandpile[y][x] %= 4;
+                            unstable = true;
+                        }
+                        output[y * width + x] = static_cast<uint8_t>(sandpile[y][x]);
                     }
-                    output[y * width + x] = static_cast<uint8_t>(sandpile[y][x]);
                 }
             }
         }
-    }
 
 
 
