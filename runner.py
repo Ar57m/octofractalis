@@ -329,7 +329,7 @@ def generate(all_parameters):
     quaternion_j = all_parameters["quaternion_j"]
     quaternion_k = all_parameters["quaternion_k"]
 
-    failed_gen = 0
+    failed_gen = np.zeros((1), dtype=np.float64)
 
 
     for key, value in fractals.items():
@@ -339,7 +339,7 @@ def generate(all_parameters):
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            failed_gen = np.empty((1,), dtype=np.float64)
+            failed_gen = np.zeros((1), dtype=np.float64)
             fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
@@ -350,7 +350,7 @@ def generate(all_parameters):
         if (key == "lyapunov") and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            failed_gen = np.empty((1,), dtype=np.float64)
+            failed_gen = np.zeros((1), dtype=np.float64)
             lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, not fractals.get('juliaset'), quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
@@ -361,6 +361,7 @@ def generate(all_parameters):
         if (key == "sandpile") and (value):
             gen_array = np.empty((height, width), dtype=np.uint8)
             start_time = time.perf_counter()
+            failed_gen[0] = 1.0
             sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)), width, height, max_iter, max_grains)
             end_time = time.perf_counter()
             
