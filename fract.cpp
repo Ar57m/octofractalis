@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <sstream>
 #include "complex.h"
-
+#include <chrono>
 
 
 void signal_handler(int signal) {
@@ -24,6 +24,7 @@ void signal_handler(int signal) {
 
 
 double pi = 3.1415926535897932384626433832795028841971693993751;
+double phi =1.6180339887498948482045868343656381177203091798057;
 double e =  2.7182818284590452353602874713526624977572470937000;
 
 double noNan(double value) {
@@ -33,6 +34,41 @@ double noNan(double value) {
 
 
 
+int current = 0;
+
+void display_progress( int &current, const int total, const int iteration_interval) {
+    static auto start_time = std::chrono::steady_clock::now();
+    static double avg_it_per_sec = 0.0;
+    static auto last_update_time = start_time;
+
+    if (current % iteration_interval == 0 || current == total) {
+        auto now = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_since_last_update = now - last_update_time;
+
+        if (elapsed_since_last_update.count() >= 0.5 || current == total) {
+            last_update_time = now;
+
+            double progress = static_cast<double>(current) / total * 100.0;
+
+            std::chrono::duration<double> elapsed = now - start_time;
+            avg_it_per_sec = (avg_it_per_sec == 0.0) ? current / elapsed.count() : (avg_it_per_sec + current / elapsed.count()) / 2.0;
+
+            int bar_width = 50;
+            int pos = static_cast<int>(bar_width * progress / 100.0);
+
+            std::cout << "[";
+            for (int i = 0; i < bar_width; ++i) {
+                if (i < pos) std::cout << std::string(1,(char)254u);
+                else if (i == pos) std::cout << ">";
+                else std::cout << " ";
+            }
+            std::cout << "] " << int(progress) << "%  [ "
+                      << avg_it_per_sec << " it/s; " << int((total - current) / avg_it_per_sec) << "s left ] \r";
+            std::cout.flush();
+        }
+    }
+    current++;
+}
 
 
 
@@ -379,6 +415,7 @@ extern "C" {
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
         *failed_gen = *failed_gen == 0 ? 1 : 1;
+        current = 0;
 
         const std::string expression = std::string(exp);
 
@@ -409,7 +446,9 @@ extern "C" {
                     }
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
+                display_progress( current, width, 100);
             }
+            std::cout << "\n";
 
 
         } else if ( quatern ) {
@@ -442,7 +481,9 @@ extern "C" {
                     }
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
                 }
+                display_progress( current, width, 100);
             }
+            std::cout << "\n";
 
 
         } else {
@@ -456,6 +497,7 @@ extern "C" {
                 std::map<std::string, std::function<Complex()>> variables = {
                     {"rt", [&z]() { return z; }},
                     {"rw", [&c]() { return c; }},
+                    {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
                     {"y", [&]() { return static_cast<double>(y); }},
@@ -491,7 +533,9 @@ extern "C" {
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
                 }
+                display_progress( current, width, 100);
             }
+            std::cout << "\n";
        } 
     }
 
@@ -507,6 +551,7 @@ extern "C" {
         complex_a = !use_complex_ab ? 0.0 : complex_a;
         complex_b = !use_complex_ab ? 0.0 : complex_b;
         *failed_gen = *failed_gen == 0 ? 1 : 1;
+        current = 0;
 
         const std::string expression = std::string(exp);
 
@@ -534,7 +579,9 @@ extern "C" {
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
                     
                 }
+                display_progress( current, width, 100);
             }
+            std::cout << "\n";
 
         } else if (quatern) {
             
@@ -560,7 +607,9 @@ extern "C" {
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
                     
                 }
+                display_progress( current, width, 100);
             }
+            std::cout << "\n";
 
         } else {
 
@@ -573,6 +622,7 @@ extern "C" {
                     {"rt", [&v]() { return v; }},
                     {"rw", [&l]() { return l; }},
                     {"rk", [&temp]() { return temp; }},
+                    {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
                 };
@@ -605,7 +655,9 @@ extern "C" {
                     update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
                 }
+                display_progress( current, width, 100);
             }
+            std::cout << "\n";
         }
     }
 

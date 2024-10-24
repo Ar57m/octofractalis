@@ -200,10 +200,10 @@ all_parameters = {
     'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 1000,
+    'max_iter' : 400,
 
     # Sandpile max grains
-    'max_grains' : 3,
+    'max_grains' : 4,
 
 
     # The equation
@@ -212,7 +212,7 @@ all_parameters = {
     # You can generate different types of fractals
     'fractals' : {
         'mandelbrot': True,
-        'juliaset': False,
+        'juliaset': True,
         'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
@@ -231,12 +231,17 @@ all_parameters = {
     'gradient' : 16,        # Amount of colors between the colors
 
     # How many top colors to use from the palette.png
-    'top_colors' : 24,
+    'top_colors' : 16,
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
-    # Julia set parameters / Lyapunov uses it as the imaginary part if juliaset is off
-    'juliaset_c_real' : -0.8*1,
-    'juliaset_c_imag' : 0.16*1,
+    # Julia set parameters
+    'juliaset_c_real' : -0.8,
+    'juliaset_c_imag' : 0.16,
+
+    #Lyapunov uses it as the imaginary part if juliaset is off
+    'lyapunov_c_a' : 0.0,
+    'lyapunov_c_b' : 0.0,
+
 
     # Quaternion parameters
     'quaternion_j' : 0.0,
@@ -323,23 +328,25 @@ def generate(all_parameters):
     ymax = all_parameters["ymax"]
     juliaset_c_real = all_parameters["juliaset_c_real"]
     juliaset_c_imag = all_parameters["juliaset_c_imag"]
+    lyapunov_c_a = all_parameters["lyapunov_c_a"]
+    lyapunov_c_b = all_parameters["lyapunov_c_b"]
     lake = all_parameters["lake"]
     use_palette = all_parameters["use_palette"]
     shift_palette = all_parameters["shift_palette"]
     quaternion_j = all_parameters["quaternion_j"]
     quaternion_k = all_parameters["quaternion_k"]
 
-    failed_gen = np.zeros((1), dtype=np.float64)
+
 
 
     for key, value in fractals.items():
 
+        failed_gen = np.zeros((1), dtype=np.float64)
         
         # Mandelbrot Set/Julia Set
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            failed_gen = np.zeros((1), dtype=np.float64)
             fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
@@ -350,8 +357,7 @@ def generate(all_parameters):
         if (key == "lyapunov") and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            failed_gen = np.zeros((1), dtype=np.float64)
-            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, not fractals.get('juliaset'), quaternion_j, quaternion_k)
+            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, lyapunov_c_a, lyapunov_c_b, not fractals.get('juliaset'), quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
@@ -364,7 +370,6 @@ def generate(all_parameters):
             failed_gen[0] = 1.0
             sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)), width, height, max_iter, max_grains)
             end_time = time.perf_counter()
-            
             print("Took ", end_time - start_time, "seconds to generate")
             
             
