@@ -18,6 +18,9 @@ struct Complex {
     //     return Complex(realPart, imagPart);
     // }
 
+    static constexpr double e = 2.7182818284590452353602874713526624977572470937000;
+    static constexpr double pi = 3.1415926535897932384626433832795028841971693993751;
+ 
     inline Complex noNan() const {
         
         double realPart = std::abs(real);
@@ -264,31 +267,75 @@ struct Complex {
         return Complex(std::cos(angle) * radiusX.abs(), std::sin(angle) * radiusY.abs());
     }
 
-    Complex gamma() const {
-        Complex z = *this;
-        
-        if (z.real <= 0 && z.imag == 0) {
-            return Complex(0,0);
-        }
-        const double sqrt_2_pi = std::sqrt(2 * 3.1415926535897932384626433832795028841971693993751);
 
-        Complex e(2.7182818284590452353602874713526624977572470937000,0);
-        return sqrt_2_pi * e.pow(z * (z.log() - 1.0));
+
+
+
+    static constexpr double lanczos_coeffs[9] = {
+        0.99999999999980993, 
+        676.5203681218851, 
+        -1259.1392167224028, 
+        771.32342877765313, 
+        -176.61502916214059, 
+        12.507343278686905, 
+        -0.13857109526572012, 
+        9.9843695780195716e-6, 
+        1.5056327351493116e-7
+    };
+
+
+    Complex gamma() const {
+        Complex z = *this - 1.0;
+
+        Complex x(lanczos_coeffs[0], 0.0);
+        for (int i = 1; i < 9; ++i) {
+            x = x + lanczos_coeffs[i] / (z + Complex(static_cast<double>(i), 0.0));
+        }
+
+        Complex t = z + 7.0 + 0.5;
+
+        return (Complex(2.0 * pi, 0.0).sqrt()) * t.pow(z + 0.5) * Complex(e, 0.0).pow(-t) * x;
     }
 
+
+
     Complex zeta() const {
-        Complex sum(0, 0);
+        Complex sum(0.0, 0.0);
         const int N = 100;  // Number of terms for approximation
         for (int n = 1; n <= N; ++n) {
-            sum = sum + Complex(n, 0).pow(-(*this));
+            sum = sum + Complex(n, 0.0).pow(-(*this));
         }
         return sum;
     }
-    friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
-        os << "(" << c.real << " + " << c.imag << "i)";
-        return os;
+
+    // probably broken, will have to fix/rewrite
+    Complex airy() const {
+        Complex z = *this;
+        int steps = 1000;
+        double upper_limit = 100.0;
+        Complex sum(0.0, 0.0);
+        double h = upper_limit / steps;
+
+        for (int i = 0; i < steps; ++i) {
+            double t1 = i * h;
+            double t2 = (i + 1) * h;
+
+            Complex f1 = ((std::pow(t1, 3) / 3.0) + z * t1).cos();
+            Complex f2 = ((std::pow(t2, 3) / 3.0) + z * t2).cos();
+
+            sum += 0.5 * (f1 + f2) * h;
+        }
+
+        return sum / pi;
     }
-};
+
+
+
+        friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
+            os << "(" << c.real << " + " << c.imag << "i)";
+            return os;
+        }
+    };
 
 
 struct Quaternion {
