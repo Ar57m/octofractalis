@@ -38,7 +38,7 @@ int current = 0;
 
 void display_progress( int &current, const int total, const int iteration_interval) {
     static auto start_time = std::chrono::steady_clock::now();
-    static int avg_it_per_sec = 0.0;
+    static int avg_it_per_sec = 0;
     static auto last_update_time = start_time;
 
     if (current % iteration_interval == 0 || current == total) {
