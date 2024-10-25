@@ -38,7 +38,7 @@ int current = 0;
 
 void display_progress( int &current, const int total, const int iteration_interval) {
     static auto start_time = std::chrono::steady_clock::now();
-    static double avg_it_per_sec = 0.0;
+    static int avg_it_per_sec = 0;
     static auto last_update_time = start_time;
 
     if (current % iteration_interval == 0 || current == total) {
@@ -51,15 +51,14 @@ void display_progress( int &current, const int total, const int iteration_interv
             double progress = static_cast<double>(current) / total * 100.0;
 
             std::chrono::duration<double> elapsed = now - start_time;
-            avg_it_per_sec = (avg_it_per_sec == 0.0) ? current / elapsed.count() : (avg_it_per_sec + current / elapsed.count()) / 2.0;
+            avg_it_per_sec = (avg_it_per_sec == 0) ? static_cast<int>(current / elapsed.count()) : static_cast<int>((avg_it_per_sec + current / elapsed.count()) / 2.0);
 
             int bar_width = 50;
             int pos = static_cast<int>(bar_width * progress / 100.0);
 
             std::cout << "[";
             for (int i = 0; i < bar_width; ++i) {
-                if (i < pos) std::cout << std::string(1,(char)254u);
-                else if (i == pos) std::cout << ">";
+                if (i <= pos) std::cout << std::string(1,(char)254u);
                 else std::cout << " ";
             }
             std::cout << "] " << int(progress) << "%  [ "
@@ -296,7 +295,7 @@ private:
 
 
         // Parse binary functions (expecting a second argument)
-        if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle" ) {
+        if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle") {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
                 arg2 = parseExpression();  // Parse the second argument for binary functions
@@ -350,6 +349,7 @@ private:
             {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
             {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma().noNan(); }); }},
             {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta().noNan(); }); }},
+            {"airy", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.airy().noNan(); }); }},
             {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Complex& a, const Complex& b, const Complex& c) { return a.ellipsoid(b,c).noNan(); }); }},
             {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.circle(b).noNan(); }); }},
             {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.square(b).noNan(); }); }},
@@ -500,8 +500,8 @@ extern "C" {
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
-                    {"y", [&]() { return static_cast<double>(y); }},
-                    {"x", [&]() { return static_cast<double>(x); }}
+                    {"y", [&]() { return Complex (y, 0.0); }},
+                    {"x", [&]() { return Complex (x, 0.0); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
