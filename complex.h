@@ -4,6 +4,8 @@
 #include <iostream>
 #include <cmath>
 #include <limits>
+#include <cstdint>
+
 
 struct Complex {
     double real;
@@ -28,7 +30,6 @@ struct Complex {
 
         return Complex((realPart > 1e-13 && realPart < 1e300) ? real : 0, (imagPart > 1e-13 && imagPart < 1e300) ? imag : 0);
     }
-
 
 
     // Sum
