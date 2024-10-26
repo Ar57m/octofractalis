@@ -23,9 +23,9 @@ void signal_handler(int signal) {
 }
 
 
-double pi = 3.1415926535897932384626433832795028841971693993751;
-double phi =1.6180339887498948482045868343656381177203091798057;
-double e =  2.7182818284590452353602874713526624977572470937000;
+static constexpr double pi = 3.1415926535897932384626433832795028841971693993751;
+static constexpr double phi =1.6180339887498948482045868343656381177203091798057;
+static constexpr double e =  2.7182818284590452353602874713526624977572470937000;
 
 double noNan(double value) {
     return (std::abs(value) > 1e-13 && std::abs(value) < 1e300) ? value : 0;
@@ -183,7 +183,7 @@ private:
         }
     }
 
-    std::shared_ptr<ASTNode> parseExpression() {
+    const std::shared_ptr<ASTNode> parseExpression() {
         auto node = parseTerm();
         while (pos < expr.size()) {
             if (expr[pos] == '+') {
@@ -199,7 +199,7 @@ private:
         return node;
     }
 
-    std::shared_ptr<ASTNode> parseTerm() {
+    const std::shared_ptr<ASTNode> parseTerm() {
         auto node = parseFactor();
         while (pos < expr.size()) {
             if (expr[pos] == '*') {
@@ -215,7 +215,7 @@ private:
         return node;
     }
 
-    std::shared_ptr<ASTNode> parseFactor() {
+    const std::shared_ptr<ASTNode> parseFactor() {
 
         if (expr[pos] == '+') {
             ++pos;
@@ -246,7 +246,7 @@ private:
     }
 
 
-    std::shared_ptr<ASTNode> parseVariableOrFunction() {
+    const std::shared_ptr<ASTNode> parseVariableOrFunction() {
         std::string name;
         while (pos < expr.size() && isalpha(expr[pos])) {
             name += expr[pos++];
@@ -264,7 +264,7 @@ private:
         }
     }
 
-    std::shared_ptr<ASTNode> parseNumber() {
+    const std::shared_ptr<ASTNode> parseNumber() {
         std::string number;
         bool hasImaginaryPart = false;
 
@@ -285,10 +285,10 @@ private:
         return std::make_shared<ConstantNode>(Complex(realPart, imagPart));
     }
 
-    std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
+    const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
         ++pos;  // Skip '('
 
-        auto arg1 = parseExpression(); // Parse the first argument
+        const auto arg1 = parseExpression(); // Parse the first argument
 
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
@@ -340,7 +340,7 @@ private:
             {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
             {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return noNan(a.arg()); }); }},
             {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
-            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.abs(); }); }},
+            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.c_abs().noNan(); }); }},
             {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
             {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b).noNan(); }); }},
             {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b).noNan(); }); }},
@@ -356,7 +356,7 @@ private:
             {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.triangle(b).noNan(); }); }},
         };
 
-        auto it = functionMap.find(func);
+        const auto it = functionMap.find(func);
         if (it != functionMap.end()) {
             return it->second(arg1, arg2, arg3);  // Call the mapped function
         } else {
@@ -392,13 +392,13 @@ extern "C" {
     void scale(const float* input_tensor, float* scaled_tensor, const int input_size, const float new_min, const float new_max) {
         std::signal(SIGINT, signal_handler);
         float current_min = *std::min_element(input_tensor, input_tensor + input_size);
-        float current_max = *std::max_element(input_tensor, input_tensor + input_size);
+        const float current_max = *std::max_element(input_tensor, input_tensor + input_size);
 
         if (current_min == current_max){
             current_min -= 1;
         } 
 
-        float scale_factor = (new_max - new_min) / (current_max - current_min);
+        const float scale_factor = (new_max - new_min) / (current_max - current_min);
         
         for (int i = 0; i < input_size; ++i) {
             scaled_tensor[i] = (input_tensor[i] - current_min) * scale_factor + new_min;
@@ -494,7 +494,7 @@ extern "C" {
             for (int x = 0; x < width; ++x) {
                 Complex z,c;
     
-                std::map<std::string, std::function<Complex()>> variables = {
+                const std::map<std::string, std::function<Complex()>> variables = {
                     {"rt", [&z]() { return z; }},
                     {"rw", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
@@ -506,12 +506,12 @@ extern "C" {
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
                 Parser parser( expression, variables);
-                auto ast = parser.parse();
+                const auto ast = parser.parse();
     
     
                 for (int y = 0; y < height; ++y) {
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
+                    const double r_part = xmin + x * dx;
+                    const double i_part = ymin + y * dy;
     
 
                     if (juliaset) {
@@ -541,15 +541,13 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, double* failed_gen,const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const bool use_complex_ab, const double quaternion_j, const double quaternion_k) {
+    void lyapunov(uint16_t* output, double* failed_gen,const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const double quaternion_j, const double quaternion_k) {
         
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
         const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
-        complex_a = !use_complex_ab ? 0.0 : complex_a;
-        complex_b = !use_complex_ab ? 0.0 : complex_b;
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
@@ -560,19 +558,19 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 for (int j = 0; j < height; ++j) {
-                    double x = xmin + i * dx;
-                    double y = ymin + j * dy;
-                    Complex a(0.5 + x * 0.5, complex_a);
-                    Complex b(0.5 + y * 0.5, complex_b);
+                    const double x = xmin + i * dx;
+                    const double y = ymin + j * dy;
+                    const Complex a(0.5 + x * 0.5, complex_a);
+                    const Complex b(0.5 + y * 0.5, complex_b);
                     Complex l(0.0, 0.0);
                     Complex v(0.5, 0.0);
 
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
-                            v = b * v * (1.0 - v);
+                            v = (b * v * (1.0 - v));
                             l += (((b * (1.0 - 2.0 * v)).c_abs()).log()).noNan();
                         } else {
-                            v = a * v * (1.0 - v);
+                            v = (a * v * (1.0 - v));
                             l += (((a * (1.0 - 2.0 * v)).c_abs()).log()).noNan();
                         }
                     }
@@ -588,10 +586,10 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 for (int j = 0; j < height; ++j) {
-                    double x = xmin + i * dx;
-                    double y = ymin + j * dy;
-                    Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-                    Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
+                    const double x = xmin + i * dx;
+                    const double y = ymin + j * dy;
+                    const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
                     Quaternion l(0.0, 0.0);
                     Quaternion v(0.5, 0.0);
 
@@ -618,7 +616,7 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 Complex l, v, temp;
-                std::map<std::string, std::function<Complex()>> variables = {
+                const std::map<std::string, std::function<Complex()>> variables = {
                     {"rt", [&v]() { return v; }},
                     {"rw", [&l]() { return l; }},
                     {"rk", [&temp]() { return temp; }},
@@ -629,12 +627,12 @@ extern "C" {
 
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
                 Parser parser( expression, variables);
-                auto ast = parser.parse();
+                const auto ast = parser.parse();
                 for (int j = 0; j < height; ++j) {
-                    double x = xmin + i * dx;
-                    double y = ymin + j * dy;
-                    Complex a(0.5 + x * 0.5, complex_a);
-                    Complex b(0.5 + y * 0.5, complex_b);
+                    const double x = xmin + i * dx;
+                    const double y = ymin + j * dy;
+                    const Complex a(0.5 + x * 0.5, complex_a);
+                    const Complex b(0.5 + y * 0.5, complex_b);
                     l = Complex (0.0, 0.0);
                     v = Complex (0.5, 0.0);
 
@@ -650,7 +648,7 @@ extern "C" {
                             l += (ast->evaluate()).noNan();
                         }
                     }
-                    double labs = l.abs();
+                    const double labs = l.abs();
                     *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
@@ -710,10 +708,10 @@ extern "C" {
             // Iterate over each value in the batch
             for(int j = i; j < i + batch_size && j < width * height; j++) {
                 // Convert the value to double and scale it
-                double value = (static_cast<double>((input_array[j])) / npmax) * max_value;
+                const double value = (static_cast<double>((input_array[j])) / npmax) * max_value;
 
                 // Round to nearest integer
-                uint32_t rounded_value = static_cast<uint32_t>(std::round(value));
+                const uint32_t rounded_value = static_cast<uint32_t>(std::round(value));
                 
                 // Separate RGB channels
                 output_array[j * 3] = (rounded_value >> 16) & 0xFF;
