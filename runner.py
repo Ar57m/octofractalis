@@ -21,7 +21,7 @@ lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_floa
 lib.scale.restype = None
 
 fractal.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double]
-lyapunov.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_double, c_double]
+lyapunov.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_double, c_double]
 sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
 
 
@@ -357,7 +357,7 @@ def generate(all_parameters):
         if (key == "lyapunov") and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, lyapunov_c_a, lyapunov_c_b, not fractals.get('juliaset'), quaternion_j, quaternion_k)
+            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k)
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
