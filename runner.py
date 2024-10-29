@@ -13,6 +13,7 @@ lib = cdll.LoadLibrary('./libfract.so')
 
 fractal = lib.fractal
 lyapunov = lib.lyapunov
+newton = lib.newton
 sandpile = lib.sandpile
 
 lib.process_array.argtypes = [POINTER(c_uint32), POINTER(c_uint8), c_uint16, c_uint16, c_double, c_uint16, c_double]
@@ -20,8 +21,9 @@ lib.process_array.restype = None
 lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_float] 
 lib.scale.restype = None
 
-fractal.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double]
+fractal.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double, c_double, c_double]
 lyapunov.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_double, c_double]
+newton.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double, c_double, c_double, c_double]
 sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
 
 
@@ -200,7 +202,7 @@ all_parameters = {
     'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 400,
+    'max_iter' : 1000,
 
     # Sandpile max grains
     'max_grains' : 4,
@@ -211,8 +213,10 @@ all_parameters = {
 
     # You can generate different types of fractals
     'fractals' : {
-        'mandelbrot': True,
-        'juliaset': True,
+        'mandelbrot': False,
+        'juliaset': False,
+        'newton' : True,
+        'newton_juliaset': True,
         'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
@@ -234,9 +238,16 @@ all_parameters = {
     'top_colors' : 16,
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
+    # Initial z for newton-based fractals and mandelbrot-based
+    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0i
+    'z_initial_i' : 0.0,
+
     # Julia set parameters
     'juliaset_c_real' : -0.8,
     'juliaset_c_imag' : 0.16,
+
+    # Newton epsilon for derivative
+    'newton_epsilon' : 1e-6,
 
     #Lyapunov uses it as the imaginary part if juliaset is off
     'lyapunov_c_a' : 0.0,
@@ -257,10 +268,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")* 1,
-    'xmax': Decimal("2.7") * 1,
-    'ymin': Decimal("-2.7")* 1,
-    'ymax': Decimal("2.7") * 1,
+    'xmin': Decimal("-2.7")/ 1,
+    'xmax': Decimal("2.7") / 1,
+    'ymin': Decimal("-2.7")/ 1,
+    'ymax': Decimal("2.7") / 1,
 
 
     # This part is to help you aim
@@ -335,7 +346,9 @@ def generate(all_parameters):
     shift_palette = all_parameters["shift_palette"]
     quaternion_j = all_parameters["quaternion_j"]
     quaternion_k = all_parameters["quaternion_k"]
-
+    z_initial_r = all_parameters["z_initial_r"]
+    z_initial_i = all_parameters["z_initial_i"]
+    newton_epsilon = all_parameters["newton_epsilon"]
 
 
 
@@ -347,7 +360,12 @@ def generate(all_parameters):
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            fractal(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k)
+            fractal(
+                gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k,
+                z_initial_r, z_initial_i
+            )
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
@@ -357,12 +375,29 @@ def generate(all_parameters):
         if (key == "lyapunov") and (value):
             gen_array = np.empty((height, width), dtype=np.uint16)
             start_time = time.perf_counter()
-            lyapunov(gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)), c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax, lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k)
+            lyapunov(
+                gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k
+            )
             end_time = time.perf_counter()
             
             print("Took ", end_time - start_time, "seconds to generate")
+
+        # Newton Fractal   
+        if ((key == "newton") or (key == "newton_juliaset")) and (value):
+            gen_array = np.empty((height, width), dtype=np.uint16)
+            start_time = time.perf_counter()
+            newton(
+                gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, lake, quaternion_j, quaternion_k,
+                z_initial_r, z_initial_i, newton_epsilon
+            )
+            end_time = time.perf_counter()
             
-            
+            print("Took ", end_time - start_time, "seconds to generate")
+
         # Abelian Sandpile Fractal
         if (key == "sandpile") and (value):
             gen_array = np.empty((height, width), dtype=np.uint8)
@@ -378,7 +413,7 @@ def generate(all_parameters):
             start_time = time.perf_counter()
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette and failed_gen[0] > 0:
-                create_image(gen_array.reshape(width, height), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
+                create_image((gen_array.reshape(width, height)), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
                 img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
             elif failed_gen[0] > 0:
                 process_image(gen_array, (2**24-1), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key )

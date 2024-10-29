@@ -45,7 +45,7 @@ void display_progress( int &current, const int total, const int iteration_interv
         auto now = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_since_last_update = now - last_update_time;
 
-        if (elapsed_since_last_update.count() >= 0.5 || current == total) {
+        if (elapsed_since_last_update.count() > 1.0 || current == total) {
             last_update_time = now;
 
             double progress = static_cast<double>(current) / total * 100.0;
@@ -58,7 +58,7 @@ void display_progress( int &current, const int total, const int iteration_interv
 
             std::cout << "[";
             for (int i = 0; i < bar_width; ++i) {
-                if (i <= pos) std::cout << std::string(1,(char)254u);
+                if (i <= pos) std::cout << "=";
                 else std::cout << " ";
             }
             std::cout << "] " << int(progress) << "%  [ "
@@ -408,7 +408,7 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k) {
+    void fractal(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -434,7 +434,7 @@ extern "C" {
                         z = Complex (r_part, i_part);
                     } else {
                         c = Complex (r_part, i_part);
-                        z = Complex (0.0, 0.0);
+                        z = Complex (z_initial_r, z_initial_i);
                     }
 
                     uint16_t iteration = 0;
@@ -468,7 +468,7 @@ extern "C" {
                         z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
                     } else {
                         c = Quaternion (r_part, i_part);
-                        z = Quaternion (0.0, 0.0, quaternion_j, quaternion_k);
+                        z = Quaternion (z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     }
 
                     uint16_t iteration = 0;
@@ -519,7 +519,7 @@ extern "C" {
                         z = Complex (r_part, i_part);
                     } else {
                         c = Complex (r_part, i_part);
-                        z = Complex (0.0, 0.0);
+                        z = Complex (z_initial_r, z_initial_i);
                     }
 
                     uint16_t iteration = 0;
@@ -660,6 +660,171 @@ extern "C" {
     }
 
 
+    void newton(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, const double newton_epsilon) {
+
+        std::signal(SIGINT, signal_handler);
+
+        bool l = lake;
+        l = !l;
+
+        const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
+        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        *failed_gen = *failed_gen == 0 ? 1 : 1;
+        current = 0;
+
+        const std::string expression = std::string(exp);
+
+        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") && ( !quatern ) ) {
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+
+                for (int y = 0; y < height; ++y) {
+                    
+                    double r_part = xmin + x * dx;
+                    double i_part = ymin + y * dy;
+                    
+                    Complex c, z;
+                    if (juliaset) {
+                        c = Complex (c_real, c_imag);
+                        z = Complex (r_part, i_part);
+                    } else {
+                        c = Complex (r_part, i_part);
+                        z = Complex (z_initial_r, z_initial_i);
+                    }
+
+                    uint16_t iteration = 0;
+                    double temp = z.abs();
+                    
+                    while (iteration < max_iter) {
+                        
+
+                        const Complex last_z = z;
+                        const Complex znew = 3.0*z*z;
+                        z = (z*z*z-1+c).noNan();
+                        temp = z.abs();
+                        
+                        if ( temp < 1e-13 || temp > 1e300 ) break;
+                        z = ( last_z - ( z/znew )).noNan();
+                        
+                        ++iteration;
+                    }
+                    *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
+                    update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
+                }
+                display_progress( current, width, 100);
+            }
+            std::cout << "\n";
+
+
+        } else if ( quatern ) {
+
+
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+
+                for (int y = 0; y < height; ++y) {
+                    
+                    double r_part = xmin + x * dx;
+                    double i_part = ymin + y * dy;
+                    
+                    Quaternion c, z;
+                    if (juliaset) {
+                        c = Quaternion (c_real, c_imag);
+                        z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
+                    } else {
+                        c = Quaternion (r_part, i_part);
+                        z = Quaternion (z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                    }
+
+                    uint16_t iteration = 0;
+                    double temp = z.abs();
+    
+                    while (iteration < max_iter) {
+    
+                        const Quaternion last_z = z;
+                        const Quaternion znew = 3.0*z*z;
+                        z = (z*z*z-1+c).noNan();
+                        temp = z.abs();
+                        
+                        if ( temp < 1e-13 || temp > 1e300 ) break;
+                        z = ( last_z - ( z/znew )).noNan();
+
+                        ++iteration;
+                    }
+                    update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
+                }
+                display_progress( current, width, 100);
+            }
+            std::cout << "\n";
+
+
+        } else {
+            
+            int y;
+            *failed_gen = 0.0;
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Complex z,c;
+    
+                const std::map<std::string, std::function<Complex()>> variables = {
+                    {"rt", [&z]() { return z; }},
+                    {"rw", [&c]() { return c; }},
+                    {"phi", [&]() { return phi; }},
+                    {"pi", [&]() { return pi; }},
+                    {"e", [&]() { return e;   }},
+                    {"y", [&]() { return Complex (y, 0.0); }},
+                    {"x", [&]() { return Complex (x, 0.0); }}
+                };
+    
+                //Parser parser(x % 2 < 1 ? expression : exp, variables);
+                Parser parser( expression, variables);
+                const auto ast = parser.parse();
+    
+    
+                for (int y = 0; y < height; ++y) {
+                    const double r_part = xmin + x * dx;
+                    const double i_part = ymin + y * dy;
+    
+
+                    if (juliaset) {
+                        c = Complex (c_real, c_imag);
+                        z = Complex (r_part, i_part);
+                    } else {
+                        c = Complex (r_part, i_part);
+                        z = Complex(z_initial_r, z_initial_i);
+                    }
+                    
+                    uint16_t iteration = 0;
+                    double temp = z.abs();
+                    
+                    while (iteration < max_iter) {
+                        
+                        const Complex last_z = z;
+                        const Complex h(newton_epsilon, newton_epsilon);
+                        
+                        z += h;
+                        const Complex f_a_h = ast->evaluate().noNan();
+                        z = last_z - h;
+                        const Complex f_a_nh = ast->evaluate().noNan();
+                        const Complex znew = (( f_a_h - f_a_nh )/(2.0*h)).noNan();
+                        
+                        z = ast->evaluate().noNan();
+                        temp = z.abs();
+                        
+                        if ( temp < 1e-13 || temp > 1e300 ) break;
+                        z = ( last_z - ( z/znew )).noNan();
+                        
+                        ++iteration;
+                    }
+                    *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
+                    update_output( output, 3.0, max_iter, width, iteration, x, y, false , false);
+                }
+
+                display_progress( current, width, 100);
+            }
+            std::cout << "\n";
+       } 
+    }
 
     void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains, const uint16_t max_grains=3) {
             std::signal(SIGINT, signal_handler);
