@@ -11,8 +11,12 @@ struct Complex {
     double real;
     double imag;
 
-    Complex(double r = 0.0, double i = 0.0) : real(r), imag(i) {}
+    // Complex(double r = 0.0, double i = 0.0) : real(r), imag(i) {}
 
+    inline Complex(double r = 0.0, double i = 0.0) {
+        real = (std::abs(r) < 1e300) ? r : 0.0;
+        imag = (std::abs(i) < 1e300) ? i : 0.0;
+    }
 
     // Complex noNan() const {
     //     double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
@@ -22,14 +26,15 @@ struct Complex {
 
     static constexpr double e = 2.7182818284590452353602874713526624977572470937000;
     static constexpr double pi = 3.1415926535897932384626433832795028841971693993751;
- 
-    inline Complex noNan() const {
-        
-        double realPart = std::abs(real);
-        double imagPart = std::abs(imag);
 
-        return Complex((realPart > 1e-13 && realPart < 1e300) ? real : 0, (imagPart > 1e-13 && imagPart < 1e300) ? imag : 0);
-    }
+    // probaly dont need it anymore
+    // inline Complex noNan() const {
+        
+    //     double realPart = std::abs(real);
+    //     double imagPart = std::abs(imag);
+
+    //     return Complex((realPart > 1e-13 && realPart < 1e300) ? real : 0.0, (imagPart > 1e-13 && imagPart < 1e300) ? imag : 0.0);
+    // }
 
 
     // Sum
@@ -42,7 +47,7 @@ struct Complex {
     }
 
     inline Complex operator+() const {
-    return Complex(+real, +imag);
+        return Complex(real, imag);
     }
     
     inline Complex& operator+=(const Complex& other) {
@@ -68,7 +73,7 @@ struct Complex {
     }
 
     inline Complex operator-() const {
-    return Complex(-real, -imag);
+        return Complex(-real, -imag);
     }
 
     inline Complex& operator-=(const Complex& other) {
@@ -286,14 +291,14 @@ struct Complex {
 
 
     Complex gamma() const {
-        Complex z = *this - 1.0;
+        const Complex z = *this - 1.0;
 
         Complex x(lanczos_coeffs[0], 0.0);
         for (int i = 1; i < 9; ++i) {
             x = x + lanczos_coeffs[i] / (z + Complex(static_cast<double>(i), 0.0));
         }
 
-        Complex t = z + 7.0 + 0.5;
+        const Complex t = z + 7.0 + 0.5;
 
         return (Complex(2.0 * pi, 0.0).sqrt()) * t.pow(z + 0.5) * Complex(e, 0.0).pow(-t) * x;
     }
@@ -302,7 +307,7 @@ struct Complex {
 
     Complex zeta() const {
         Complex sum(0.0, 0.0);
-        const int N = 100;  // Number of terms for approximation
+        const int N = 800;  // Number of terms for approximation
         for (int n = 1; n <= N; ++n) {
             sum = sum + Complex(n, 0.0).pow(-(*this));
         }
@@ -311,18 +316,18 @@ struct Complex {
 
     // probably broken, will have to fix/rewrite
     Complex airy() const {
-        Complex z = *this;
-        int steps = 1000;
-        double upper_limit = 100.0;
+        const Complex z = *this;
+        const int steps = 1000;
+        const double upper_limit = 100.0;
         Complex sum(0.0, 0.0);
-        double h = upper_limit / steps;
+        const double h = upper_limit / steps;
 
         for (int i = 0; i < steps; ++i) {
-            double t1 = i * h;
-            double t2 = (i + 1) * h;
+            const double t1 = i * h;
+            const double t2 = (i + 1) * h;
 
-            Complex f1 = ((std::pow(t1, 3) / 3.0) + z * t1).cos();
-            Complex f2 = ((std::pow(t2, 3) / 3.0) + z * t2).cos();
+            const Complex f1 = ((std::pow(t1, 3) / 3.0) + z * t1).cos();
+            const Complex f2 = ((std::pow(t2, 3) / 3.0) + z * t2).cos();
 
             sum += 0.5 * (f1 + f2) * h;
         }
@@ -332,11 +337,16 @@ struct Complex {
 
 
 
-        friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
-            os << "(" << c.real << " + " << c.imag << "i)";
-            return os;
-        }
-    };
+    friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
+        os << "(" << c.real << " + " << c.imag << "i)";
+        return os;
+    }
+    void print() const {
+        std::cout << "(" << real << " + " << imag << "i)\n";
+    }
+
+
+};
 
 
 struct Quaternion {
@@ -346,8 +356,15 @@ struct Quaternion {
     double k;
 
 
-    Quaternion(double r = 0.0, double i_ = 0.0, double j_ = 0.0, double k_ = 0.0)
-        : real(r), i(i_), j(j_), k(k_) {}
+    // inline Quaternion(double r = 0.0, double i_ = 0.0, double j_ = 0.0, double k_ = 0.0)
+    //     : real(r), i(i_), j(j_), k(k_) {}
+
+    inline Quaternion(double r = 0.0, double i_ = 0.0, double j_ = 0.0, double k_ = 0.0) {
+        real = (std::abs(r) < 1e300) ? r : 0.0;
+        i = (std::abs(i_) < 1e300) ? i_ : 0.0;
+        j = (std::abs(j_) < 1e300) ? j_ : 0.0;
+        k = (std::abs(k_) < 1e300) ? k_ : 0.0;
+    }
 
     inline Quaternion operator+(const Quaternion& q) const {
         return Quaternion(real + q.real, i + q.i, j + q.j, k + q.k);
@@ -404,13 +421,13 @@ struct Quaternion {
         return Quaternion(real / scalar, i / scalar, j / scalar, k / scalar);
     }
     
-    Quaternion noNan() const {
-        double realPart = (std::abs(real) > 1e-13 && (std::abs(real) < 1e300)) ? real : 0;
-        double iPart = (std::abs(i) > 1e-13 && (std::abs(i) < 1e300)) ? i : 0;
-        double jPart = (std::abs(j) > 1e-13 && (std::abs(j) < 1e300)) ? j : 0;
-        double kPart = (std::abs(k) > 1e-13 && (std::abs(k) < 1e300)) ? k : 0;
-        return Quaternion(realPart, iPart, jPart, kPart);
-    }
+    // Quaternion noNan() const {
+    //     double realPart = (std::abs(real) > 1e-13 && (std::abs(real) < 1e300)) ? real : 0;
+    //     double iPart = (std::abs(i) > 1e-13 && (std::abs(i) < 1e300)) ? i : 0;
+    //     double jPart = (std::abs(j) > 1e-13 && (std::abs(j) < 1e300)) ? j : 0;
+    //     double kPart = (std::abs(k) > 1e-13 && (std::abs(k) < 1e300)) ? k : 0;
+    //     return Quaternion(realPart, iPart, jPart, kPart);
+    // }
 
     Quaternion sin() const {
 

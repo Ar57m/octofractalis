@@ -188,10 +188,10 @@ private:
         while (pos < expr.size()) {
             if (expr[pos] == '+') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a + b).noNan(); });
+                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a + b); });
             } else if (expr[pos] == '-') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a - b).noNan(); });
+                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a - b); });
             } else {
                 break;
             }
@@ -204,10 +204,10 @@ private:
         while (pos < expr.size()) {
             if (expr[pos] == '*') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a * b).noNan(); });
+                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a * b); });
             } else if (expr[pos] == '/') {
                 ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a / b).noNan(); });
+                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a / b); });
             } else {
                 break;
             }
@@ -331,29 +331,29 @@ private:
         static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
             {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
             {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
-            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan().noNan(); }); }},
+            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan(); }); }},
             {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
-            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log().noNan(); }); }},
-            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10().noNan(); }); }},
+            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log(); }); }},
+            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10(); }); }},
             {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sinh(); }); }},
             {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cosh(); }); }},
             {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
             {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return noNan(a.arg()); }); }},
             {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
-            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.c_abs().noNan(); }); }},
+            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.c_abs(); }); }},
             {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
-            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b).noNan(); }); }},
-            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b).noNan(); }); }},
+            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b); }); }},
+            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b); }); }},
             {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); }); }},
             {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.maximum(b); }); }},
             {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
-            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma().noNan(); }); }},
-            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta().noNan(); }); }},
-            {"airy", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.airy().noNan(); }); }},
-            {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Complex& a, const Complex& b, const Complex& c) { return a.ellipsoid(b,c).noNan(); }); }},
-            {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.circle(b).noNan(); }); }},
-            {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.square(b).noNan(); }); }},
-            {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.triangle(b).noNan(); }); }},
+            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma(); }); }},
+            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta(); }); }},
+            {"airy", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.airy(); }); }},
+            {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Complex& a, const Complex& b, const Complex& c) { return a.ellipsoid(b,c); }); }},
+            {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.circle(b); }); }},
+            {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.square(b); }); }},
+            {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.triangle(b); }); }},
         };
 
         const auto it = functionMap.find(func);
@@ -441,7 +441,7 @@ extern "C" {
                     
     
                     while (z.abs() < 2 && iteration < max_iter) {
-                        z = ((z*z)+c).noNan();
+                        z = ((z*z)+c);
                         ++iteration;
                     }
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
@@ -476,7 +476,7 @@ extern "C" {
     
                     while (z.abs() < 2 && iteration < max_iter) {
     
-                        z = ((z*z)+c).noNan();
+                        z = ((z*z)+c);
                         ++iteration;
                     }
                     update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
@@ -526,7 +526,7 @@ extern "C" {
                     double temp = z.abs();
     
                     while (temp < 2 && iteration < max_iter) {
-                        z = (ast->evaluate()).noNan();
+                        z = (ast->evaluate());
                         temp = z.abs();
                         ++iteration;
                     }
@@ -568,10 +568,10 @@ extern "C" {
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
                             v = (b * v * (1.0 - v));
-                            l += (((b * (1.0 - 2.0 * v)).c_abs()).log()).noNan();
+                            l += (((b * (1.0 - 2.0 * v)).c_abs()).log());
                         } else {
                             v = (a * v * (1.0 - v));
-                            l += (((a * (1.0 - 2.0 * v)).c_abs()).log()).noNan();
+                            l += (((a * (1.0 - 2.0 * v)).c_abs()).log());
                         }
                     }
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
@@ -596,10 +596,10 @@ extern "C" {
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
-                            l += (((b * (1.0 - 2.0 * v)).q_abs()).log()).noNan();
+                            l += (((b * (1.0 - 2.0 * v)).q_abs()).log());
                         } else {
                             v = a * v * (1.0 - v);
-                            l += (((a * (1.0 - 2.0 * v)).q_abs()).log()).noNan();
+                            l += (((a * (1.0 - 2.0 * v)).q_abs()).log());
                         }
                     }
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
@@ -641,11 +641,11 @@ extern "C" {
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
                             temp = b;
-                            l += (ast->evaluate()).noNan();
+                            l += (ast->evaluate());
                         } else {
                             v = a * v * (1.0 - v);
                             temp = a;
-                            l += (ast->evaluate()).noNan();
+                            l += (ast->evaluate());
                         }
                     }
                     const double labs = l.abs();
@@ -700,11 +700,11 @@ extern "C" {
 
                         const Complex last_z = z;
                         const Complex znew = 3.0*z*z;
-                        z = (z*z*z-1+c).noNan();
+                        z = (z*z*z-1+c);
                         temp = z.abs();
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew )).noNan();
+                        z = ( last_z - ( z/znew ));
                         
                         ++iteration;
                     }
@@ -743,11 +743,11 @@ extern "C" {
     
                         const Quaternion last_z = z;
                         const Quaternion znew = 3.0*z*z;
-                        z = (z*z*z-1+c).noNan();
+                        z = (z*z*z-1+c);
                         temp = z.abs();
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew )).noNan();
+                        z = ( last_z - ( z/znew ));
 
                         ++iteration;
                     }
@@ -798,21 +798,33 @@ extern "C" {
                     double temp = z.abs();
                     
                     while (iteration < max_iter) {
-                        
+
                         const Complex last_z = z;
                         const Complex h(newton_epsilon, newton_epsilon);
                         
                         z += h;
-                        const Complex f_a_h = ast->evaluate().noNan();
-                        z = last_z - h;
-                        const Complex f_a_nh = ast->evaluate().noNan();
-                        const Complex znew = (( f_a_h - f_a_nh )/(2.0*h)).noNan();
+                        const Complex f_a_h = ast->evaluate();
+                        z = last_z;
+                        z = ast->evaluate();
+                        const Complex znew = ( f_a_h - z )/(h);
                         
-                        z = ast->evaluate().noNan();
+
+
+                        // const Complex last_z = z;
+                        // const Complex h(newton_epsilon, newton_epsilon);
+                        
+                        // z += h;
+                        // const Complex f_a_h = ast->evaluate();
+                        // z = last_z - h;
+                        // const Complex f_a_nh = ast->evaluate();
+                        // const Complex znew = (( f_a_h - f_a_nh )/(2.0*h));
+                        
+                        // z = ast->evaluate();
+                        
                         temp = z.abs();
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew )).noNan();
+                        z = ( last_z - ( z/znew ));
                         
                         ++iteration;
                     }
