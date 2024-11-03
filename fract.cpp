@@ -159,6 +159,8 @@ static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNo
 bool printerror = false;
 
 
+
+
 // Parser
 class Parser {
 public:
@@ -304,6 +306,8 @@ private:
                 return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
         }
+  
+
         // Parse functions that expect a third argument
         if (func == "ellipsoid") {
 
@@ -470,11 +474,11 @@ extern "C" {
                     uint16_t iteration = 0;
                     
     
-                    while (z.abs() < 2 && iteration < max_iter) {
+                    while (noNan(z.abs()) < 2 && iteration < max_iter) {
                         z = ((z*z)+c);
                         ++iteration;
                     }
-                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
+                    update_output( output, noNan(z.abs()), max_iter, width, iteration, x, y, lake, false);
                 }
                 display_progress( current, width, 100);
             }
@@ -497,12 +501,12 @@ extern "C" {
                     uint16_t iteration = 0;
                     
     
-                    while (z.abs() < 2 && iteration < max_iter) {
+                    while (noNan(z.abs()) < 2 && iteration < max_iter) {
     
                         z = ((z*z)+c);
                         ++iteration;
                     }
-                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
+                    update_output( output, noNan(z.abs()), max_iter, width, iteration, x, y, lake, false);
                 }
                 display_progress( current, width, 100);
             }
@@ -535,11 +539,11 @@ extern "C" {
                 for (int y = 0; y < height; ++y) {
                     setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
     
                     while (temp < 2 && iteration < max_iter) {
                         z = (ast->evaluate());
-                        temp = z.abs();
+                        temp = noNan(z.abs());
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
@@ -696,7 +700,7 @@ extern "C" {
                     setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
 
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
                     
                     while (iteration < max_iter) {
                         
@@ -704,7 +708,7 @@ extern "C" {
                         const Complex last_z = z;
                         const Complex znew = 3.0*z*z;
                         z = (z*z*z-1+c);
-                        temp = z.abs();
+                        temp = noNan(z.abs());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         z = ( last_z - ( z/znew ));
@@ -732,14 +736,14 @@ extern "C" {
                     setQuaternValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
     
                     while (iteration < max_iter) {
     
                         const Quaternion last_z = z;
                         const Quaternion znew = 3.0*z*z;
                         z = (z*z*z-1+c);
-                        temp = z.abs();
+                        temp = noNan(z.abs());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         z = ( last_z - ( z/znew ));
@@ -780,7 +784,7 @@ extern "C" {
                     setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
                     
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
                     
                     while (iteration < max_iter) {
 
@@ -793,7 +797,7 @@ extern "C" {
                         z = ast->evaluate();
                         const Complex znew = ( next_z - z )/(h);
                         
-                        temp = z.abs();
+                        temp = noNan(z.abs());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         z = last_z - ( z/znew );
