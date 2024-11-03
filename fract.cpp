@@ -385,7 +385,9 @@ void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
         output[y * width + x] = iteration;
     }
 }
-    
+
+
+
 
 void setComplexValues(const bool juliaset, Complex& c, Complex& z,
                     const double c_real, const double c_imag,
@@ -658,7 +660,7 @@ extern "C" {
                             l += (ast->evaluate());
                         }
                     }
-                    const double labs = l.abs();
+                    const double labs = noNan(l.abs());
                     *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
