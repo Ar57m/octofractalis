@@ -374,7 +374,9 @@ private:
 };
 
 
-void update_output(uint16_t* output, const double temp, const uint16_t max_iter, const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y, const bool lake, const bool lya) {
+void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
+                const uint16_t width, const uint16_t iteration, const uint16_t x,
+                const uint16_t y, const bool lake, const bool lya) {
     if ((temp < 2 && lake)) {
         output[y * width + x] = static_cast<uint16_t>(std::round((temp / (temp + 1.0)) * max_iter)) + max_iter;
     } else if ( lya) {
@@ -385,7 +387,41 @@ void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
 }
     
 
+void setComplexValues(const bool juliaset, Complex& c, Complex& z,
+                    const double c_real, const double c_imag,
+                    const double r_part, const double i_part,
+                    const double z_initial_r, const double z_initial_i) {
 
+        switch (static_cast<int>(juliaset)) {
+            case 1:
+                c = Complex(c_real, c_imag);
+                z = Complex(r_part, i_part);
+                break;
+            case 0:
+                c = Complex(r_part, i_part);
+                z = Complex(z_initial_r, z_initial_i);
+                break;
+        }
+}
+
+
+void setQuaternValues(const bool juliaset, Quaternion& c, Quaternion& z,
+                    const double c_real, const double c_imag,
+                    const double r_part, const double i_part,
+                    const double z_initial_r, const double z_initial_i,
+                    const double quaternion_j, const double quaternion_k) {
+
+        switch (static_cast<int>(juliaset)) {
+            case 1:
+                c = Quaternion(c_real, c_imag);
+                z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
+                break;
+            case 0:
+                c = Quaternion(r_part, i_part);
+                z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                break;
+        }
+}
 
 
 extern "C" {
@@ -425,17 +461,9 @@ extern "C" {
 
                 for (int y = 0; y < height; ++y) {
                     
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
-                    
                     Complex c, z;
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex (z_initial_r, z_initial_i);
-                    }
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i);
 
                     uint16_t iteration = 0;
                     
@@ -459,17 +487,10 @@ extern "C" {
 
                 for (int y = 0; y < height; ++y) {
                     
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
                     
                     Quaternion c, z;
-                    if (juliaset) {
-                        c = Quaternion (c_real, c_imag);
-                        z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
-                    } else {
-                        c = Quaternion (r_part, i_part);
-                        z = Quaternion (z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                    }
+                    setQuaternValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
                     
@@ -510,18 +531,7 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    const double r_part = xmin + x * dx;
-                    const double i_part = ymin + y * dy;
-    
-
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex (z_initial_r, z_initial_i);
-                    }
-
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
                     uint16_t iteration = 0;
                     double temp = z.abs();
     
@@ -680,17 +690,8 @@ extern "C" {
 
                 for (int y = 0; y < height; ++y) {
                     
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
-                    
                     Complex c, z;
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex (z_initial_r, z_initial_i);
-                    }
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
 
                     uint16_t iteration = 0;
                     double temp = z.abs();
@@ -724,18 +725,10 @@ extern "C" {
 
                 for (int y = 0; y < height; ++y) {
                     
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
                     
                     Quaternion c, z;
-                    if (juliaset) {
-                        c = Quaternion (c_real, c_imag);
-                        z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
-                    } else {
-                        c = Quaternion (r_part, i_part);
-                        z = Quaternion (z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                    }
-
+                    setQuaternValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     uint16_t iteration = 0;
                     double temp = z.abs();
     
@@ -782,17 +775,7 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    const double r_part = xmin + x * dx;
-                    const double i_part = ymin + y * dy;
-    
-
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex(z_initial_r, z_initial_i);
-                    }
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
                     
                     uint16_t iteration = 0;
                     double temp = z.abs();
@@ -803,28 +786,15 @@ extern "C" {
                         const Complex h(newton_epsilon, newton_epsilon);
                         
                         z += h;
-                        const Complex f_a_h = ast->evaluate();
+                        const Complex next_z = ast->evaluate();
                         z = last_z;
                         z = ast->evaluate();
-                        const Complex znew = ( f_a_h - z )/(h);
-                        
-
-
-                        // const Complex last_z = z;
-                        // const Complex h(newton_epsilon, newton_epsilon);
-                        
-                        // z += h;
-                        // const Complex f_a_h = ast->evaluate();
-                        // z = last_z - h;
-                        // const Complex f_a_nh = ast->evaluate();
-                        // const Complex znew = (( f_a_h - f_a_nh )/(2.0*h));
-                        
-                        // z = ast->evaluate();
+                        const Complex znew = ( next_z - z )/(h);
                         
                         temp = z.abs();
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew ));
+                        z = last_z - ( z/znew );
                         
                         ++iteration;
                     }

@@ -18,12 +18,6 @@ struct Complex {
         imag = (std::abs(i) < 1e300) ? i : 0.0;
     }
 
-    // Complex noNan() const {
-    //     double realPart = (std::abs(real) > 1e-13 && !std::isnan(real) && !std::isinf(real)) ? real : (std::isinf(real) ? 3 : 0);
-    //     double imagPart = (std::abs(imag) > 1e-13 && !std::isnan(imag) && !std::isinf(imag)) ? imag : 0;
-    //     return Complex(realPart, imagPart);
-    // }
-
     static constexpr double e = 2.7182818284590452353602874713526624977572470937000;
     static constexpr double pi = 3.1415926535897932384626433832795028841971693993751;
 
@@ -163,13 +157,9 @@ struct Complex {
 
     // root
     Complex root(const Complex& n1) const {
-        if (n1.real == 0 && n1.imag == 0) {
-            return Complex(0,0);
-        } else {
-            Complex result = (this->log())/n1;
-            double magnitude = std::exp(result.real);
-            return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
-        }
+        Complex result = (this->log())/n1;
+        double magnitude = std::exp(result.real);
+        return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
     }
 
     // log
@@ -304,18 +294,24 @@ struct Complex {
     }
 
 
-
     Complex zeta() const {
         Complex sum(0.0, 0.0);
-        const int N = 800;  // Number of terms for approximation
+        const int N = 120;
+        const double threshold = 1e-9;
+        
         for (int n = 1; n <= N; ++n) {
-            sum = sum + Complex(n, 0.0).pow(-(*this));
+            Complex term = Complex(n, 0.0).pow(-(*this));
+            sum = sum + term;
+
+            if (std::abs(term.real) < threshold && std::abs(term.imag) < threshold) {
+                break;
+            }
         }
         return sum;
     }
 
     // probably broken, will have to fix/rewrite
-    Complex airy() const {
+    Complex airyj() const {
         const Complex z = *this;
         const int steps = 1000;
         const double upper_limit = 100.0;
@@ -335,6 +331,26 @@ struct Complex {
         return sum / pi;
     }
 
+    Complex airy() const {
+        const Complex z = *this;
+        const int steps = 1000; // Número de passos
+        const double upper_limit = 100.0; // Limite superior da integral
+        Complex sum(0.0, 0.0);
+        const double h = upper_limit / steps; // Tamanho do passo
+
+        for (int i = 0; i < steps; ++i) {
+            const double t1 = i * h;
+            const double t2 = (i + 1) * h;
+
+            // Calcule f1 e f2 com a função apropriada
+            const Complex f1 = Complex(std::pow(t1, 3) / 3.0 + z.real * t1, z.imag * t1).cos();
+            const Complex f2 = Complex(std::pow(t2, 3) / 3.0 + z.real * t2, z.imag * t2).cos();
+
+            sum = sum + 0.5 * (f1 + f2) * h; // Regra do trapézio
+        }
+
+        return sum / pi; // Divida pela constante pi
+    }
 
 
     friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
