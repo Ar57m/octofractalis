@@ -189,6 +189,12 @@
                         <label><input type="checkbox" name="fractals[juliaset]" class="small-input"> Julia Set</label>
                     </fieldset>
                     <fieldset>
+                        <label><input type="checkbox" name="fractals[newton]" class="small-input"> Newton</label>
+                    </fieldset>
+                    <fieldset>
+                        <label><input type="checkbox" name="fractals[newton_juliaset]" class="small-input"> Newton JuliaSet</label>
+                    </fieldset>
+                    <fieldset>
                         <label><input type="checkbox" name="fractals[lyapunov]" class="small-input"> Lyapunov</label>
                     </fieldset>
                     <fieldset>
@@ -207,6 +213,16 @@
 
                     <label for="gradient">Gradient:</label>
                     <input type="number" id="gradient" name="gradient" min="0" max="256" value="24" required class="small-input"><br>
+
+                    <label for="z_initial_r">Initial Z Real:</label>
+                    <input type="number" id="z_initial_r" name="z_initial_r" value="0.0" required class="small-input"><br>
+
+                    <label for="z_initial_i">Initial Z Imaginary:</label>
+                    <input type="number" id="z_initial_i" name="z_initial_i" value="0.0" required class="small-input"><br>
+
+                    <label for="newton_epsilon">Newton Epsilon:</label>
+                    <input type="number" id="newton_epsilon" name="newton_epsilon" value="0.000001" required class="small-input"><br>
+
                 </fieldset>
 
                 <fieldset>
@@ -232,17 +248,17 @@
 
                 <fieldset>
                     <legend>Julia Set Parameters</legend>
-                    <label for="juliaset_c_real">Julia Set C Real (float):</label>
+                    <label for="juliaset_c_real">Julia Set C Real:</label>
                     <input type="text" id="juliaset_c_real" name="juliaset_c_real" value="-0.8" required class="small-input"><br>
 
-                    <label for="juliaset_c_imag">Julia Set C Imaginary (float):</label>
+                    <label for="juliaset_c_imag">Julia Set C Imaginary:</label>
                     <input type="text" id="juliaset_c_imag" name="juliaset_c_imag" value="0.16" required class="small-input"><br>
 
                     <legend>Quaternion Parameters</legend>
-                    <label for="quaternion_j">Quaternion J (float):</label>
+                    <label for="quaternion_j">Quaternion J:</label>
                     <input type="text" id="quaternion_j" name="quaternion_j" value="0.0" required class="small-input"><br>
 
-                    <label for="quaternion_k">Quaternion K (float):</label>
+                    <label for="quaternion_k">Quaternion K:</label>
                     <input type="text" id="quaternion_k" name="quaternion_k" value="0.0" required class="small-input"><br>
 
                 </fieldset>
@@ -406,6 +422,8 @@
                 fractals: {
                     mandelbrot: formData.get('fractals[mandelbrot]') === 'on',
                     juliaset: formData.get('fractals[juliaset]') === 'on',
+                    newton: formData.get('fractals[newton]') === 'on',
+                    newton_juliaset: formData.get('fractals[newton_juliaset]') === 'on',
                     lyapunov: formData.get('fractals[lyapunov]') === 'on',
                     sandpile: formData.get('fractals[sandpile]') === 'on'
                 },
@@ -420,6 +438,9 @@
                 continue_aim: formData.get('continue_aim') === 'on',
                 quaternion_j: formData.get('quaternion_j'),
                 quaternion_k: formData.get('quaternion_k'),
+                z_initial_r: formData.get('z_initial_r'),
+                z_initial_i: formData.get('z_initial_i'),
+                newton_epsilon: formData.get('newton_epsilon'),
                 // zoom: formData.get('zoom') === 'on',
                 // max_zoom: formData.get('max_zoom')
             })
@@ -485,21 +506,21 @@
 
     // Not working yet :(
     document.getElementById("stop_button").addEventListener("click", function() {
-            fetch('/stop', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8'
-                },
-                body: JSON.stringify({ action: 'stop' })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log(data.message); // Log the response from the server
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
+        fetch('/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: JSON.stringify({ action: 'stop' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.message); // Log da resposta do servidor
+        })
+        .catch(error => {
+            console.error('Error:', error);
         });
+    });
 
 </script>
 </body>

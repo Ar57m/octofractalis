@@ -166,9 +166,9 @@ extern "C" {
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, temp, max_iter, width, iteration, x, y, true, false);
                 }
-                display_progress( current, width, 80);
+                //display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            //std::cout << "\n";
 
         } else {
             
@@ -208,9 +208,9 @@ extern "C" {
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
                 }
-                display_progress( current, width, 80);
+                //display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            //std::cout << "\n";
        } 
     }
 
@@ -256,9 +256,9 @@ extern "C" {
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
                     
                 }
-                display_progress( current, width, 80);
+                //display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            //std::cout << "\n";
 
         } else {
 
@@ -304,9 +304,9 @@ extern "C" {
                     update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
                 }
-                display_progress( current, width, 80);
+                // display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            // std::cout << "\n";
         }
     }
 
@@ -360,9 +360,9 @@ extern "C" {
                     *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
                 }
-                display_progress( current, width, 80);
+                // display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            // std::cout << "\n";
 
         } else {
             
@@ -417,9 +417,9 @@ extern "C" {
                     update_output( output, 3.0, max_iter, width, iteration, x, y, false , false);
                 }
 
-                display_progress( current, width, 80);
+                // display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            // std::cout << "\n";
        } 
     }
 

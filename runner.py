@@ -202,7 +202,7 @@ all_parameters = {
     'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 400,
+    'max_iter' : 500,
 
     # Sandpile max grains
     'max_grains' : 4,
@@ -217,7 +217,7 @@ all_parameters = {
         'juliaset': True,
         'newton' : False,
         'newton_juliaset': False,
-        'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
+        'lyapunov': True,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
 
@@ -244,7 +244,7 @@ all_parameters = {
 
     # Julia set parameters
     'juliaset_c_real' : -0.8,
-    'juliaset_c_imag' : 0.16,
+    'juliaset_c_imag' : -0.16,
 
     # Newton epsilon for derivative
     'newton_epsilon' : 1e-6,
@@ -268,10 +268,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")/ 1,
-    'xmax': Decimal("2.7") / 1,
-    'ymin': Decimal("-2.7")/ 1,
-    'ymax': Decimal("2.7") / 1,
+    'xmin': Decimal("-2.7")* 3,
+    'xmax': Decimal("2.7") * 3,
+    'ymin': Decimal("-2.7")* 3,
+    'ymax': Decimal("2.7") * 3,
 
 
     # This part is to help you aim
@@ -353,6 +353,7 @@ def generate(all_parameters):
 
 
     for key, value in fractals.items():
+
 
         failed_gen = np.zeros((1), dtype=np.float64)
         
@@ -601,6 +602,8 @@ def process_form_data(params):
     all_parameters['fractals'] = params.get("fractals", {
     'mandelbrot': False,
     'juliaset': False,
+    'newton' : False,
+    'newton_juliaset': False,
     'lyapunov': False,
     'sandpile': False,
     })
@@ -647,6 +650,9 @@ def process_form_data(params):
         all_parameters['ymin'] = Decimal(params.get('ymin', [-2.7]))
         all_parameters['ymax'] = Decimal(params.get('ymax', [2.7]))
 
+    all_parameters["z_initial_r"]= float(params.get('z_initial_r', [0.0]))
+    all_parameters["z_initial_i"]= float(params.get('z_initial_i', [0.0]))
+    all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', [0.000001]))
     
     zoom = False
     max_zoom = 20
