@@ -217,7 +217,7 @@ all_parameters = {
         'juliaset': True,
         'newton' : False,
         'newton_juliaset': False,
-        'lyapunov': True,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
+        'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
 
@@ -244,7 +244,7 @@ all_parameters = {
 
     # Julia set parameters
     'juliaset_c_real' : -0.8,
-    'juliaset_c_imag' : -0.16,
+    'juliaset_c_imag' : 0.16,
 
     # Newton epsilon for derivative
     'newton_epsilon' : 1e-6,
@@ -268,10 +268,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")* 3,
-    'xmax': Decimal("2.7") * 3,
-    'ymin': Decimal("-2.7")* 3,
-    'ymax': Decimal("2.7") * 3,
+    'xmin': Decimal("-2.7")* 1,
+    'xmax': Decimal("2.7") * 1,
+    'ymin': Decimal("-2.7")* 1,
+    'ymax': Decimal("2.7") * 1,
 
 
     # This part is to help you aim
