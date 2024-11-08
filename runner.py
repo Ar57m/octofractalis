@@ -255,8 +255,8 @@ all_parameters = {
 
 
     # Quaternion parameters
-    'quaternion_j' : 1.0,
-    'quaternion_k' : 0.10,
+    'quaternion_j' : 0.0,
+    'quaternion_k' : 0.0,
 
     # Makes the part that converges visible
     'lake' : True,
