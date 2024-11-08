@@ -94,7 +94,7 @@ public:
 
 
 static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> error_zero = {
-    {"zero", [](std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<ConstantNode>(Complex(0.0, 0.0)); }}
+    {"zero", [](std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<ConstantNode>(Complex(0.0)); }}
 };
 
 static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
@@ -200,7 +200,7 @@ private:
 
         if (isalpha(expr[pos])) {
             return parseVariableOrFunction();
-        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i') {
+        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k' ) {
             return parseNumber();
         } else if (expr[pos] == '(') {
             ++pos;
@@ -212,7 +212,6 @@ private:
             ++pos;
             return node;
         }
-
         print_error(printerror,"Unexpected character in expression" "\n");
         return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
     }
@@ -236,26 +235,40 @@ private:
         }
     }
 
+    
     const std::shared_ptr<ASTNode> parseNumber() {
         std::string number;
-        bool hasImaginaryPart = false;
-
-        while (pos < expr.size() && (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i')) {
-            if (expr[pos] == 'i') {
-                hasImaginaryPart = true;
+        double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
+        char identifier = '\0';
+    
+        while (pos < expr.size() && (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k')) {
+            if (expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k') {
+                identifier = expr[pos++];
+                break;
+            } else {
+                number += expr[pos++];
             }
-            number += expr[pos++];
         }
-
-        double realPart = 0.0, imagPart = 0.0;
-        if (hasImaginaryPart) {
-            imagPart = std::stod(number);
-        } else {
-            realPart = std::stod(number);
+    
+        double parsedValue = number.empty() ? 1.0 : std::stod(number);
+    
+        switch (identifier) {
+            case 'i':
+                imagPart = parsedValue;
+                break;
+            case 'j':
+                jPart = parsedValue;
+                break;
+            case 'k':
+                kPart = parsedValue;
+                break;
+            default:
+                realPart = parsedValue;
+                break;
         }
-
-        return std::make_shared<ConstantNode>(Complex(realPart, imagPart));
-    }
+    
+        return std::make_shared<ConstantNode>(Complex(realPart, imagPart, jPart, kPart));
+    }   
 
     const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
         ++pos;  // Skip '('
@@ -310,11 +323,6 @@ private:
             return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
     }
-    // void skipWhitespace() {
-    //     while (pos < expr.size() && isspace(expr[pos])) {
-    //         ++pos;
-    //     }
-    // }
 };
 
 

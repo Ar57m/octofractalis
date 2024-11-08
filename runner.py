@@ -255,8 +255,8 @@ all_parameters = {
 
 
     # Quaternion parameters
-    'quaternion_j' : 0.0,
-    'quaternion_k' : 0.0,
+    'quaternion_j' : 1.0,
+    'quaternion_k' : 0.10,
 
     # Makes the part that converges visible
     'lake' : True,
@@ -411,6 +411,7 @@ def generate(all_parameters):
         if "gen_array" in locals():
             imgfromvidfolder = all_parameters['imgfromvidfolder']
             start_time = time.perf_counter()
+            print(failed_gen[0])
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette and failed_gen[0] > 0:
                 create_image((gen_array.reshape(width, height)), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)

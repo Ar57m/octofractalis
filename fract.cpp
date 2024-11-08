@@ -91,42 +91,26 @@ void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
 void setComplexValues(const bool juliaset, Complex& c, Complex& z,
                     const double c_real, const double c_imag,
                     const double r_part, const double i_part,
-                    const double z_initial_r, const double z_initial_i) {
+                    const double z_initial_r, const double z_initial_i,
+                    const double quaternion_j = 0.0, const double quaternion_k = 0.0) {
 
         switch (static_cast<int>(juliaset)) {
             case 1:
                 c = Complex(c_real, c_imag);
-                z = Complex(r_part, i_part);
+                z = Complex(r_part, i_part, quaternion_j, quaternion_k);
                 break;
             case 0:
                 c = Complex(r_part, i_part);
-                z = Complex(z_initial_r, z_initial_i);
+                z = Complex(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                 break;
         }
 }
 
-
-void setQuaternValues(const bool juliaset, Quaternion& c, Quaternion& z,
-                    const double c_real, const double c_imag,
-                    const double r_part, const double i_part,
-                    const double z_initial_r, const double z_initial_i,
-                    const double quaternion_j, const double quaternion_k) {
-
-        switch (static_cast<int>(juliaset)) {
-            case 1:
-                c = Quaternion(c_real, c_imag);
-                z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
-                break;
-            case 0:
-                c = Quaternion(r_part, i_part);
-                z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                break;
-        }
-}
 
 
 extern "C" {
-    void scale(const float* input_tensor, float* scaled_tensor, const int input_size, const float new_min, const float new_max) {
+    void scale(const float* input_tensor, float* scaled_tensor, const int input_size,
+                    const float new_min, const float new_max) {
         std::signal(SIGINT, signal_handler);
         float current_min = *std::min_element(input_tensor, input_tensor + input_size);
         const float current_max = *std::max_element(input_tensor, input_tensor + input_size);
@@ -145,68 +129,46 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+    void fractal(uint16_t* output, double* failed_gen, const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, const double c_real, const double c_imag,
+                    const bool juliaset, const bool lake, const double quaternion_j,
+                    const double quaternion_k, const double z_initial_r, const double z_initial_i) {
 
         std::signal(SIGINT, signal_handler);
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw")  ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-
                 for (int y = 0; y < height; ++y) {
-                    
                     Complex c, z;
+                    
                     setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                        ymin + y * dy, z_initial_r, z_initial_i);
-
-                    uint16_t iteration = 0;
-                    
-    
-                    while (noNan(z.abs()) < 2 && iteration < max_iter) {
-                        z = ((z*z)+c);
-                        ++iteration;
-                    }
-                    update_output( output, noNan(z.abs()), max_iter, width, iteration, x, y, lake, false);
-                }
-                display_progress( current, width, 100);
-            }
-            std::cout << "\n";
-
-
-        } else if ( quatern ) {
-
-
-            #pragma omp parallel for schedule(dynamic)
-            for (int x = 0; x < width; ++x) {
-
-                for (int y = 0; y < height; ++y) {
-                    
-                    
-                    Quaternion c, z;
-                    setQuaternValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
+                    double temp = noNan(z.abs());
                     
     
-                    while (noNan(z.abs()) < 2 && iteration < max_iter) {
-    
-                        z = ((z*z)+c);
+                    while ( temp < 2 && iteration < max_iter) {
+                        z = z*z+c;
+                        temp = noNan(z.abs());
                         ++iteration;
                     }
-                    update_output( output, noNan(z.abs()), max_iter, width, iteration, x, y, lake, false);
+                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
+                    update_output( output, temp, max_iter, width, iteration, x, y, true, false);
                 }
-                display_progress( current, width, 100);
+                display_progress( current, width, 80);
             }
             std::cout << "\n";
-
 
         } else {
             
@@ -232,7 +194,9 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                        
                     uint16_t iteration = 0;
                     double temp = noNan(z.abs());
     
@@ -244,7 +208,7 @@ extern "C" {
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
                 }
-                display_progress( current, width, 100);
+                display_progress( current, width, 80);
             }
             std::cout << "\n";
        } 
@@ -252,27 +216,31 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, double* failed_gen,const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const double quaternion_j, const double quaternion_k) {
+    void lyapunov(uint16_t* output, double* failed_gen,const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, double complex_a, double complex_b,
+                    const double quaternion_j, const double quaternion_k) {
         
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
-        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") ) {
 
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 for (int j = 0; j < height; ++j) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
-                    const Complex a(0.5 + x * 0.5, complex_a);
-                    const Complex b(0.5 + y * 0.5, complex_b);
+                    const Complex a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Complex b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
                     Complex l(0.0, 0.0);
                     Complex v(0.5, 0.0);
 
@@ -288,35 +256,7 @@ extern "C" {
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
                     
                 }
-                display_progress( current, width, 100);
-            }
-            std::cout << "\n";
-
-        } else if (quatern) {
-            
-            #pragma omp parallel for schedule(dynamic)
-            for (int i = 0; i < width; ++i) {
-                for (int j = 0; j < height; ++j) {
-                    const double x = xmin + i * dx;
-                    const double y = ymin + j * dy;
-                    const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-                    const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-                    Quaternion l(0.0, 0.0);
-                    Quaternion v(0.5, 0.0);
-
-                    for (int k = 0; k < max_iter; ++k) {
-                        if (k % 12 < 6) {
-                            v = b * v * (1.0 - v);
-                            l += (((b * (1.0 - 2.0 * v)).q_abs()).log());
-                        } else {
-                            v = a * v * (1.0 - v);
-                            l += (((a * (1.0 - 2.0 * v)).q_abs()).log());
-                        }
-                    }
-                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
-                    
-                }
-                display_progress( current, width, 100);
+                display_progress( current, width, 80);
             }
             std::cout << "\n";
 
@@ -342,8 +282,8 @@ extern "C" {
                 for (int j = 0; j < height; ++j) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
-                    const Complex a(0.5 + x * 0.5, complex_a);
-                    const Complex b(0.5 + y * 0.5, complex_b);
+                    const Complex a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Complex b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
                     l = Complex (0.0, 0.0);
                     v = Complex (0.5, 0.0);
 
@@ -364,14 +304,20 @@ extern "C" {
                     update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
                 }
-                display_progress( current, width, 100);
+                display_progress( current, width, 80);
             }
             std::cout << "\n";
         }
     }
 
 
-    void newton(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, const double newton_epsilon) {
+    void newton(uint16_t* output, double* failed_gen, const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, const double c_real, const double c_imag,
+                    const bool juliaset, const bool lake, const double quaternion_j,
+                    const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                    const double newton_epsilon) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -379,20 +325,21 @@ extern "C" {
         l = !l;
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") && ( !quatern ) ) {
+        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
                 for (int y = 0; y < height; ++y) {
                     
                     Complex c, z;
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
                     double temp = noNan(z.abs());
@@ -413,49 +360,15 @@ extern "C" {
                     *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
                 }
-                display_progress( current, width, 100);
+                display_progress( current, width, 80);
             }
             std::cout << "\n";
-
-
-        } else if ( quatern ) {
-
-
-            #pragma omp parallel for schedule(dynamic)
-            for (int x = 0; x < width; ++x) {
-
-                for (int y = 0; y < height; ++y) {
-                    
-                    
-                    Quaternion c, z;
-                    setQuaternValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                    uint16_t iteration = 0;
-                    double temp = noNan(z.abs());
-    
-                    while (iteration < max_iter) {
-    
-                        const Quaternion last_z = z;
-                        const Quaternion znew = 3.0*z*z;
-                        z = (z*z*z-1+c);
-                        temp = noNan(z.abs());
-                        
-                        if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew ));
-
-                        ++iteration;
-                    }
-                    update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
-                }
-                display_progress( current, width, 100);
-            }
-            std::cout << "\n";
-
 
         } else {
             
             int y;
             *failed_gen = 0.0;
+            const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Complex z,c;
@@ -476,7 +389,8 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx, ymin + y * dy, z_initial_r, z_initial_i);
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
                     uint16_t iteration = 0;
                     double temp = noNan(z.abs());
@@ -484,17 +398,17 @@ extern "C" {
                     while (iteration < max_iter) {
 
                         const Complex last_z = z;
-                        const Complex h(newton_epsilon, newton_epsilon);
+                        const Complex h(newton_epsilon, newton_epsilon, q_epsilon, q_epsilon);
                         
                         z += h;
                         const Complex next_z = ast->evaluate();
                         z = last_z;
                         z = ast->evaluate();
-                        const Complex znew = ( next_z - z )/(h);
                         
                         temp = noNan(z.abs());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
+                        const Complex znew = ( next_z - z )/(h); 
                         z = last_z - ( z/znew );
                         
                         ++iteration;
@@ -503,13 +417,14 @@ extern "C" {
                     update_output( output, 3.0, max_iter, width, iteration, x, y, false , false);
                 }
 
-                display_progress( current, width, 100);
+                display_progress( current, width, 80);
             }
             std::cout << "\n";
        } 
     }
 
-    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains, const uint16_t max_grains=3) {
+    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains,
+                    const uint16_t max_grains=3) {
             std::signal(SIGINT, signal_handler);
             std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
         
@@ -547,7 +462,9 @@ extern "C" {
 
 
 
-    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width, const uint16_t height, const double max_value, const uint16_t batch_size, const double npmax) {
+    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width,
+                    const uint16_t height, const double max_value, const uint16_t batch_size,
+                    const double npmax) {
         std::signal(SIGINT, signal_handler);
         // Iterate over each batch
         
