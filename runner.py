@@ -202,7 +202,7 @@ all_parameters = {
     'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 400,
+    'max_iter' : 500,
 
     # Sandpile max grains
     'max_grains' : 4,
@@ -268,10 +268,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")/ 1,
-    'xmax': Decimal("2.7") / 1,
-    'ymin': Decimal("-2.7")/ 1,
-    'ymax': Decimal("2.7") / 1,
+    'xmin': Decimal("-2.7")* 1,
+    'xmax': Decimal("2.7") * 1,
+    'ymin': Decimal("-2.7")* 1,
+    'ymax': Decimal("2.7") * 1,
 
 
     # This part is to help you aim
@@ -354,6 +354,7 @@ def generate(all_parameters):
 
     for key, value in fractals.items():
 
+
         failed_gen = np.zeros((1), dtype=np.float64)
         
         # Mandelbrot Set/Julia Set
@@ -411,6 +412,7 @@ def generate(all_parameters):
         if "gen_array" in locals():
             imgfromvidfolder = all_parameters['imgfromvidfolder']
             start_time = time.perf_counter()
+            print(failed_gen[0])
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette and failed_gen[0] > 0:
                 create_image((gen_array.reshape(width, height)), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
@@ -600,6 +602,8 @@ def process_form_data(params):
     all_parameters['fractals'] = params.get("fractals", {
     'mandelbrot': False,
     'juliaset': False,
+    'newton' : False,
+    'newton_juliaset': False,
     'lyapunov': False,
     'sandpile': False,
     })
@@ -646,6 +650,9 @@ def process_form_data(params):
         all_parameters['ymin'] = Decimal(params.get('ymin', [-2.7]))
         all_parameters['ymax'] = Decimal(params.get('ymax', [2.7]))
 
+    all_parameters["z_initial_r"]= float(params.get('z_initial_r', [0.0]))
+    all_parameters["z_initial_i"]= float(params.get('z_initial_i', [0.0]))
+    all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', [0.000001]))
     
     zoom = False
     max_zoom = 20

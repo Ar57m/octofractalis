@@ -1,6 +1,6 @@
 // fract.cpp
 #include <omp.h>
-#include <math.h>
+#include <cmath>
 #include <cstdint>
 #include <cmath>
 #include <vector>
@@ -8,13 +8,14 @@
 #include <csignal>
 #include <cstdlib>
 #include <algorithm>
-#include <map>
 #include <memory>
 #include <functional>
 #include <stdexcept>
 #include <sstream>
-#include "complex.h"
 #include <chrono>
+
+#include "custom_complex.h"
+#include "parser.h"
 
 
 void signal_handler(int signal) {
@@ -28,7 +29,7 @@ static constexpr double phi =1.6180339887498948482045868343656381177203091798057
 static constexpr double e =  2.7182818284590452353602874713526624977572470937000;
 
 double noNan(double value) {
-    return (std::abs(value) > 1e-13 && std::abs(value) < 1e300) ? value : 0;
+    return ( std::abs(value) < 1e300) ? value : 0;
 }
 
 
@@ -71,310 +72,10 @@ void display_progress( int &current, const int total, const int iteration_interv
 
 
 
-// ASTNode base class
-class ASTNode {
-public:
-    virtual Complex evaluate() const = 0;
-    virtual ~ASTNode() = default;
-};
 
-
-class ConstantNode : public ASTNode {
-    Complex value;
-public:
-    ConstantNode(const Complex& val) : value(val) {}
-    Complex evaluate() const override { return value; }
-};
-
-
-class VariableNode : public ASTNode {
-    std::function<Complex()> getter;
-public:
-    VariableNode(const std::function<Complex()>& getter) : getter(getter) {}
-    Complex evaluate() const override { return getter(); }
-};
-
-
-class BinaryOpNode : public ASTNode {
-    std::shared_ptr<ASTNode> left, right;
-    std::function<Complex(const Complex&, const Complex&)> op;
-public:
-    BinaryOpNode(const std::shared_ptr<ASTNode>& left, const std::shared_ptr<ASTNode>& right, const std::function<Complex(const Complex&, const Complex&)>& op)
-        : left(left), right(right), op(op) {}
-
-    Complex evaluate() const override {
-        return op(left->evaluate(), right->evaluate());
-    }
-};
-
-
-class UnaryFunctionNode : public ASTNode {
-    std::shared_ptr<ASTNode> operand;
-    std::function<Complex(const Complex&)> func;
-public:
-    UnaryFunctionNode(const std::shared_ptr<ASTNode>& operand, std::function<Complex(const Complex&)> func)
-        : operand(operand), func(func) {}
-
-    Complex evaluate() const override {
-        return func(operand->evaluate());
-    }
-};
-
-
-class BinaryFunctionNode : public ASTNode {
-    std::shared_ptr<ASTNode> operand1, operand2;
-    std::function<Complex(const Complex&, const Complex&)> func;
-public:
-    BinaryFunctionNode(const std::shared_ptr<ASTNode>& operand1, const std::shared_ptr<ASTNode>& operand2, 
-                       std::function<Complex(const Complex&, const Complex&)> func)
-        : operand1(operand1), operand2(operand2), func(func) {}
-
-    Complex evaluate() const override {
-        return func(operand1->evaluate(), operand2->evaluate());
-    }
-};
-
-class TernaryFunctionNode : public ASTNode {
-    std::shared_ptr<ASTNode> operand1, operand2, operand3;
-    std::function<Complex(const Complex&, const Complex&, const Complex&)> func;
-public:
-
-    TernaryFunctionNode(const std::shared_ptr<ASTNode>& operand1,
-                        const std::shared_ptr<ASTNode>& operand2,
-                        const std::shared_ptr<ASTNode>& operand3,
-                        std::function<Complex(const Complex&, const Complex&, const Complex&)> func)
-        : operand1(operand1), operand2(operand2), operand3(operand3), func(func) {}
-
-    Complex evaluate() const override {
-        return func(operand1->evaluate(), operand2->evaluate(), operand3->evaluate());
-    }
-};
-
-
-// Zeroing if something is wrong to not crash
-static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> error_zero = {
-    {"zero", [](std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<ConstantNode>(Complex(0.0, 0.0)); }}
-};
-
-bool printerror = false;
-
-
-// Parser
-class Parser {
-public:
-    Parser(const std::string& expr, const std::map<std::string, std::function<Complex()>>& vars) 
-        : expr(expr), pos(0), variables(vars) {}
-
-    std::shared_ptr<ASTNode> parse() {
-        return parseExpression();
-    }
-
-
-private:
-
-    std::string expr;
-    size_t pos;
-    std::map<std::string, std::function<Complex()>> variables;
-
-    void print_error(bool& value,  const std::string& message) {
-        if (!value) {
-            std::cout << message << std::endl;
-            value = true;
-        }
-    }
-
-    const std::shared_ptr<ASTNode> parseExpression() {
-        auto node = parseTerm();
-        while (pos < expr.size()) {
-            if (expr[pos] == '+') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a + b).noNan(); });
-            } else if (expr[pos] == '-') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Complex& a, const Complex& b) { return (a - b).noNan(); });
-            } else {
-                break;
-            }
-        }
-        return node;
-    }
-
-    const std::shared_ptr<ASTNode> parseTerm() {
-        auto node = parseFactor();
-        while (pos < expr.size()) {
-            if (expr[pos] == '*') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a * b).noNan(); });
-            } else if (expr[pos] == '/') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a / b).noNan(); });
-            } else {
-                break;
-            }
-        }
-        return node;
-    }
-
-    const std::shared_ptr<ASTNode> parseFactor() {
-
-        if (expr[pos] == '+') {
-            ++pos;
-            return parseFactor();
-        } else if (expr[pos] == '-') {
-            ++pos;
-
-            return std::make_shared<UnaryFunctionNode>(parseFactor(), [](const Complex& a) { return -a; });
-        }
-
-        if (isalpha(expr[pos])) {
-            return parseVariableOrFunction();
-        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i') {
-            return parseNumber();
-        } else if (expr[pos] == '(') {
-            ++pos;
-            auto node = parseExpression();
-            if (expr[pos] != ')') {
-                print_error(printerror,"Expected ')'" "\n");
-                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-            }
-            ++pos;
-            return node;
-        }
-
-        print_error(printerror,"Unexpected character in expression" "\n");
-        return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-    }
-
-
-    const std::shared_ptr<ASTNode> parseVariableOrFunction() {
-        std::string name;
-        while (pos < expr.size() && isalpha(expr[pos])) {
-            name += expr[pos++];
-        }
-
-        if (pos < expr.size() && expr[pos] == '(') {
-            return parseFunction(name);
-        }
-
-        if (variables.find(name) != variables.end()) {
-            return std::make_shared<VariableNode>(variables.at(name));
-        } else {
-            print_error(printerror,"Unknown variable: " + name + "\n");
-            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-        }
-    }
-
-    const std::shared_ptr<ASTNode> parseNumber() {
-        std::string number;
-        bool hasImaginaryPart = false;
-
-        while (pos < expr.size() && (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i')) {
-            if (expr[pos] == 'i') {
-                hasImaginaryPart = true;
-            }
-            number += expr[pos++];
-        }
-
-        double realPart = 0.0, imagPart = 0.0;
-        if (hasImaginaryPart) {
-            imagPart = std::stod(number);
-        } else {
-            realPart = std::stod(number);
-        }
-
-        return std::make_shared<ConstantNode>(Complex(realPart, imagPart));
-    }
-
-    const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
-        ++pos;  // Skip '('
-
-        const auto arg1 = parseExpression(); // Parse the first argument
-
-        std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
-        std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
-
-
-        // Parse binary functions (expecting a second argument)
-        if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle") {
-            if (expr[pos] == ',') {
-                ++pos; // Skip ','
-                arg2 = parseExpression();  // Parse the second argument for binary functions
-            } else {
-                print_error(printerror,"Expected ',' between arguments for " + func + "\n");
-                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-            }
-        }
-        // Parse functions that expect a third argument
-        if (func == "ellipsoid") {
-
-            if (expr[pos] == ',') {
-                ++pos;
-  
-                arg2 = parseExpression();
-                ++pos;
-
-                arg3 = parseExpression();
-            } else {
-                print_error(printerror,"Expected ',' between arguments for " + func + "\n");
-                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-            }
-        }
-
-
-        if (expr[pos] != ')') {
-            print_error(printerror,"Expected ')' to close the function " + func + "\n");
-            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-        }
-        ++pos;  // Skip ')'
-
-        // Mapping functions to nodes (unary, binary, and ternary)
-        static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
-            {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sin(); }); }},
-            {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cos(); }); }},
-            {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tan().noNan(); }); }},
-            {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sqrt(); }); }},
-            {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log().noNan(); }); }},
-            {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.log10().noNan(); }); }},
-            {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.sinh(); }); }},
-            {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.cosh(); }); }},
-            {"tanh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.tanh(); }); }},
-            {"arg", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return noNan(a.arg()); }); }},
-            {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.conj(); }); }},
-            {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.c_abs().noNan(); }); }},
-            {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.round(); }); }},
-            {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.logn(b).noNan(); }); }},
-            {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.pow(b).noNan(); }); }},
-            {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.root(b); }); }},
-            {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.maximum(b); }); }},
-            {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.minimum(b); }); }},
-            {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.gamma().noNan(); }); }},
-            {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.zeta().noNan(); }); }},
-            {"airy", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Complex& a) { return a.airy().noNan(); }); }},
-            {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Complex& a, const Complex& b, const Complex& c) { return a.ellipsoid(b,c).noNan(); }); }},
-            {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.circle(b).noNan(); }); }},
-            {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.square(b).noNan(); }); }},
-            {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Complex& a, const Complex& b) { return a.triangle(b).noNan(); }); }},
-        };
-
-        const auto it = functionMap.find(func);
-        if (it != functionMap.end()) {
-            return it->second(arg1, arg2, arg3);  // Call the mapped function
-        } else {
-            print_error(printerror,"Function not recognized: " + func + "\n");
-            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-        }
-    }
-
-
-    // void skipWhitespace() {
-    //     while (pos < expr.size() && isspace(expr[pos])) {
-    //         ++pos;
-    //     }
-    // }
-};
-
-
-void update_output(uint16_t* output, const double temp, const uint16_t max_iter, const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y, const bool lake, const bool lya) {
+void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
+                const uint16_t width, const uint16_t iteration, const uint16_t x,
+                const uint16_t y, const bool lake, const bool lya) {
     if ((temp < 2 && lake)) {
         output[y * width + x] = static_cast<uint16_t>(std::round((temp / (temp + 1.0)) * max_iter)) + max_iter;
     } else if ( lya) {
@@ -383,13 +84,33 @@ void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
         output[y * width + x] = iteration;
     }
 }
-    
 
+
+
+
+void setComplexValues(const bool juliaset, Complex& c, Complex& z,
+                    const double c_real, const double c_imag,
+                    const double r_part, const double i_part,
+                    const double z_initial_r, const double z_initial_i,
+                    const double quaternion_j = 0.0, const double quaternion_k = 0.0) {
+
+        switch (static_cast<int>(juliaset)) {
+            case 1:
+                c = Complex(c_real, c_imag);
+                z = Complex(r_part, i_part, quaternion_j, quaternion_k);
+                break;
+            case 0:
+                c = Complex(r_part, i_part);
+                z = Complex(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                break;
+        }
+}
 
 
 
 extern "C" {
-    void scale(const float* input_tensor, float* scaled_tensor, const int input_size, const float new_min, const float new_max) {
+    void scale(const float* input_tensor, float* scaled_tensor, const int input_size,
+                    const float new_min, const float new_max) {
         std::signal(SIGINT, signal_handler);
         float current_min = *std::min_element(input_tensor, input_tensor + input_size);
         const float current_max = *std::max_element(input_tensor, input_tensor + input_size);
@@ -408,83 +129,46 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+    void fractal(uint16_t* output, double* failed_gen, const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, const double c_real, const double c_imag,
+                    const bool juliaset, const bool lake, const double quaternion_j,
+                    const double quaternion_k, const double z_initial_r, const double z_initial_i) {
 
         std::signal(SIGINT, signal_handler);
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw")  ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-
                 for (int y = 0; y < height; ++y) {
-                    
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
-                    
                     Complex c, z;
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex (z_initial_r, z_initial_i);
-                    }
+                    
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
+                    double temp = noNan(z.abs());
                     
     
-                    while (z.abs() < 2 && iteration < max_iter) {
-                        z = ((z*z)+c).noNan();
+                    while ( temp < 2 && iteration < max_iter) {
+                        z = z*z+c;
+                        temp = noNan(z.abs());
                         ++iteration;
                     }
-                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
+                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
+                    update_output( output, temp, max_iter, width, iteration, x, y, true, false);
                 }
-                display_progress( current, width, 100);
+                //display_progress( current, width, 80);
             }
-            std::cout << "\n";
-
-
-        } else if ( quatern ) {
-
-
-            #pragma omp parallel for schedule(dynamic)
-            for (int x = 0; x < width; ++x) {
-
-                for (int y = 0; y < height; ++y) {
-                    
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
-                    
-                    Quaternion c, z;
-                    if (juliaset) {
-                        c = Quaternion (c_real, c_imag);
-                        z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
-                    } else {
-                        c = Quaternion (r_part, i_part);
-                        z = Quaternion (z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                    }
-
-                    uint16_t iteration = 0;
-                    
-    
-                    while (z.abs() < 2 && iteration < max_iter) {
-    
-                        z = ((z*z)+c).noNan();
-                        ++iteration;
-                    }
-                    update_output( output, z.abs(), max_iter, width, iteration, x, y, lake, false);
-                }
-                display_progress( current, width, 100);
-            }
-            std::cout << "\n";
-
+            //std::cout << "\n";
 
         } else {
             
@@ -510,104 +194,71 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    const double r_part = xmin + x * dx;
-                    const double i_part = ymin + y * dy;
-    
-
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex (z_initial_r, z_initial_i);
-                    }
-
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                        
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
     
                     while (temp < 2 && iteration < max_iter) {
-                        z = (ast->evaluate()).noNan();
-                        temp = z.abs();
+                        z = (ast->evaluate());
+                        temp = noNan(z.abs());
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
                 }
-                display_progress( current, width, 100);
+                //display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            //std::cout << "\n";
        } 
     }
 
 
 
-    void lyapunov(uint16_t* output, double* failed_gen,const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, double complex_a, double complex_b, const double quaternion_j, const double quaternion_k) {
+    void lyapunov(uint16_t* output, double* failed_gen,const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, double complex_a, double complex_b,
+                    const double quaternion_j, const double quaternion_k) {
         
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
-        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") && ( !quatern ) ) {
+        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") ) {
 
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 for (int j = 0; j < height; ++j) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
-                    const Complex a(0.5 + x * 0.5, complex_a);
-                    const Complex b(0.5 + y * 0.5, complex_b);
+                    const Complex a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Complex b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
                     Complex l(0.0, 0.0);
                     Complex v(0.5, 0.0);
 
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
                             v = (b * v * (1.0 - v));
-                            l += (((b * (1.0 - 2.0 * v)).c_abs()).log()).noNan();
+                            l += (((b * (1.0 - 2.0 * v)).c_abs()).log());
                         } else {
                             v = (a * v * (1.0 - v));
-                            l += (((a * (1.0 - 2.0 * v)).c_abs()).log()).noNan();
+                            l += (((a * (1.0 - 2.0 * v)).c_abs()).log());
                         }
                     }
                     update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
                     
                 }
-                display_progress( current, width, 100);
+                //display_progress( current, width, 80);
             }
-            std::cout << "\n";
-
-        } else if (quatern) {
-            
-            #pragma omp parallel for schedule(dynamic)
-            for (int i = 0; i < width; ++i) {
-                for (int j = 0; j < height; ++j) {
-                    const double x = xmin + i * dx;
-                    const double y = ymin + j * dy;
-                    const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-                    const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-                    Quaternion l(0.0, 0.0);
-                    Quaternion v(0.5, 0.0);
-
-                    for (int k = 0; k < max_iter; ++k) {
-                        if (k % 12 < 6) {
-                            v = b * v * (1.0 - v);
-                            l += (((b * (1.0 - 2.0 * v)).q_abs()).log()).noNan();
-                        } else {
-                            v = a * v * (1.0 - v);
-                            l += (((a * (1.0 - 2.0 * v)).q_abs()).log()).noNan();
-                        }
-                    }
-                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
-                    
-                }
-                display_progress( current, width, 100);
-            }
-            std::cout << "\n";
+            //std::cout << "\n";
 
         } else {
 
@@ -631,8 +282,8 @@ extern "C" {
                 for (int j = 0; j < height; ++j) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
-                    const Complex a(0.5 + x * 0.5, complex_a);
-                    const Complex b(0.5 + y * 0.5, complex_b);
+                    const Complex a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Complex b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
                     l = Complex (0.0, 0.0);
                     v = Complex (0.5, 0.0);
 
@@ -641,26 +292,32 @@ extern "C" {
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
                             temp = b;
-                            l += (ast->evaluate()).noNan();
+                            l += (ast->evaluate());
                         } else {
                             v = a * v * (1.0 - v);
                             temp = a;
-                            l += (ast->evaluate()).noNan();
+                            l += (ast->evaluate());
                         }
                     }
-                    const double labs = l.abs();
+                    const double labs = noNan(l.abs());
                     *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, labs, max_iter, width, 0, i, j, false, true);
                     
                 }
-                display_progress( current, width, 100);
+                // display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            // std::cout << "\n";
         }
     }
 
 
-    void newton(uint16_t* output, double* failed_gen, const char* exp, const uint16_t width, const uint16_t height, const uint16_t max_iter, const double xmin, const double xmax, const double ymin, const double ymax, const double c_real, const double c_imag, const bool juliaset, const bool lake, const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, const double newton_epsilon) {
+    void newton(uint16_t* output, double* failed_gen, const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, const double c_real, const double c_imag,
+                    const bool juliaset, const bool lake, const double quaternion_j,
+                    const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                    const double newton_epsilon) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -668,100 +325,50 @@ extern "C" {
         l = !l;
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-        const bool quatern = (quaternion_j != 0.0 || quaternion_k != 0.0);
+        
         *failed_gen = *failed_gen == 0 ? 1 : 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") && ( !quatern ) ) {
+        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
                 for (int y = 0; y < height; ++y) {
                     
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
-                    
                     Complex c, z;
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex (z_initial_r, z_initial_i);
-                    }
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
                     
                     while (iteration < max_iter) {
                         
 
                         const Complex last_z = z;
                         const Complex znew = 3.0*z*z;
-                        z = (z*z*z-1+c).noNan();
-                        temp = z.abs();
+                        z = (z*z*z-1+c);
+                        temp = noNan(z.abs());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew )).noNan();
+                        z = ( last_z - ( z/znew ));
                         
                         ++iteration;
                     }
                     *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
                 }
-                display_progress( current, width, 100);
+                // display_progress( current, width, 80);
             }
-            std::cout << "\n";
-
-
-        } else if ( quatern ) {
-
-
-            #pragma omp parallel for schedule(dynamic)
-            for (int x = 0; x < width; ++x) {
-
-                for (int y = 0; y < height; ++y) {
-                    
-                    double r_part = xmin + x * dx;
-                    double i_part = ymin + y * dy;
-                    
-                    Quaternion c, z;
-                    if (juliaset) {
-                        c = Quaternion (c_real, c_imag);
-                        z = Quaternion (r_part, i_part, quaternion_j, quaternion_k);
-                    } else {
-                        c = Quaternion (r_part, i_part);
-                        z = Quaternion (z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                    }
-
-                    uint16_t iteration = 0;
-                    double temp = z.abs();
-    
-                    while (iteration < max_iter) {
-    
-                        const Quaternion last_z = z;
-                        const Quaternion znew = 3.0*z*z;
-                        z = (z*z*z-1+c).noNan();
-                        temp = z.abs();
-                        
-                        if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew )).noNan();
-
-                        ++iteration;
-                    }
-                    update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
-                }
-                display_progress( current, width, 100);
-            }
-            std::cout << "\n";
-
+            // std::cout << "\n";
 
         } else {
             
             int y;
             *failed_gen = 0.0;
+            const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Complex z,c;
@@ -782,37 +389,27 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    const double r_part = xmin + x * dx;
-                    const double i_part = ymin + y * dy;
-    
-
-                    if (juliaset) {
-                        c = Complex (c_real, c_imag);
-                        z = Complex (r_part, i_part);
-                    } else {
-                        c = Complex (r_part, i_part);
-                        z = Complex(z_initial_r, z_initial_i);
-                    }
+                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
                     uint16_t iteration = 0;
-                    double temp = z.abs();
+                    double temp = noNan(z.abs());
                     
                     while (iteration < max_iter) {
-                        
+
                         const Complex last_z = z;
-                        const Complex h(newton_epsilon, newton_epsilon);
+                        const Complex h(newton_epsilon, newton_epsilon, q_epsilon, q_epsilon);
                         
                         z += h;
-                        const Complex f_a_h = ast->evaluate().noNan();
-                        z = last_z - h;
-                        const Complex f_a_nh = ast->evaluate().noNan();
-                        const Complex znew = (( f_a_h - f_a_nh )/(2.0*h)).noNan();
+                        const Complex next_z = ast->evaluate();
+                        z = last_z;
+                        z = ast->evaluate();
                         
-                        z = ast->evaluate().noNan();
-                        temp = z.abs();
+                        temp = noNan(z.abs());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        z = ( last_z - ( z/znew )).noNan();
+                        const Complex znew = ( next_z - z )/(h); 
+                        z = last_z - ( z/znew );
                         
                         ++iteration;
                     }
@@ -820,13 +417,14 @@ extern "C" {
                     update_output( output, 3.0, max_iter, width, iteration, x, y, false , false);
                 }
 
-                display_progress( current, width, 100);
+                // display_progress( current, width, 80);
             }
-            std::cout << "\n";
+            // std::cout << "\n";
        } 
     }
 
-    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains, const uint16_t max_grains=3) {
+    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains,
+                    const uint16_t max_grains=3) {
             std::signal(SIGINT, signal_handler);
             std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
         
@@ -864,7 +462,9 @@ extern "C" {
 
 
 
-    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width, const uint16_t height, const double max_value, const uint16_t batch_size, const double npmax) {
+    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width,
+                    const uint16_t height, const double max_value, const uint16_t batch_size,
+                    const double npmax) {
         std::signal(SIGINT, signal_handler);
         // Iterate over each batch
         
