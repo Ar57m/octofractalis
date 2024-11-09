@@ -257,7 +257,7 @@ all_parameters = {
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
     # Initial z for newton-based fractals and mandelbrot-based
-    'z_initial_r' : -1.0,  # for newton use -1.0 and 0.0i
+    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0i
     'z_initial_i' : 0.0,
 
     # Julia set parameters
@@ -286,10 +286,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")* 3,
-    'xmax': Decimal("2.7") * 3,
-    'ymin': Decimal("-2.7")* 3,
-    'ymax': Decimal("2.7") * 3,
+    'xmin': Decimal("-2.7")* 1,
+    'xmax': Decimal("2.7") * 1,
+    'ymin': Decimal("-2.7")* 1,
+    'ymax': Decimal("2.7") * 1,
 
 
     # This part is to help you aim
