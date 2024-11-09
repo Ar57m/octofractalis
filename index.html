@@ -215,14 +215,14 @@
                     <input type="number" id="gradient" name="gradient" min="0" max="256" value="24" required class="small-input"><br>
 
                     <label for="z_initial_r">Initial Z Real:</label>
-                    <input type="number" id="z_initial_r" name="z_initial_r" value="0.0" required class="small-input"><br>
+                    <input type="text" id="z_initial_r" name="z_initial_r" value="0.0" required class="small-input"><br>
 
                     <label for="z_initial_i">Initial Z Imaginary:</label>
-                    <input type="number" id="z_initial_i" name="z_initial_i" value="0.0" required class="small-input"><br>
+                    <input type="text" id="z_initial_i" name="z_initial_i" value="0.0" required class="small-input"><br>
 
                     <label for="newton_epsilon">Newton Epsilon:</label>
-                    <input type="number" id="newton_epsilon" name="newton_epsilon" value="0.000001" required class="small-input"><br>
-
+                    <input type="text" id="newton_epsilon" name="newton_epsilon" value="0.000001" required class="small-input" pattern="0\.[0-9]{1,7}">
+                    
                 </fieldset>
 
                 <fieldset>
@@ -327,6 +327,14 @@
     </div>
 
 <script>
+
+    document.getElementById("newton_epsilon").addEventListener("input", function() {
+        const value = parseFloat(this.value);
+        if (value < 0.0000001 || value > 1.0) {
+            alert("Please enter a value between 0.0000001 and 1.0");
+            this.value = "0.0000001";
+        }
+    });
 
 
     function resizeImage(imagePath, maxPixels, callback) {
@@ -515,7 +523,7 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log(data.message);
+            console.log(data.message); // Log da resposta do servidor
         })
         .catch(error => {
             console.error('Error:', error);

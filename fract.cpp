@@ -73,18 +73,26 @@ void display_progress( int &current, const int total, const int iteration_interv
 
 
 
-void update_output(uint16_t* output, const double temp, const uint16_t max_iter,
+void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const double temp,
                 const uint16_t width, const uint16_t iteration, const uint16_t x,
-                const uint16_t y, const bool lake, const bool lya) {
-    if ((temp < 2 && lake)) {
-        output[y * width + x] = static_cast<uint16_t>(std::round((temp / (temp + 1.0)) * max_iter)) + max_iter;
-    } else if ( lya) {
-        output[y * width + x] = static_cast<uint16_t>((std::round((temp / (temp + max_iter/10.0)) * max_iter)));
-    } else {
-        output[y * width + x] = iteration;
-    }
-}
+                const uint16_t y, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
 
+    int index = (y * width + x) * 3;
+    int it;
+    
+    if (temp < 2 && lake) {
+        it = array_top_colors_lake[static_cast<int>(std::round((temp / (temp + 1.0)) * top_colors_lake))];
+    } else if (lya) {
+        it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
+    } else {
+        it = array_top_colors_outside[iteration % top_colors_outside];
+    }
+
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
 
 
 
@@ -105,6 +113,7 @@ void setComplexValues(const bool juliaset, Complex& c, Complex& z,
                 break;
         }
 }
+
 
 
 
@@ -129,12 +138,12 @@ extern "C" {
 
 
 
-    void fractal(uint16_t* output, double* failed_gen, const char* exp,
+    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
-                    const bool juliaset, const bool lake, const double quaternion_j,
-                    const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+                    const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
+                    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -164,7 +173,8 @@ extern "C" {
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
-                    update_output( output, temp, max_iter, width, iteration, x, y, true, false);
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
+                        iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
                 }
                 //display_progress( current, width, 80);
             }
@@ -206,7 +216,8 @@ extern "C" {
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
-                    update_output( output, temp, max_iter, width, iteration, x, y, lake, false);
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
+                        iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
                 }
                 //display_progress( current, width, 80);
             }
@@ -216,12 +227,13 @@ extern "C" {
 
 
 
-    void lyapunov(uint16_t* output, double* failed_gen,const char* exp,
+    void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen,const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, double complex_a, double complex_b,
-                    const double quaternion_j, const double quaternion_k) {
-        
+                    const double quaternion_j, const double quaternion_k,
+                    const int top_colors_outside, const int top_colors_lake) {
+
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
@@ -253,8 +265,8 @@ extern "C" {
                             l += (((a * (1.0 - 2.0 * v)).c_abs()).log());
                         }
                     }
-                    update_output( output, l.abs(), max_iter, width, 0, i, j, false, true);
-                    
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, l.abs(), width,
+                        0, i, j, top_colors_outside, top_colors_lake, false, true);
                 }
                 //display_progress( current, width, 80);
             }
@@ -301,7 +313,8 @@ extern "C" {
                     }
                     const double labs = noNan(l.abs());
                     *failed_gen = labs > *failed_gen ? labs : *failed_gen;
-                    update_output( output, labs, max_iter, width, 0, i, j, false, true);
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
+                        0, i, j, top_colors_outside, top_colors_lake, false, true);
                     
                 }
                 // display_progress( current, width, 80);
@@ -311,12 +324,12 @@ extern "C" {
     }
 
 
-    void newton(uint16_t* output, double* failed_gen, const char* exp,
+    void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
-                    const bool juliaset, const bool lake, const double quaternion_j,
-                    const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                    const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
+                    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
                     const double newton_epsilon) {
 
         std::signal(SIGINT, signal_handler);
@@ -358,7 +371,8 @@ extern "C" {
                         ++iteration;
                     }
                     *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
-                    update_output( output, 3.0, max_iter, width, iteration, x, y, false, false);
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
+                        iteration, x, y, top_colors_outside, top_colors_lake, false, false);
                 }
                 // display_progress( current, width, 80);
             }
@@ -414,7 +428,8 @@ extern "C" {
                         ++iteration;
                     }
                     *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
-                    update_output( output, 3.0, max_iter, width, iteration, x, y, false , false);
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
+                        iteration, x, y, top_colors_outside, top_colors_lake, false, false);
                 }
 
                 // display_progress( current, width, 80);
@@ -423,13 +438,24 @@ extern "C" {
        } 
     }
 
-    void sandpile(uint8_t* output, const uint16_t width, const uint16_t height, const uint32_t n_grains,
-                    const uint16_t max_grains=3) {
+    void sandpile(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
+                const uint16_t height, const uint32_t n_grains, const int top_colors_outside,const uint16_t max_grains=3) {
             std::signal(SIGINT, signal_handler);
             std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
         
-            // Add grains to the center of the sandpile
-            sandpile[height / 2][width / 2] = n_grains;
+        // Add grains to the center of the sandpile
+        int half_height = height / 2;
+        int half_width = width / 2;
+        if (height % 2 == 0 && width % 2 == 0) {
+            sandpile[half_height][half_width] = n_grains / 4;
+            sandpile[half_height - 1][half_width] = n_grains / 4;
+            sandpile[half_height][half_width - 1] = n_grains / 4;
+            sandpile[half_height - 1][half_width - 1] = n_grains / 4;
+        } else {
+            sandpile[half_height][half_width] = n_grains;
+        }
+
+
         
             bool unstable = true;
             while (unstable) {
@@ -452,12 +478,15 @@ extern "C" {
                             sandpile[y][x] %= 4;
                             unstable = true;
                         }
-                        output[y * width + x] = static_cast<uint8_t>(sandpile[y][x]);
+                        int index = (y * width + x) * 3;
+                        int it = array_top_colors_outside[sandpile[y][x] % top_colors_outside];
+                        output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+                        output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+                        output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
                     }
                 }
             }
         }
-
 
 
 

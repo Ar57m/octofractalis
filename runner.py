@@ -21,10 +21,19 @@ lib.process_array.restype = None
 lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_float] 
 lib.scale.restype = None
 
-fractal.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double, c_double, c_double]
-lyapunov.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_double, c_double]
-newton.argtypes = [POINTER(c_uint16), POINTER(c_double), c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double, c_bool, c_bool, c_double, c_double, c_double, c_double, c_double]
-sandpile.argtypes = [POINTER(c_uint8), c_uint16, c_uint16, c_uint32, c_uint16]
+fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
+    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double]
+
+lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
+    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_double, c_int, c_int]
+
+newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
+    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double]
+
+sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
 
 def scale(input_array, min, max):
@@ -78,7 +87,7 @@ def process_image(input_array, max_val, imgname):
 def image_to_array(image_path, min=0, max=2**24-1):
         img = cv2.imread(image_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
-        array_image = np.array(img).astype(np.uint32)
+        array_image = np.array(img).astype(np.int32)
     
         if array_image.ndim != 3:
             array_image = np.array(img.convert("RGBA"))
@@ -143,38 +152,47 @@ def palette_load(palette, gradient, top_colors=4, lake_palette=False, lake=False
 
 
 
-# Image with palette
-def create_image(data, filename, iterations, array_top_colors, lake=False, shift_palette=(0, 0) ):
-    data = data.copy().astype(np.uint32)
-    shape = data.shape
-    shape = (shape[1], shape[0])
-    data = data.reshape(shape)
+# Image with palette, now I ajust directly on c++
+# def create_image(data, filename, iterations, array_top_colors, lake=False, shift_palette=(0, 0) ):
+#     data = data.copy().astype(np.uint32)
+#     shape = data.shape
+#     shape = (shape[1], shape[0])
+#     data = data.reshape(shape)
     
-    array_top_colors = (
-    np.roll(array_top_colors[0], shift_palette[0]),
-    np.roll(array_top_colors[1], shift_palette[1]) if array_top_colors[1] is not False else False
-    )
+#     array_top_colors = (
+#     np.roll(array_top_colors[0], shift_palette[0]),
+#     np.roll(array_top_colors[1], shift_palette[1]) if array_top_colors[1] is not False else False
+#     )
     
-    if (lake and isinstance(array_top_colors[1], np.ndarray) and not ('lyapunov' in filename or 'sandpile' in filename)):
-        temp = data > iterations
+#     if (lake and isinstance(array_top_colors[1], np.ndarray) and not ('lyapunov' in filename or 'sandpile' in filename)):
+#         temp = data > iterations
         
-        data[temp] = scale_fast(data[temp], array_top_colors[1].shape[0] - 1) + iterations + 1
+#         data[temp] = scale_fast(data[temp], array_top_colors[1].shape[0] - 1) + iterations + 1
 
-        lake_indices = data - iterations - 1
-        data[temp] = np.take(array_top_colors[1], lake_indices[temp]) + iterations
+#         lake_indices = data - iterations - 1
+#         data[temp] = np.take(array_top_colors[1], lake_indices[temp]) + iterations
         
-        data[~temp] = scale_fast(data[~temp], array_top_colors[0].shape[0] - 1)
+#         data[~temp] = scale_fast(data[~temp], array_top_colors[0].shape[0] - 1)
         
-        data[~temp] = np.take(array_top_colors[0], data[~temp])
+#         data[~temp] = np.take(array_top_colors[0], data[~temp])
 
-        data[temp] = data[temp] - iterations
-        del temp
-    else:
-        data = scale_fast(data, array_top_colors[0].shape[0] - 1)
-        data = np.take(array_top_colors[0], data)
+#         data[temp] = data[temp] - iterations
+#         del temp
+#     else:
+#         data = scale_fast(data, array_top_colors[0].shape[0] - 1)
+#         data = np.take(array_top_colors[0], data)
 
-    process_image(data.reshape(shape), np.max(data), filename)
+#     process_image(data.reshape(shape), np.max(data), filename)
+
+def create_image(data, filename):
+    data = data.copy().astype(np.uint8)
+    data = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
     
+    if "sandpile" in filename:
+        data = cv2.resize(data, (data.shape[0]*4, data.shape[1]*4), interpolation=cv2.INTER_NEAREST)
+    
+    cv2.imwrite(f'{filename}.png', data)
+    print(f'{filename}.png' )
     
     
 # This helps you to aim by dividing in squares(grid)
@@ -239,7 +257,7 @@ all_parameters = {
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
     # Initial z for newton-based fractals and mandelbrot-based
-    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0i
+    'z_initial_r' : -1.0,  # for newton use -1.0 and 0.0i
     'z_initial_i' : 0.0,
 
     # Julia set parameters
@@ -268,10 +286,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")* 1,
-    'xmax': Decimal("2.7") * 1,
-    'ymin': Decimal("-2.7")* 1,
-    'ymax': Decimal("2.7") * 1,
+    'xmin': Decimal("-2.7")* 3,
+    'xmax': Decimal("2.7") * 3,
+    'ymin': Decimal("-2.7")* 3,
+    'ymax': Decimal("2.7") * 3,
 
 
     # This part is to help you aim
@@ -342,6 +360,7 @@ def generate(all_parameters):
     lyapunov_c_a = all_parameters["lyapunov_c_a"]
     lyapunov_c_b = all_parameters["lyapunov_c_b"]
     lake = all_parameters["lake"]
+    top_colors = all_parameters['top_colors']
     use_palette = all_parameters["use_palette"]
     shift_palette = all_parameters["shift_palette"]
     quaternion_j = all_parameters["quaternion_j"]
@@ -349,23 +368,25 @@ def generate(all_parameters):
     z_initial_r = all_parameters["z_initial_r"]
     z_initial_i = all_parameters["z_initial_i"]
     newton_epsilon = all_parameters["newton_epsilon"]
-
+    array_top_colors_outside = array_top_colors[0]
+    array_top_colors_lake = array_top_colors[1]   
 
 
     for key, value in fractals.items():
 
 
         failed_gen = np.zeros((1), dtype=np.float64)
-        
+     
         # Mandelbrot Set/Julia Set
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
-            gen_array = np.empty((height, width), dtype=np.uint16)
+            gen_array = np.empty((height, width, 3), dtype=np.uint8)
             start_time = time.perf_counter()
             fractal(
-                gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, quaternion_j, quaternion_k,
-                z_initial_r, z_initial_i
+                juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
+                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i
             )
             end_time = time.perf_counter()
             
@@ -374,12 +395,14 @@ def generate(all_parameters):
             
         # Lyapunov Set
         if (key == "lyapunov") and (value):
-            gen_array = np.empty((height, width), dtype=np.uint16)
+            gen_array = np.empty((height, width, 3), dtype=np.uint8)
             start_time = time.perf_counter()
             lyapunov(
-                gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k
+                lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, (array_top_colors_outside.shape[0])-1, 
+                (array_top_colors_lake.shape[0])-1
             )
             end_time = time.perf_counter()
             
@@ -387,13 +410,14 @@ def generate(all_parameters):
 
         # Newton Fractal   
         if ((key == "newton") or (key == "newton_juliaset")) and (value):
-            gen_array = np.empty((height, width), dtype=np.uint16)
+            gen_array = np.empty((height, width, 3), dtype=np.uint8)
             start_time = time.perf_counter()
             newton(
-                gen_array.ctypes.data_as(POINTER(c_uint16)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, lake, quaternion_j, quaternion_k,
-                z_initial_r, z_initial_i, newton_epsilon
+                juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
+                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon
             )
             end_time = time.perf_counter()
             
@@ -401,10 +425,11 @@ def generate(all_parameters):
 
         # Abelian Sandpile Fractal
         if (key == "sandpile") and (value):
-            gen_array = np.empty((height, width), dtype=np.uint8)
+            gen_array = np.empty((height, width, 3), dtype=np.uint8)
             start_time = time.perf_counter()
             failed_gen[0] = 1.0
-            sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)), width, height, max_iter, max_grains)
+            sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)),array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
             end_time = time.perf_counter()
             print("Took ", end_time - start_time, "seconds to generate")
             
@@ -415,7 +440,7 @@ def generate(all_parameters):
             print(failed_gen[0])
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
             if use_palette and failed_gen[0] > 0:
-                create_image((gen_array.reshape(width, height)), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key, max_iter, array_top_colors, lake, shift_palette)
+                create_image((gen_array), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key)
                 img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
             elif failed_gen[0] > 0:
                 process_image(gen_array, (2**24-1), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key )
