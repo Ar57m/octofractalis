@@ -16,10 +16,7 @@ lyapunov = lib.lyapunov
 newton = lib.newton
 sandpile = lib.sandpile
 
-lib.process_array.argtypes = [POINTER(c_uint32), POINTER(c_uint8), c_uint16, c_uint16, c_double, c_uint16, c_double]
-lib.process_array.restype = None
-lib.scale.argtypes = [POINTER(c_float), POINTER(c_float), c_int, c_float, c_float] 
-lib.scale.restype = None
+
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
     c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -36,50 +33,6 @@ newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_d
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
 
-def scale(input_array, min, max):
-    shape = input_array.shape
-    size = (input_array.size)
-    
-    input_array = input_array.copy().reshape(-1).astype(np.float32) 
-    input_array = input_array.ctypes.data_as(POINTER(c_float))
-    output_array = (c_float * (size))()
-    # Call the function
-    lib.scale(input_array, output_array, size, min, max)
-    # Convert the output array to a numpy array
-    output_array = np.ctypeslib.as_array(output_array).reshape(shape)
-    
-    return output_array
-
-
-
-def scale_fast(input, max):
-    return (input%(max+1))
-
-
-
-# This can only scale positive numbers not negative numbers
-def process_image(input_array, max_val, imgname):
-    width, height = input_array.shape
-    max = np.float64(np.max(input_array))
-    max_val = np.float64(max_val)
-
-    input_array = input_array.copy().reshape(-1).astype(np.uint32)
-    input_array = input_array.ctypes.data_as(POINTER(c_uint32))
-    output_array = (c_uint8 * (width * height* 3))()
-
-    # Call the function
-    lib.process_array(input_array, output_array, width, height, max_val, 5000, max)
-    del input_array
-    # Convert the output array to a numpy array
-    output_array = np.ctypeslib.as_array(output_array).reshape(width, height, 3 )
-
-    output_array = cv2.cvtColor(output_array, cv2.COLOR_BGR2RGB)
-    
-    if "sandpile" in imgname:
-        output_array = cv2.resize(output_array, (height*4, width*4), interpolation=cv2.INTER_NEAREST)
-    
-    cv2.imwrite(f'{imgname}.png', output_array)
-    print(f'{imgname}.png' )
 
 
 
@@ -125,64 +78,42 @@ def generate_gradient(arr, n_grad):
     return (((r << 16) + (g << 8) + b).T).reshape(-1)
     
     
-def palette_load(palette, gradient, top_colors=4, lake_palette=False, lake=False):
-    if (lake == False) or (lake_palette == False):
-        palette = image_to_array(palette)
-        unique_colors, counts = np.unique(palette, return_counts=True)
-        del palette
-        sorted_indices = np.argsort(counts)[::-1]
-        array_top_colors = unique_colors[sorted_indices][:top_colors]
-        return generate_gradient(array_top_colors, gradient), False
+def palette_load(palette, gradient, top_colors=4, lake_palette=False, lake=False, use_palette=True):
+    if (not lake) or (not lake_palette):
+        array_top_colors = 0
+        if use_palette:
+            palette = image_to_array(palette)
+            unique_colors, counts = np.unique(palette, return_counts=True)
+            del palette
+            sorted_indices = np.argsort(counts)[::-1]
+            array_top_colors = unique_colors[sorted_indices][:top_colors]
+        else:
+            array_top_colors = np.linspace(0, 255, num=top_colors, dtype=np.int32)
+            array_top_colors = (array_top_colors+array_top_colors*256+array_top_colors*256**2)
+        return generate_gradient(array_top_colors, gradient), np.array([0], dtype=np.int32)
     else:
-        palette = image_to_array(palette)
-        unique_colors, counts = np.unique(palette, return_counts=True)
-        del palette
-        sorted_indices = np.argsort(counts)[::-1]
-        array_top_colors = unique_colors[sorted_indices][:top_colors]
-        
-        # Lake palette
-        lake_palette = image_to_array(lake_palette)
-        unique_colors, counts = np.unique(lake_palette, return_counts=True)
-        del lake_palette
-        sorted_indices = np.argsort(counts)[::-1]
-        array_top_colors_lake = unique_colors[sorted_indices][:top_colors]
+        if not use_palette:
+            array_top_colors = np.linspace(0, 255, num=top_colors, dtype=np.int32)
+            array_top_colors = (array_top_colors+array_top_colors*256+array_top_colors*256**2)
+            return generate_gradient(array_top_colors, gradient), generate_gradient(array_top_colors, gradient)
+        else:
+            palette = image_to_array(palette)
+            unique_colors, counts = np.unique(palette, return_counts=True)
+            del palette
+            sorted_indices = np.argsort(counts)[::-1]
+            array_top_colors = unique_colors[sorted_indices][:top_colors]
+            
+            # Lake palette
+            lake_palette = image_to_array(lake_palette)
+            unique_colors, counts = np.unique(lake_palette, return_counts=True)
+            del lake_palette
+            sorted_indices = np.argsort(counts)[::-1]
+            array_top_colors_lake = unique_colors[sorted_indices][:top_colors]
 
         return generate_gradient(array_top_colors, gradient), generate_gradient(array_top_colors_lake, gradient) 
 
 
 
-
-# Image with palette, now I ajust directly on c++
-# def create_image(data, filename, iterations, array_top_colors, lake=False, shift_palette=(0, 0) ):
-#     data = data.copy().astype(np.uint32)
-#     shape = data.shape
-#     shape = (shape[1], shape[0])
-#     data = data.reshape(shape)
-    
-#     array_top_colors = (
-#     np.roll(array_top_colors[0], shift_palette[0]),
-#     np.roll(array_top_colors[1], shift_palette[1]) if array_top_colors[1] is not False else False
-#     )
-    
-#     if (lake and isinstance(array_top_colors[1], np.ndarray) and not ('lyapunov' in filename or 'sandpile' in filename)):
-#         temp = data > iterations
-        
-#         data[temp] = scale_fast(data[temp], array_top_colors[1].shape[0] - 1) + iterations + 1
-
-#         lake_indices = data - iterations - 1
-#         data[temp] = np.take(array_top_colors[1], lake_indices[temp]) + iterations
-        
-#         data[~temp] = scale_fast(data[~temp], array_top_colors[0].shape[0] - 1)
-        
-#         data[~temp] = np.take(array_top_colors[0], data[~temp])
-
-#         data[temp] = data[temp] - iterations
-#         del temp
-#     else:
-#         data = scale_fast(data, array_top_colors[0].shape[0] - 1)
-#         data = np.take(array_top_colors[0], data)
-
-#     process_image(data.reshape(shape), np.max(data), filename)
 
 def create_image(data, filename):
     data = data.copy().astype(np.uint8)
@@ -193,6 +124,7 @@ def create_image(data, filename):
     
     cv2.imwrite(f'{filename}.png', data)
     print(f'{filename}.png' )
+
     
     
 # This helps you to aim by dividing in squares(grid)
@@ -313,8 +245,9 @@ if n_coordinates>0:
     coordinates = all_parameters['coordinates']
     all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = divide_in_squares(coordinates[:(n_coordinates), :], all_parameters["xmin"], all_parameters["xmax"], all_parameters["ymin"], all_parameters["ymax"])
 
-
-all_parameters['array_top_colors'] = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'], all_parameters['lake_palette'], all_parameters['lake'])
+use_palette = all_parameters["use_palette"]
+all_parameters['array_top_colors'] = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
+                                                  all_parameters['lake_palette'], all_parameters['lake'], use_palette)
 
 
 
@@ -326,7 +259,7 @@ def generate(all_parameters):
     print("\nYour coordinates: ", xmin, xmax, ymin, ymax, "\n")
 
     lake = all_parameters['lake']
-
+    use_palette = all_parameters["use_palette"]
     prefix = ""
     img_names = []
 
@@ -342,7 +275,8 @@ def generate(all_parameters):
         n_iter = n_iter.zfill(target_length)
         prefix = n_iter+"-"
     else:
-        array_top_colors = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'], all_parameters['lake_palette'], lake)
+        array_top_colors = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
+                                        all_parameters['lake_palette'], lake, use_palette)
 
     
  
@@ -360,14 +294,18 @@ def generate(all_parameters):
     lyapunov_c_a = all_parameters["lyapunov_c_a"]
     lyapunov_c_b = all_parameters["lyapunov_c_b"]
     lake = all_parameters["lake"]
-    top_colors = all_parameters['top_colors']
-    use_palette = all_parameters["use_palette"]
+
     shift_palette = all_parameters["shift_palette"]
     quaternion_j = all_parameters["quaternion_j"]
     quaternion_k = all_parameters["quaternion_k"]
     z_initial_r = all_parameters["z_initial_r"]
     z_initial_i = all_parameters["z_initial_i"]
     newton_epsilon = all_parameters["newton_epsilon"]
+
+    array_top_colors = (
+    np.roll(array_top_colors[0], shift_palette[0]),
+    np.roll(array_top_colors[1], shift_palette[1])
+    )
     array_top_colors_outside = array_top_colors[0]
     array_top_colors_lake = array_top_colors[1]   
 
@@ -439,12 +377,9 @@ def generate(all_parameters):
             start_time = time.perf_counter()
             print(failed_gen[0])
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-            if use_palette and failed_gen[0] > 0:
+            if failed_gen[0] > 0:
                 create_image((gen_array), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key)
                 img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
-            elif failed_gen[0] > 0:
-                process_image(gen_array, (2**24-1), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key )
-                img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_generated_fractal_"+key+".png")
             else:
                 img_names.append("./failed_gen.png")
             end_time = time.perf_counter()

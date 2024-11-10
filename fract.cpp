@@ -85,7 +85,7 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
     } else if (lya) {
         it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
     } else {
-        it = array_top_colors_outside[iteration % top_colors_outside];
+        it = array_top_colors_outside[iteration % (top_colors_outside+1)];
     }
 
 
@@ -491,29 +491,29 @@ extern "C" {
 
 
 
-    void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width,
-                    const uint16_t height, const double max_value, const uint16_t batch_size,
-                    const double npmax) {
-        std::signal(SIGINT, signal_handler);
-        // Iterate over each batch
+    // void process_array(uint32_t* input_array, uint8_t* output_array, const uint16_t width,
+    //                 const uint16_t height, const double max_value, const uint16_t batch_size,
+    //                 const double npmax) {
+    //     std::signal(SIGINT, signal_handler);
+    //     // Iterate over each batch
         
-        #pragma omp parallel for schedule(dynamic)
-        for(int i = 0; i < width * height; i += batch_size) {
-            // Iterate over each value in the batch
-            for(int j = i; j < i + batch_size && j < width * height; j++) {
-                // Convert the value to double and scale it
-                const double value = (static_cast<double>((input_array[j])) / npmax) * max_value;
+    //     #pragma omp parallel for schedule(dynamic)
+    //     for(int i = 0; i < width * height; i += batch_size) {
+    //         // Iterate over each value in the batch
+    //         for(int j = i; j < i + batch_size && j < width * height; j++) {
+    //             // Convert the value to double and scale it
+    //             const double value = (static_cast<double>((input_array[j])) / npmax) * max_value;
 
-                // Round to nearest integer
-                const uint32_t rounded_value = static_cast<uint32_t>(std::round(value));
+    //             // Round to nearest integer
+    //             const uint32_t rounded_value = static_cast<uint32_t>(std::round(value));
                 
-                // Separate RGB channels
-                output_array[j * 3] = (rounded_value >> 16) & 0xFF;
-                output_array[j * 3 + 1] = (rounded_value >> 8) & 0xFF;
-                output_array[j * 3 + 2] = rounded_value & 0xFF;
-            }
-        }
-    }
+    //             // Separate RGB channels
+    //             output_array[j * 3] = (rounded_value >> 16) & 0xFF;
+    //             output_array[j * 3 + 1] = (rounded_value >> 8) & 0xFF;
+    //             output_array[j * 3 + 2] = rounded_value & 0xFF;
+    //         }
+    //     }
+    // }
 }
 
 
