@@ -238,25 +238,40 @@ public:
     }
     
     // pow
+    // Complex pow(const Complex& exponent) const {
+    //     if (complex_type) {
+    //         Complex log_z = this->log();
+    //         Complex result = exponent * log_z;
+    //         double magnitude = std::exp(result.real);
+    //         return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
+    //     } else {
+    //         Complex log_q = this->log();
+    //         Complex result = exponent * log_q;
+    //         double magnitude = std::exp(result.real);
+    //         double imag_magnitude = std::sqrt(result.imag * result.imag + result.j * result.j + result.k * result.k);
+    //         return Complex(
+    //             magnitude * std::cos(imag_magnitude),
+    //             magnitude * std::sin(imag_magnitude) * (result.imag / imag_magnitude),
+    //             magnitude * std::sin(imag_magnitude) * (result.j / imag_magnitude),
+    //             magnitude * std::sin(imag_magnitude) * (result.k / imag_magnitude) 
+    //         );
+    //     }
+    // }
     Complex pow(const Complex& exponent) const {
-        if (complex_type) {
-            Complex log_z = this->log();
-            Complex result = exponent * log_z;
-            double magnitude = std::exp(result.real);
-            return Complex(magnitude * std::cos(result.imag), magnitude * std::sin(result.imag));
-        } else {
-            Complex log_q = this->log();
-            Complex result = exponent * log_q;
-            double magnitude = std::exp(result.real);
-            double imag_magnitude = std::sqrt(result.imag * result.imag + result.j * result.j + result.k * result.k);
-            return Complex(
-                magnitude * std::cos(imag_magnitude),
-                magnitude * std::sin(imag_magnitude) * (result.imag / imag_magnitude),
-                magnitude * std::sin(imag_magnitude) * (result.j / imag_magnitude),
-                magnitude * std::sin(imag_magnitude) * (result.k / imag_magnitude) 
-            );
-        }
+        Complex log_value = this->log();
+        Complex result = exponent * log_value;
+
+        double magnitude = std::pow(abs(),exponent.abs());
+        double imag_magnitude = std::sqrt(result.imag * result.imag + result.j * result.j + result.k * result.k);
+
+        return Complex(
+            magnitude * std::cos(imag_magnitude),
+            magnitude * std::sin(imag_magnitude) * (result.imag / imag_magnitude),
+            magnitude * std::sin(imag_magnitude) * (result.j / imag_magnitude),
+            magnitude * std::sin(imag_magnitude) * (result.k / imag_magnitude)
+        );
     }
+
     // pow
     Complex pow(double exponent) const {
         if (complex_type) {
