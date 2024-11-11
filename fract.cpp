@@ -118,23 +118,24 @@ void setComplexValues(const bool juliaset, Complex& c, Complex& z,
 
 
 extern "C" {
-    void scale(const float* input_tensor, float* scaled_tensor, const int input_size,
-                    const float new_min, const float new_max) {
-        std::signal(SIGINT, signal_handler);
-        float current_min = *std::min_element(input_tensor, input_tensor + input_size);
-        const float current_max = *std::max_element(input_tensor, input_tensor + input_size);
 
-        if (current_min == current_max){
-            current_min -= 1;
-        } 
+    // void scale(const float* input_tensor, float* scaled_tensor, const int input_size,
+    //                 const float new_min, const float new_max) {
+    //     std::signal(SIGINT, signal_handler);
+    //     float current_min = *std::min_element(input_tensor, input_tensor + input_size);
+    //     const float current_max = *std::max_element(input_tensor, input_tensor + input_size);
 
-        const float scale_factor = (new_max - new_min) / (current_max - current_min);
+    //     if (current_min == current_max){
+    //         current_min -= 1;
+    //     } 
+
+    //     const float scale_factor = (new_max - new_min) / (current_max - current_min);
         
-        for (int i = 0; i < input_size; ++i) {
-            scaled_tensor[i] = (input_tensor[i] - current_min) * scale_factor + new_min;
-        }
+    //     for (int i = 0; i < input_size; ++i) {
+    //         scaled_tensor[i] = (input_tensor[i] - current_min) * scale_factor + new_min;
+    //     }
 
-    }
+    // }
 
 
 
@@ -206,9 +207,10 @@ extern "C" {
                 for (int y = 0; y < height; ++y) {
                     setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                        
+
                     uint16_t iteration = 0;
                     double temp = noNan(z.abs());
+
     
                     while (temp < 2 && iteration < max_iter) {
                         z = (ast->evaluate());
