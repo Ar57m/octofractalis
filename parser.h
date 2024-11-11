@@ -174,19 +174,33 @@ private:
     const std::shared_ptr<ASTNode> parseTerm() {
         auto node = parseFactor();
         while (pos < expr.size()) {
-            if (expr[pos] == '*') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a * b); });
-            } else if (expr[pos] == '/') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a / b); });
-            } else {
-                break;
+            switch (expr[pos]) {
+                case '*':
+                    ++pos;
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a * b); });
+                    break;
+    
+                case '/':
+                    ++pos;
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a / b); });
+                    break;
+    
+                case '%':
+                    ++pos;
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a % b); });
+                    break;
+
+                case '^':
+                    ++pos;
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Complex& a, const Complex& b) { return (a.pow(b)); });
+                    break;
+
+                default:
+                    return node;
             }
         }
         return node;
-    }
-
+    } 
     const std::shared_ptr<ASTNode> parseFactor() {
 
         if (expr[pos] == '+') {
@@ -250,7 +264,7 @@ private:
             }
         }
     
-        double parsedValue = number.empty() ? 1.0 : std::stod(number);
+        double parsedValue = number.empty() ? 0.0 : std::stod(number);
     
         switch (identifier) {
             case 'i':

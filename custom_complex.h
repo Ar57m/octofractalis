@@ -21,7 +21,7 @@ public:
     
     inline Complex(double r = 0.0, double i = 0.0, double j_ = 0.0, double k_ = 0.0) {
         real = (std::abs(r) < MAX_THRESHOLD) ? r : 0.0;
-        imag = (std::abs(j_) < MAX_THRESHOLD) ? i : 0.0;
+        imag = (std::abs(i) < MAX_THRESHOLD) ? i : 0.0;
         j = (std::abs(j_) < MAX_THRESHOLD) ? j_ : 0.0;
         k = (std::abs(k_) < MAX_THRESHOLD) ? k_ : 0.0;
         
@@ -32,16 +32,21 @@ public:
     static constexpr double pi = 3.1415926535897932384626433832795028841971693993751;
 
 
-
+    inline Complex& sanitize() {
+        real = (std::abs(real) < MAX_THRESHOLD) ? real : 0.0;
+        imag = (std::abs(imag) < MAX_THRESHOLD) ? imag : 0.0;
+        j = (std::abs(j) < MAX_THRESHOLD) ? j : 0.0;
+        k = (std::abs(k) < MAX_THRESHOLD) ? k : 0.0;
+        return *this;
+    }
 
     // Sum
     inline Complex operator+(const Complex& other) const {
         return (complex_type && other.complex_type) ? Complex(real + other.real, imag + other.imag) : Complex(real + other.real, imag + other.imag, j + other.j, k + other.k);
     }
 
-    inline Complex operator+(double value) {
-        real = real + value;
-        return *this;
+    inline Complex operator+(double value) const{
+        return Complex(real + value, imag, j, k);
     }
 
     inline Complex operator+() const {
@@ -51,16 +56,14 @@ public:
     inline Complex& operator+=(const Complex& other) {
         real += other.real;
         imag += other.imag;
-        if (!complex_type || !other.complex_type) {
-            j += other.j;
-            k += other.k;
-        }
-        return *this;
+        j += other.j;
+        k += other.k;
+        return sanitize();
     }
 
     inline Complex& operator+=(double value) {
         real += value;
-        return *this;
+        return sanitize();
     }
     inline friend Complex operator+(double value, const Complex& c) {
         return c.complex_type ? Complex(c.real + value, c.imag) : Complex(c.real + value, c.imag, c.j, c.k);
@@ -68,34 +71,32 @@ public:
 
     // Sub
     inline Complex operator-(const Complex& other) const {
-        return (complex_type && other.complex_type) ? Complex(real - other.real, imag - other.imag) : Complex(real - other.real, imag - other.imag, j - other.j, k - other.k);
+        return Complex(real - other.real, imag - other.imag, j - other.j, k - other.k);
     }
     inline Complex operator-(double value) {
         real -= value; 
-        return *this;
+        return sanitize();
     }
 
     inline Complex operator-() const {
-        return complex_type ? Complex(-real, -imag) : Complex(-real, -imag, -j, -k);
+        return Complex(-real, -imag, -j, -k);
     }
 
     inline Complex& operator-=(const Complex& other) {
         real -= other.real;
         imag -= other.imag;
-        if (!complex_type || !other.complex_type) {
-            j -= other.j;
-            k -= other.k;
-        }
-        return *this;
+        j -= other.j;
+        k -= other.k;
+        return sanitize();
     }
 
     inline Complex& operator-=(double value) {
         real -= value;
-        return *this;
+        return sanitize();
     }
 
     inline friend Complex operator-(double value, const Complex& c) {
-        return (c.complex_type) ? Complex(value - c.real, -c.imag) : Complex(value - c.real, -c.imag, -c.j, -c.k);
+        return Complex(value - c.real, -c.imag, -c.j, -c.k);
     } 
 
     // Mul
@@ -118,12 +119,12 @@ public:
             imag = real * other.imag + imag * other.real + j * other.k - k * other.j;
             j = real * other.j - imag * other.k + j * other.real + k * other.imag;
             k = real * other.k + imag * other.j - j * other.imag + k * other.real;
-            return *this;
+            return sanitize();
         }
         real = real * other.real - imag * other.imag;
         imag = real * other.imag + imag * other.real;
 
-        return *this;
+        return sanitize();
     }
 
     Complex& operator*=(double value) {
@@ -133,7 +134,7 @@ public:
             j *= value;
             k *= value;
         }
-        return *this;
+        return sanitize();
     }
 
     inline friend Complex operator*(double scalar, const Complex& c) {
@@ -143,12 +144,17 @@ public:
     // Division
     Complex operator/(const Complex& other) const {
         if (!complex_type) {
-            double norm_q2 = other.abs() * other.abs();
-            return (*this * other.conj() ) / norm_q2; 
+                double denom = other.real * other.real + other.imag * other.imag;
+                return Complex(
+                    (real * other.real + imag * other.imag) / denom,
+                    (imag * other.real - real * other.imag) / denom
+                );
         }
         double denom = other.real * other.real + other.imag * other.imag;
-        return Complex((real * other.real + imag * other.imag) / denom,
-                       (imag * other.real - real * other.imag) / denom);
+        return Complex(
+            (real * other.real + imag * other.imag) / denom,
+            (imag * other.real - real * other.imag) / denom
+        );
     }
 
     inline Complex operator/(double value) const {
@@ -169,9 +175,34 @@ public:
         );
     }
     
+    inline double fmod(const double a, const double b) const {
+        double abs_b = std::abs(b);
+        double abs_a = std::abs(a);
+        if (!(abs_b < 1e300) || !(abs_b > 1e-300) || !(abs_a < 1e300)) return 0.0;
+    
+        double result = a - std::floor(a / b) * b;
+        return (b > 0) ? (result < 0 ? result + abs_b : result) : (result > 0 ? result - abs_b : result);
+    }
+    
+    Complex operator%(const Complex& other) const {
+        if (complex_type && other.complex_type) {
+            return Complex(
+                fmod(real, other.real),
+                fmod(imag, other.imag)
+            );
+        } else {
+            return Complex(
+                fmod(real, other.real),
+                fmod(imag, other.imag),
+                fmod(j, other.j),
+                fmod(k, other.k)
+            );
+        }
+    }
+    
     // Conj
     inline Complex conj() const {
-        return complex_type ? Complex(real, -imag) : Complex(real, -imag, -j, -k); ;
+        return complex_type ? Complex(real, -imag) : Complex(real, -imag, -j, -k);
     }
 
     // abs
@@ -238,7 +269,7 @@ public:
                 magnitude * std::sin(imag_magnitude) * (result.k / imag_magnitude) 
             );
         }
-}
+    }
     // pow
     Complex pow(double exponent) const {
         if (complex_type) {
