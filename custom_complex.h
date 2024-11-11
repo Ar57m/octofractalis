@@ -143,29 +143,16 @@ public:
 
     // Division
     Complex operator/(const Complex& other) const {
-        if (!complex_type) {
-                double denom = other.real * other.real + other.imag * other.imag;
-                return Complex(
-                    (real * other.real + imag * other.imag) / denom,
-                    (imag * other.real - real * other.imag) / denom
-                );
-        }
-        double denom = other.real * other.real + other.imag * other.imag;
-        return Complex(
-            (real * other.real + imag * other.imag) / denom,
-            (imag * other.real - real * other.imag) / denom
-        );
+        double denom = other.real * other.real + other.imag * other.imag
+                        + other.j * other.j + other.k * other.k;
+        return (*this * other.conj() ) / denom; 
     }
 
     inline Complex operator/(double value) const {
-        return complex_type ? Complex(real / value, imag / value) : Complex(real / value, imag / value, j / value, k / value); 
+        return Complex(real / value, imag / value, j / value, k / value); 
     }
 
     friend Complex operator/(double value, const Complex& c) {
-        if (c.complex_type) {
-            double denom = c.real * c.real + c.imag * c.imag;
-            return Complex((value * c.real) / denom, (-value * c.imag) / denom);
-        }
         double denom = c.real * c.real + c.imag * c.imag + c.j * c.j + c.k * c.k;
         return Complex(
             (value * c.real) / denom,
