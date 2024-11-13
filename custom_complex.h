@@ -8,14 +8,13 @@
 
 
 class Complex {
-private:
+public:
     double real;
     double imag;
     double j;
     double k;
     bool complex_type;
 
-public:
 
     static constexpr double MAX_THRESHOLD = 1e300;
     
@@ -189,7 +188,18 @@ public:
     
     // Conj
     inline Complex conj() const {
-        return complex_type ? Complex(real, -imag) : Complex(real, -imag, -j, -k);
+        return Complex(real, -imag, -j, -k);
+    }
+
+    Complex rotate(double angle, const Complex& axis) const {
+        double half_angle = std::sin(angle / 2.0);
+        Complex rotation_quaternion(
+            std::cos((angle / 2.0)),
+            axis.imag * half_angle,
+            axis.j * half_angle,
+            axis.k * half_angle
+        );
+        return rotation_quaternion * (*this) * rotation_quaternion.conj();
     }
 
     // abs
@@ -476,18 +486,6 @@ public:
     }
 
 
-    inline double get_real() const {
-        return real;
-    }
-    inline double get_imag() const {
-        return imag;
-    }
-    inline double get_j() const {
-        return j;
-    }
-    inline double get_k() const {
-        return k;
-    }
 
     friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
         if (c.complex_type) {

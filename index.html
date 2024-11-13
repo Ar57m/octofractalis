@@ -195,6 +195,9 @@
                         <label><input type="checkbox" name="fractals[newton_juliaset]" class="small-input"> Newton JuliaSet</label>
                     </fieldset>
                     <fieldset>
+                        <label><input type="checkbox" name="fractals[lorenz]" class="small-input"> Lorenz Attractor</label>
+                    </fieldset>
+                    <fieldset>
                         <label><input type="checkbox" name="fractals[lyapunov]" class="small-input"> Lyapunov</label>
                     </fieldset>
                     <fieldset>
@@ -244,6 +247,16 @@
                     <legend>Sandpile Parameter</legend>
                     <label for="max_grains">Max Grains:</label>
                     <input type="number" id="max_grains" name="max_grains" min="2" max="256" value="32" required class="small-input"><br>
+
+                    <legend>Lorenz Parameters</legend>
+                    <label for="sigma">Sigma:</label>
+                    <input type="text" id="sigma" name="sigma" value="10.0" required class="small-input"><br>
+                    <label for="rho">Rho:</label>
+                    <input type="text" id="rho" name="rho" value="28.0" required class="small-input"><br>
+                    <label for="beta">Beta:</label>
+                    <input type="text" id="beta" name="beta" value="2.66666666" required class="small-input"><br>
+                    <label for="dt">Dt:</label>
+                    <input type="text" id="dt" name="dt" value="0.01" required class="small-input"><br>
                 </fieldset>
 
                 <fieldset>
@@ -328,77 +341,96 @@
 
 <script>
 
-    document.getElementById("newton_epsilon").addEventListener("input", function() {
-        const value = parseFloat(this.value);
-        if (value < 0.0000001 || value > 1.0) {
-            alert("Please enter a value between 0.0000001 and 1.0");
-            this.value = "0.0000001";
-        }
-    });
 
+    function validateInput(elementId, min, max, n_default) {
+        const inputElement = document.getElementById(elementId);
+        inputElement.addEventListener("input", function() {
+            const value = parseFloat(this.value);
+            if (value < min || value > max) {
+                alert(`Please enter a value between ${min} and ${max}`);
+                this.value = n_default.toString();
+            }
+        });
+    }
+
+    validateInput("newton_epsilon", 0.0000001, 1.0, 0.000001);
+    validateInput("quaternion_j", -100.0, 100.0, 0.0);
+    validateInput("quaternion_k", -100.0, 100.0, 0.0);
+    validateInput("juliaset_c_real", -100.0, 100.0, -0.8);
+    validateInput("juliaset_c_imag", -100.0, 100.0, 0.16);
+    validateInput("sigma", -10000.0, 10000.0, 10.0);
+    validateInput("rho", -10000.0, 10000.0, 28.0);
+    validateInput("beta", -10000.0, 10000.0, 2.666666666);
+    validateInput("dt", -1000.0, 1000.0, 0.01);
+    validateInput("z_initial_r", -10000.0, 10000.0, 0.0);
+    validateInput("z_initial_i", -10000.0, 10000.0, 0.0);
+    validateInput("xmin", -10000.0, 10000.0, -2.0);
+    validateInput("xmax", -10000.0, 10000.0, 2.0);
+    validateInput("ymin", -10000.0, 10000.0, -2.0);
+    validateInput("ymax", -10000.0, 10000.0, 2.0);
 
     function resizeImage(imagePath, maxPixels, callback) {
-    const img = new Image();
-    img.src = imagePath;
+        const img = new Image();
+        img.src = imagePath;
 
-    img.onload = function() {
-        const originalPixels = img.width * img.height;
+        img.onload = function() {
+            const originalPixels = img.width * img.height;
 
 
-        if (originalPixels > maxPixels) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            if (originalPixels > maxPixels) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
 
-            const scale = Math.sqrt(maxPixels / originalPixels);
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
+                const scale = Math.sqrt(maxPixels / originalPixels);
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
 
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            callback(canvas.toDataURL());
-        } else {
-
-            callback(imagePath);
-        }
-    };
-}
-
-        function drawGridOnImage(imageSrc, n, callback) {
-            const canvas = document.createElement('canvas');
-            canvas.classList.add('fractalCanvas');
-            const ctx = canvas.getContext('2d');
-
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.src = imageSrc;
-
-            img.onload = function () {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0, img.width, img.height);
-
-                const cellWidth = img.width / n;
-                const cellHeight = img.height / n;
-
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 1;
-
-                for (let i = 1; i < n; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(i * cellWidth, 0);
-                    ctx.lineTo(i * cellWidth, img.height);
-                    ctx.stroke();
-                }
-
-                for (let j = 1; j < n; j++) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, j * cellHeight);
-                    ctx.lineTo(img.width, j * cellHeight);
-                    ctx.stroke();
-                }
-
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 callback(canvas.toDataURL());
-            };
-        }
+            } else {
+
+                callback(imagePath);
+            }
+        };
+    }
+
+    function drawGridOnImage(imageSrc, n, callback) {
+        const canvas = document.createElement('canvas');
+        canvas.classList.add('fractalCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = imageSrc;
+
+        img.onload = function () {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0, img.width, img.height);
+
+            const cellWidth = img.width / n;
+            const cellHeight = img.height / n;
+
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+
+            for (let i = 1; i < n; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cellWidth, 0);
+                ctx.lineTo(i * cellWidth, img.height);
+                ctx.stroke();
+            }
+
+            for (let j = 1; j < n; j++) {
+                ctx.beginPath();
+                ctx.moveTo(0, j * cellHeight);
+                ctx.lineTo(img.width, j * cellHeight);
+                ctx.stroke();
+            }
+
+            callback(canvas.toDataURL());
+        };
+    }
 
     document.getElementById('fractalForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -432,6 +464,7 @@
                     juliaset: formData.get('fractals[juliaset]') === 'on',
                     newton: formData.get('fractals[newton]') === 'on',
                     newton_juliaset: formData.get('fractals[newton_juliaset]') === 'on',
+                    lorenz: formData.get('fractals[lorenz]') === 'on',
                     lyapunov: formData.get('fractals[lyapunov]') === 'on',
                     sandpile: formData.get('fractals[sandpile]') === 'on'
                 },
@@ -449,6 +482,10 @@
                 z_initial_r: formData.get('z_initial_r'),
                 z_initial_i: formData.get('z_initial_i'),
                 newton_epsilon: formData.get('newton_epsilon'),
+                sigma: formData.get('sigma'),
+                rho: formData.get('rho'),
+                beta: formData.get('beta'),
+                dt: formData.get('dt'),
                 // zoom: formData.get('zoom') === 'on',
                 // max_zoom: formData.get('max_zoom')
             })

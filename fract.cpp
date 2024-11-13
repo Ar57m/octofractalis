@@ -117,6 +117,37 @@ void setComplexValues(const bool juliaset, Complex& c, Complex& z,
 
 
 
+std::vector<Complex> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
+                        const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
+    std::vector<Complex> trajectory;
+    trajectory.reserve(max_iter);
+    
+
+    Complex point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    const std::map<std::string, std::function<Complex()>> variables = {
+        {"rt", [&point]() { return point; }},
+        {"z_k", [&point]() { return point.k; }},
+        {"phi", [&]() { return phi; }},
+        {"pi", [&]() { return pi; }},
+        {"e", [&]() { return e;   }},
+        {"dx", [&]() { return sigma * (point.imag - point.real) * dt;   }},
+        {"dy", [&]() { return (point.real * (rho - point.j) - point.imag) * dt; }},
+        {"dz", [&]() { return (point.real * point.imag - beta * point.j) * dt; }}
+    };
+
+    Parser parser(expression, variables);
+    const auto ast = parser.parse();
+    for (int i = 0; i < max_iter; ++i) {
+
+        point += ast->evaluate();
+
+        trajectory.push_back(point);
+    }
+
+    return trajectory;
+}
+
+
 extern "C" {
 
     // void scale(const float* input_tensor, float* scaled_tensor, const int input_size,
@@ -226,7 +257,43 @@ extern "C" {
             //std::cout << "\n";
        } 
     }
+    
+    
+    void lorenz(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake,
+                 double* failed_gen, const char* exp,
+                 const uint16_t width, const uint16_t height, const int max_iter,
+                 const double xmin, const double xmax, const double ymin, const double ymax,
+                 const double sigma, const double rho, const double beta,
+                 const double dt, const int top_colors_outside, const int top_colors_lake,
+                 const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+        
+        std::signal(SIGINT, signal_handler);
+    
 
+        const double dx = (xmax - xmin) / width;
+        const double dy = (ymax - ymin) / height;
+    
+        *failed_gen = std::max(*failed_gen, 1.0);
+        std::string expression = std::string(exp);
+        if (expression == "rt*rt+rw") {
+            expression = "dx+dy*1i+dz*1j";
+        }
+
+        const std::vector<Complex> trajectory = generate_lorenz_trajectory(sigma, rho, beta, dt, max_iter,
+                                                expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+
+        #pragma omp parallel for schedule(dynamic)
+        for (const auto& point : trajectory) {
+            int pixel_x = static_cast<int>((point.real - xmin) / dx);
+            int pixel_y = static_cast<int>((point.imag - ymin) / dy);
+    
+            if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
+                int iteration = std::min(static_cast<int>(&point - &trajectory[0]), std::abs(max_iter));
+                update_output(output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
+                              iteration, pixel_x, pixel_y, top_colors_outside, top_colors_lake, false, false);
+            }
+        }
+    }
 
 
     void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen,const char* exp,
@@ -246,7 +313,7 @@ extern "C" {
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw") ) {
+        if ( expression == "rt*rt+rw" ) {
 
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
@@ -488,7 +555,7 @@ extern "C" {
                     }
                 }
             }
-        }
+    }
 
 
 
