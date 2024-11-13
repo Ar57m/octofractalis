@@ -14,6 +14,7 @@ lib = cdll.LoadLibrary('./libfract.so')
 fractal = lib.fractal
 lyapunov = lib.lyapunov
 newton = lib.newton
+lorenz = lib.lorenz
 sandpile = lib.sandpile
 
 
@@ -29,6 +30,10 @@ lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c
 newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
     c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
     c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double]
+
+lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
+    c_char_p, c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_double, c_int, c_int, c_double, c_double, c_double, c_double]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -167,6 +172,7 @@ all_parameters = {
         'juliaset': True,
         'newton' : False,
         'newton_juliaset': False,
+        'lorenz' : False,      # Requires a bit of zoom out to it better and much more iterations than mandelbrot are recommended
         'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
@@ -189,7 +195,7 @@ all_parameters = {
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
     # Initial z for newton-based fractals and mandelbrot-based
-    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0i
+    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0, for lorenz 0.0, 1.0 and the quaternion_j 1.05
     'z_initial_i' : 0.0,
 
     # Julia set parameters
@@ -198,6 +204,12 @@ all_parameters = {
 
     # Newton epsilon for derivative
     'newton_epsilon' : 1e-6,
+
+    # Lorenz Params
+    'sigma' : 10.0,
+    'rho' : 28.0,
+    'beta' : 8/3,
+    'dt' : 0.01,
 
     #Lyapunov uses it as the imaginary part if juliaset is off
     'lyapunov_c_a' : 0.0,
@@ -302,6 +314,11 @@ def generate(all_parameters):
     z_initial_i = all_parameters["z_initial_i"]
     newton_epsilon = all_parameters["newton_epsilon"]
 
+    sigma = all_parameters["sigma"]
+    rho = all_parameters["rho"]
+    beta = all_parameters["beta"]
+    dt = all_parameters["dt"]
+
     array_top_colors = (
     np.roll(array_top_colors[0], shift_palette[0]),
     np.roll(array_top_colors[1], shift_palette[1])
@@ -361,6 +378,21 @@ def generate(all_parameters):
             
             print("Took ", end_time - start_time, "seconds to generate")
 
+        # Lorenz Attractor / Lorenz system
+        if ((key == "lorenz")) and (value):
+            gen_array = np.empty((height, width, 3), dtype=np.uint8)
+            start_time = time.perf_counter()
+            lorenz(
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
+                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i
+            )
+            end_time = time.perf_counter()
+            
+            print("Took ", end_time - start_time, "seconds to generate")
+
         # Abelian Sandpile Fractal
         if (key == "sandpile") and (value):
             gen_array = np.empty((height, width, 3), dtype=np.uint8)
@@ -381,10 +413,11 @@ def generate(all_parameters):
                 create_image((gen_array), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key)
                 img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
             else:
+                print("ERROR: Generation Failed.")
                 img_names.append("./failed_gen.png")
             end_time = time.perf_counter()
             del gen_array
-            print("Took ", end_time - start_time, "seconds to convert\n")
+            print("Took ", end_time - start_time, "seconds to save\n")
     return img_names
 
 
@@ -613,7 +646,11 @@ def process_form_data(params):
     all_parameters["z_initial_r"]= float(params.get('z_initial_r', [0.0]))
     all_parameters["z_initial_i"]= float(params.get('z_initial_i', [0.0]))
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', [0.000001]))
-    
+    all_parameters["sigma"]= float(params.get('sigma', [10.0]))
+    all_parameters["rho"]= float(params.get('rho', [28.0]))
+    all_parameters["beta"]= float(params.get('beta', [2.66666666]))
+    all_parameters["dt"]= float(params.get('dt', [0.01]))
+
     zoom = False
     max_zoom = 20
 
