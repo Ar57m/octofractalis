@@ -328,13 +328,14 @@ def generate(all_parameters):
 
 
     for key, value in fractals.items():
+        gen_array = np.zeros((height, width, 3), dtype=np.uint8)
 
 
         failed_gen = np.zeros((1), dtype=np.float64)
      
         # Mandelbrot Set/Julia Set
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
-            gen_array = np.empty((height, width, 3), dtype=np.uint8)
+            
             start_time = time.perf_counter()
             fractal(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
@@ -350,7 +351,7 @@ def generate(all_parameters):
             
         # Lyapunov Set
         if (key == "lyapunov") and (value):
-            gen_array = np.empty((height, width, 3), dtype=np.uint8)
+            
             start_time = time.perf_counter()
             lyapunov(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
@@ -365,7 +366,7 @@ def generate(all_parameters):
 
         # Newton Fractal   
         if ((key == "newton") or (key == "newton_juliaset")) and (value):
-            gen_array = np.empty((height, width, 3), dtype=np.uint8)
+            
             start_time = time.perf_counter()
             newton(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
@@ -380,7 +381,7 @@ def generate(all_parameters):
 
         # Lorenz Attractor / Lorenz system
         if ((key == "lorenz")) and (value):
-            gen_array = np.empty((height, width, 3), dtype=np.uint8)
+            
             start_time = time.perf_counter()
             lorenz(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
@@ -395,7 +396,7 @@ def generate(all_parameters):
 
         # Abelian Sandpile Fractal
         if (key == "sandpile") and (value):
-            gen_array = np.empty((height, width, 3), dtype=np.uint8)
+            
             start_time = time.perf_counter()
             failed_gen[0] = 1.0
             sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)),array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
@@ -404,7 +405,7 @@ def generate(all_parameters):
             print("Took ", end_time - start_time, "seconds to generate")
             
             
-        if "gen_array" in locals():
+        if value:
             imgfromvidfolder = all_parameters['imgfromvidfolder']
             start_time = time.perf_counter()
             print(failed_gen[0])
