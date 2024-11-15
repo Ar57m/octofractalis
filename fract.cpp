@@ -119,9 +119,7 @@ void setComplexValues(const bool juliaset, Complex& c, Complex& z,
 
 std::vector<Complex> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
-    std::vector<Complex> trajectory;
-    trajectory.reserve(max_iter);
-    
+    std::vector<Complex> trajectory(max_iter);
 
     Complex point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
     const std::map<std::string, std::function<Complex()>> variables = {
@@ -129,23 +127,23 @@ std::vector<Complex> generate_lorenz_trajectory(const double sigma, const double
         {"z_k", [&point]() { return point.k; }},
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
-        {"e", [&]() { return e;   }},
-        {"dx", [&]() { return sigma * (point.imag - point.real) * dt;   }},
+        {"e", [&]() { return e; }},
+        {"dx", [&]() { return sigma * (point.imag - point.real) * dt; }},
         {"dy", [&]() { return (point.real * (rho - point.j) - point.imag) * dt; }},
         {"dz", [&]() { return (point.real * point.imag - beta * point.j) * dt; }}
     };
 
     Parser parser(expression, variables);
     const auto ast = parser.parse();
+
     for (int i = 0; i < max_iter; ++i) {
-
         point += ast->evaluate();
-
-        trajectory.push_back(point);
+        trajectory[i] = point;
     }
 
     return trajectory;
 }
+
 
 
 extern "C" {
@@ -259,6 +257,7 @@ extern "C" {
     }
     
     
+
     void lorenz(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake,
                  double* failed_gen, const char* exp,
                  const uint16_t width, const uint16_t height, const int max_iter,
@@ -268,8 +267,8 @@ extern "C" {
                  const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
         
         std::signal(SIGINT, signal_handler);
-    
 
+        
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
     
@@ -283,14 +282,14 @@ extern "C" {
                                                 expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
         #pragma omp parallel for schedule(dynamic)
-        for (const auto& point : trajectory) {
-            int pixel_x = static_cast<int>((point.real - xmin) / dx);
-            int pixel_y = static_cast<int>((point.imag - ymin) / dy);
+        for (int i = 0; i < max_iter; ++i) {
+            Complex temp = trajectory[i];
+            int pixel_x = static_cast<int>((temp.real - xmin) / dx);
+            int pixel_y = static_cast<int>((temp.imag - ymin) / dy);
     
-            if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
-                int iteration = std::min(static_cast<int>(&point - &trajectory[0]), std::abs(max_iter));
+            if (pixel_x > -1 && pixel_x < width && pixel_y > -1 && pixel_y < height) {
                 update_output(output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-                              iteration, pixel_x, pixel_y, top_colors_outside, top_colors_lake, false, false);
+                              i, pixel_x, pixel_y, top_colors_outside, top_colors_lake, false, false);
             }
         }
     }
