@@ -239,8 +239,8 @@ all_parameters = {
     'ymax': Decimal("2.5") * 1,
 
     # For Lorenz
-    'zmin': Decimal("-5.0")* 1,
-    'zmax': Decimal("5.0") * 1,
+    'zmin': Decimal("-1e30")* 1,
+    'zmax': Decimal("1e30") * 1,
 
     # This part is to help you aim
     'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
