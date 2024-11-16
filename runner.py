@@ -186,7 +186,7 @@ all_parameters = {
     
 
 
-    'palette' : "./palettes/fav.png",  # Palette location
+    'palette' : "./palettes/palette.png",  # Palette location
     'use_palette' : True,
     'gradient' : 24,        # Amount of colors between the colors
 
@@ -226,7 +226,7 @@ all_parameters = {
     # Makes the part that converges visible
     'lake' : True,
     # Palette path to another palette image
-    'lake_palette' : "./palettes/fav.png",
+    'lake_palette' : "./palettes/lake_palette.png",
     # # Here it's loading the palette before the generation and conversion
     # 'array_top_colors' : palette_load(palette, gradient, top_colors, lake_palette, lake),
 
