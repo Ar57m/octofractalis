@@ -186,12 +186,12 @@ all_parameters = {
     
 
 
-    'palette' : "./palettes/palette.png",  # Palette location
+    'palette' : "./palettes/fav.png",  # Palette location
     'use_palette' : True,
-    'gradient' : 16,        # Amount of colors between the colors
+    'gradient' : 24,        # Amount of colors between the colors
 
     # How many top colors to use from the palette.png
-    'top_colors' : 16,
+    'top_colors' : 20,
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
     # Initial z for newton-based fractals and mandelbrot-based
@@ -226,7 +226,7 @@ all_parameters = {
     # Makes the part that converges visible
     'lake' : True,
     # Palette path to another palette image
-    'lake_palette' : "./palettes/lake_palette.png",
+    'lake_palette' : "./palettes/fav.png",
     # # Here it's loading the palette before the generation and conversion
     # 'array_top_colors' : palette_load(palette, gradient, top_colors, lake_palette, lake),
 
@@ -657,6 +657,7 @@ def process_form_data(params):
         all_parameters['ymin'] = Decimal(params.get('ymin', [-2.7]))
         all_parameters['ymax'] = Decimal(params.get('ymax', [2.7]))
 
+
     all_parameters["z_initial_r"]= float(params.get('z_initial_r', [0.0]))
     all_parameters["z_initial_i"]= float(params.get('z_initial_i', [0.0]))
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', [0.000001]))
@@ -664,6 +665,9 @@ def process_form_data(params):
     all_parameters["rho"]= float(params.get('rho', [28.0]))
     all_parameters["beta"]= float(params.get('beta', [2.66666666]))
     all_parameters["dt"]= float(params.get('dt', [0.01]))
+    all_parameters["rotation_angle"] = float(params.get('rotation_angle', [0.0]))
+    all_parameters["axis"] = int(params.get('axis', [-1]))
+    all_parameters["max_point_size"] = int(params.get('max_point_size', [1]))
 
     zoom = False
     max_zoom = 20
