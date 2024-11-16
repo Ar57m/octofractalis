@@ -604,7 +604,7 @@ def process_form_data(params):
 
 
 
-    all_parameters['expression'] = params.get('expression', ['z*z+c'])
+    all_parameters['expression'] = params.get('expression', 'z*z+c')
 
     all_parameters['fractals'] = params.get("fractals", {
     'mandelbrot': False,
@@ -615,28 +615,28 @@ def process_form_data(params):
     'sandpile': False,
     })
 
-    all_parameters['width'] = int(params.get('width', [1024]))
-    all_parameters['height'] = int(params.get('height', [1024]))
-    all_parameters['max_iter'] = int(params.get('max_iter', [400]))
-    all_parameters['top_colors'] = int(params.get('top_colors', [24]))
-    all_parameters['max_grains'] = int(params.get('max_grains', [3]))
-    all_parameters['juliaset_c_real'] = float(params.get('juliaset_c_real', [-0.8]))
-    all_parameters['juliaset_c_imag'] = float(params.get('juliaset_c_imag', [0.16]))
+    all_parameters['width'] = int(params.get('width', 1024))
+    all_parameters['height'] = int(params.get('height', 1024))
+    all_parameters['max_iter'] = int(params.get('max_iter', 400))
+    all_parameters['top_colors'] = int(params.get('top_colors', 24))
+    all_parameters['max_grains'] = int(params.get('max_grains', 3))
+    all_parameters['juliaset_c_real'] = float(params.get('juliaset_c_real', -0.8))
+    all_parameters['juliaset_c_imag'] = float(params.get('juliaset_c_imag', 0.16))
 
     all_parameters['use_palette'] = bool(params.get('use_palette', True))
-    palette = params.get('palette', ['./palettes/palette.png'])
+    palette = params.get('palette', './palettes/palette.png')
     palette = download_image(palette)
     all_parameters['palette'] = palette
-    all_parameters['gradient'] = int(params.get('gradient', [16]))
+    all_parameters['gradient'] = int(params.get('gradient', 16))
     all_parameters['lake'] = bool(params.get('lake', True))
-    lake_palette = params.get('lake_palette', ['./palettes/lake_palette.png'])
+    lake_palette = params.get('lake_palette', './palettes/lake_palette.png')
     lake_palette = download_image(lake_palette)
     all_parameters['lake_palette'] = lake_palette
-    all_parameters['shift_palette'] = (int(params.get('shift_palette', [0])), int(params.get('shift_palette_lake',[0])))
+    all_parameters['shift_palette'] = (int(params.get('shift_palette', 0)), int(params.get('shift_palette_lake',0)))
 
-    grid_length = int(params.get('grid_length', [3]))
-    column_aim = min(int(params.get('column_aim', [2])), grid_length)
-    row_aim = min(int(params.get('row_aim', [2])), grid_length)
+    grid_length = int(params.get('grid_length', 3))
+    column_aim = min(int(params.get('column_aim', 2)), grid_length)
+    row_aim = min(int(params.get('row_aim', 2)), grid_length)
 
     coordinates = np.array([(column_aim,row_aim,grid_length)])
     all_parameters['column_aim'] = column_aim
@@ -645,29 +645,29 @@ def process_form_data(params):
     all_parameters['coordinates'] = coordinates
     all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
 
-    all_parameters['quaternion_j'] = float(params.get('quaternion_j', [0.0]))
-    all_parameters['quaternion_k'] = float(params.get('quaternion_k', [0.0]))
+    all_parameters['quaternion_j'] = float(params.get('quaternion_j', 0.0))
+    all_parameters['quaternion_k'] = float(params.get('quaternion_k', 0.0))
 
     if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
         xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
         all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
     else:
-        all_parameters['xmin'] = Decimal(params.get('xmin', [-2.7]))
-        all_parameters['xmax'] = Decimal(params.get('xmax', [2.7]))
-        all_parameters['ymin'] = Decimal(params.get('ymin', [-2.7]))
-        all_parameters['ymax'] = Decimal(params.get('ymax', [2.7]))
+        all_parameters['xmin'] = Decimal(params.get('xmin', -2.7))
+        all_parameters['xmax'] = Decimal(params.get('xmax', 2.7))
+        all_parameters['ymin'] = Decimal(params.get('ymin', -2.7))
+        all_parameters['ymax'] = Decimal(params.get('ymax', 2.7))
 
 
-    all_parameters["z_initial_r"]= float(params.get('z_initial_r', [0.0]))
-    all_parameters["z_initial_i"]= float(params.get('z_initial_i', [0.0]))
-    all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', [0.000001]))
-    all_parameters["sigma"]= float(params.get('sigma', [10.0]))
-    all_parameters["rho"]= float(params.get('rho', [28.0]))
-    all_parameters["beta"]= float(params.get('beta', [2.66666666]))
-    all_parameters["dt"]= float(params.get('dt', [0.01]))
-    all_parameters["rotation_angle"] = float(params.get('rotation_angle', [0.0]))
-    all_parameters["axis"] = int(params.get('axis', [-1]))
-    all_parameters["max_point_size"] = int(params.get('max_point_size', [1]))
+    all_parameters["z_initial_r"]= float(params.get('z_initial_r', 0.0))
+    all_parameters["z_initial_i"]= float(params.get('z_initial_i', 0.0))
+    all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', 0.000001))
+    all_parameters["sigma"]= float(params.get('sigma', 10.0))
+    all_parameters["rho"]= float(params.get('rho', 28.0))
+    all_parameters["beta"]= float(params.get('beta', 2.66666666))
+    all_parameters["dt"]= float(params.get('dt', 0.01))
+    all_parameters["rotation_angle"] = float(params.get('rotation_angle', 0.0))
+    all_parameters["axis"] = int(params.get('axis', -1))
+    all_parameters["max_point_size"] = int(params.get('max_point_size', 1))
 
     zoom = False
     max_zoom = 20
