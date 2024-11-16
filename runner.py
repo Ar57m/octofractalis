@@ -31,9 +31,9 @@ newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_d
     c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
     c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double]
 
-lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
-    c_char_p, c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_int, c_int, c_double, c_double, c_double, c_double]
+lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, POINTER(c_double),
+    c_char_p, c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double, c_double, c_double]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -157,7 +157,7 @@ all_parameters = {
     'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 500,
+    'max_iter' : 400,
 
     # Sandpile max grains
     'max_grains' : 4,
@@ -188,10 +188,10 @@ all_parameters = {
 
     'palette' : "./palettes/palette.png",  # Palette location
     'use_palette' : True,
-    'gradient' : 16,        # Amount of colors between the colors
+    'gradient' : 24,        # Amount of colors between the colors
 
     # How many top colors to use from the palette.png
-    'top_colors' : 16,
+    'top_colors' : 20,
     'shift_palette' : (0, 0),   # This shift the palette, you can set negative and positive integers.
 
     # Initial z for newton-based fractals and mandelbrot-based
@@ -210,6 +210,9 @@ all_parameters = {
     'rho' : 28.0,
     'beta' : 8/3,
     'dt' : 0.01,
+    'rotation_angle': 0.0, #in degress
+    'axis': -1, # 0 = X, 1 = Y, 2 = Z, anything else desactivated
+    'max_point_size': 1, # to get the 3d effect, bigger points should be closer to the view
 
     #Lyapunov uses it as the imaginary part if juliaset is off
     'lyapunov_c_a' : 0.0,
@@ -230,11 +233,14 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.7")* 1,
-    'xmax': Decimal("2.7") * 1,
-    'ymin': Decimal("-2.7")* 1,
-    'ymax': Decimal("2.7") * 1,
+    'xmin': Decimal("-2.5")* 1,
+    'xmax': Decimal("2.5") * 1,
+    'ymin': Decimal("-2.5")* 1,
+    'ymax': Decimal("2.5") * 1,
 
+    # For Lorenz
+    'zmin': Decimal("-1e30")* 1,
+    'zmax': Decimal("1e30") * 1,
 
     # This part is to help you aim
     'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
@@ -301,6 +307,10 @@ def generate(all_parameters):
     xmax = all_parameters["xmax"]
     ymin = all_parameters["ymin"]
     ymax = all_parameters["ymax"]
+
+    zmin = all_parameters["zmin"]
+    zmax = all_parameters["zmax"]
+
     juliaset_c_real = all_parameters["juliaset_c_real"]
     juliaset_c_imag = all_parameters["juliaset_c_imag"]
     lyapunov_c_a = all_parameters["lyapunov_c_a"]
@@ -318,6 +328,9 @@ def generate(all_parameters):
     rho = all_parameters["rho"]
     beta = all_parameters["beta"]
     dt = all_parameters["dt"]
+    rotation_angle = all_parameters["rotation_angle"]
+    axis = all_parameters["axis"]
+    max_point_size = all_parameters["max_point_size"]
 
     array_top_colors = (
     np.roll(array_top_colors[0], shift_palette[0]),
@@ -385,10 +398,10 @@ def generate(all_parameters):
             start_time = time.perf_counter()
             lorenz(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                rotation_angle, failed_gen.ctypes.data_as(POINTER(c_double)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i
+                zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
+                axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i
             )
             end_time = time.perf_counter()
             
@@ -644,6 +657,7 @@ def process_form_data(params):
         all_parameters['ymin'] = Decimal(params.get('ymin', [-2.7]))
         all_parameters['ymax'] = Decimal(params.get('ymax', [2.7]))
 
+
     all_parameters["z_initial_r"]= float(params.get('z_initial_r', [0.0]))
     all_parameters["z_initial_i"]= float(params.get('z_initial_i', [0.0]))
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', [0.000001]))
@@ -651,6 +665,9 @@ def process_form_data(params):
     all_parameters["rho"]= float(params.get('rho', [28.0]))
     all_parameters["beta"]= float(params.get('beta', [2.66666666]))
     all_parameters["dt"]= float(params.get('dt', [0.01]))
+    all_parameters["rotation_angle"] = float(params.get('rotation_angle', [0.0]))
+    all_parameters["axis"] = int(params.get('axis', [-1]))
+    all_parameters["max_point_size"] = int(params.get('max_point_size', [1]))
 
     zoom = False
     max_zoom = 20

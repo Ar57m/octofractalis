@@ -191,15 +191,44 @@ public:
         return Complex(real, -imag, -j, -k);
     }
 
-    Complex rotate(double angle, const Complex& axis) const {
-        double half_angle = std::sin(angle / 2.0);
-        Complex rotation_quaternion(
-            std::cos((angle / 2.0)),
-            axis.imag * half_angle,
-            axis.j * half_angle,
-            axis.k * half_angle
-        );
-        return rotation_quaternion * (*this) * rotation_quaternion.conj();
+
+    void rotate(double angle, int axis) {
+        double rad, cosTheta, sinTheta;
+        double x = real;
+        double y = imag;
+        double z = j;
+
+        switch (axis) {
+            case 0: // X
+                rad = angle * (pi / 180.0);
+                cosTheta = std::cos(rad);
+                sinTheta = std::sin(rad);
+
+                imag = y * cosTheta - z * sinTheta;
+                j = y * sinTheta + z * cosTheta;
+                break;
+
+            case 1: // Y
+                rad = angle * (pi / 180.0);
+                cosTheta = std::cos(rad);
+                sinTheta = std::sin(rad);
+
+                real = x * cosTheta + z * sinTheta;
+                j = -x * sinTheta + z * cosTheta;
+                break;
+
+            case 2: // Z
+                rad = angle * (pi / 180.0);
+                cosTheta = std::cos(rad);
+                sinTheta = std::sin(rad);
+
+                real = x * cosTheta - y * sinTheta;
+                imag = x * sinTheta + y * cosTheta;
+                break;
+
+            default:
+                break;
+        }
     }
 
     // abs

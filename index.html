@@ -247,16 +247,6 @@
                     <legend>Sandpile Parameter</legend>
                     <label for="max_grains">Max Grains:</label>
                     <input type="number" id="max_grains" name="max_grains" min="2" max="256" value="32" required class="small-input"><br>
-
-                    <legend>Lorenz Parameters</legend>
-                    <label for="sigma">Sigma:</label>
-                    <input type="text" id="sigma" name="sigma" value="10.0" required class="small-input"><br>
-                    <label for="rho">Rho:</label>
-                    <input type="text" id="rho" name="rho" value="28.0" required class="small-input"><br>
-                    <label for="beta">Beta:</label>
-                    <input type="text" id="beta" name="beta" value="2.66666666" required class="small-input"><br>
-                    <label for="dt">Dt:</label>
-                    <input type="text" id="dt" name="dt" value="0.01" required class="small-input"><br>
                 </fieldset>
 
                 <fieldset>
@@ -315,6 +305,24 @@
                 </fieldset>
 
                 <fieldset>
+                    <legend>Lorenz Parameters</legend>
+                    <label for="sigma">Sigma:</label>
+                    <input type="text" id="sigma" name="sigma" value="10.0" required class="small-input"><br>
+                    <label for="rho">Rho:</label>
+                    <input type="text" id="rho" name="rho" value="28.0" required class="small-input"><br>
+                    <label for="beta">Beta:</label>
+                    <input type="text" id="beta" name="beta" value="2.66666666" required class="small-input"><br>
+                    <label for="dt">Dt:</label>
+                    <input type="text" id="dt" name="dt" value="0.01" required class="small-input"><br>
+                    <label for="rotation_angle">Rotation Angle:</label>
+                    <input type="text" id="rotation_angle" name="rotation_angle" value="0.0" required class="small-input"><br>
+                    <label for="axis">Axis:</label>
+                    <input type="number" id="shift_palette" name="shift_palette" min="-1" max="2" value="-1" required class="small-input"><br>
+                    <label for="max_point_size">Max Point Size:</label>
+                    <input type="number" id="max_point_size" name="max_point_size" min="1" max="256" value="1" required class="small-input"><br>
+                </fieldset>
+
+                <fieldset>
                     <legend>Zoom</legend>
                     <label for="continue_aim">Zoom or Reset:</label>
                     <input type="checkbox" id="continue_aim" name="continue_aim" class="small-input"><br>
@@ -368,6 +376,7 @@
     validateInput("xmax", -10000.0, 10000.0, 2.0);
     validateInput("ymin", -10000.0, 10000.0, -2.0);
     validateInput("ymax", -10000.0, 10000.0, 2.0);
+    validateInput("rotation_angle", -10000.0, 10000.0, 0.0);
 
     function resizeImage(imagePath, maxPixels, callback) {
         const img = new Image();
