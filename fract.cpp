@@ -96,6 +96,37 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
 
 
 
+void drawFilledCircle(uint8_t* array, float* depthBuffer, const int rows, const int cols, 
+                      const int centerX, const int centerY, 
+                      const int radius, const float depth, const int color) {
+    for (int y = -radius; y <= radius; ++y) {
+        for (int x = -radius; x <= radius; ++x) {
+            int newX = centerX + x;
+            int newY = centerY + y;
+
+            if (x * x + y * y <= radius * radius && 
+                newX >= 0 && newX < cols && 
+                newY >= 0 && newY < rows) {
+
+                int pixelIndex = newY * cols + newX;
+                int colorIndex = pixelIndex * 3;
+
+                // Depth check
+                if (depth < depthBuffer[pixelIndex]) {
+                    // Update depth buffer
+                    depthBuffer[pixelIndex] = depth;
+
+                    // Draw the pixel
+                    array[colorIndex] = static_cast<uint8_t>((color >> 16) & 0xFF);     // R
+                    array[colorIndex + 1] = static_cast<uint8_t>((color >> 8) & 0xFF);  // G
+                    array[colorIndex + 2] = static_cast<uint8_t>(color & 0xFF);         // B
+                }
+            }
+        }
+    }
+}
+
+
 void setComplexValues(const bool juliaset, Complex& c, Complex& z,
                     const double c_real, const double c_imag,
                     const double r_part, const double i_part,
@@ -258,38 +289,56 @@ extern "C" {
     
     
 
-    void lorenz(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake,
-                 double* failed_gen, const char* exp,
-                 const uint16_t width, const uint16_t height, const int max_iter,
-                 const double xmin, const double xmax, const double ymin, const double ymax,
-                 const double sigma, const double rho, const double beta,
-                 const double dt, const int top_colors_outside, const int top_colors_lake,
-                 const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
-        
+    
+    void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
+                double* failed_gen, const char* exp,
+                const uint16_t width, const uint16_t height, const int max_iter,
+                const double xmin, const double xmax, const double ymin, const double ymax,
+                const double zmin, const double zmax, const double sigma, const double rho, const double beta,
+                const double dt, const int top_colors_outside, const int axis, const int point_size,
+                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+    
         std::signal(SIGINT, signal_handler);
+    
 
-        
+        const uint16_t max_wh = std::max(width,height);
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
-    
+        const double dz = (zmax - zmin) / max_wh;
+
         *failed_gen = std::max(*failed_gen, 1.0);
         std::string expression = std::string(exp);
         if (expression == "rt*rt+rw") {
             expression = "dx+dy*1i+dz*1j";
         }
-
+    
         const std::vector<Complex> trajectory = generate_lorenz_trajectory(sigma, rho, beta, dt, max_iter,
                                                 expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
+        const double camera_position_z = zmin;
+    
+        // Initialize depth buffer
+        std::vector<float> depthBuffer(width * height, 1e16);
+    
         #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < max_iter; ++i) {
             Complex temp = trajectory[i];
+    
+            if (temp.j < camera_position_z || temp.j > zmax) {
+                continue;
+            }
+            temp.rotate(angle, axis);
+            double depth = (temp.j - zmin) / dz;
+    
             int pixel_x = static_cast<int>((temp.real - xmin) / dx);
             int pixel_y = static_cast<int>((temp.imag - ymin) / dy);
+            depth =  ((depth / max_wh) * point_size);
     
-            if (pixel_x > -1 && pixel_x < width && pixel_y > -1 && pixel_y < height) {
-                update_output(output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-                              i, pixel_x, pixel_y, top_colors_outside, top_colors_lake, false, false);
+            int scale_factor = static_cast<int>(point_size - depth);
+    
+            if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
+                drawFilledCircle(output, depthBuffer.data(), height, width, pixel_x, pixel_y, scale_factor,
+                                 depth, array_top_colors_outside[i % (top_colors_outside + 1)]);
             }
         }
     }
