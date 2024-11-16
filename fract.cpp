@@ -336,7 +336,7 @@ extern "C" {
     
             int scale_factor = static_cast<int>(point_size - depth);
     
-            if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
+            if (pixel_x > -1 && pixel_x < width && pixel_y > -1 && pixel_y < height) {
                 drawFilledCircle(output, depthBuffer.data(), height, width, pixel_x, pixel_y, scale_factor,
                                  depth, array_top_colors_outside[i % (top_colors_outside + 1)]);
             }
