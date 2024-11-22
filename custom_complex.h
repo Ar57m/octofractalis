@@ -144,7 +144,7 @@ public:
     Complex operator/(const Complex& other) const {
         double denom = other.real * other.real + other.imag * other.imag
                         + other.j * other.j + other.k * other.k;
-        return (*this * other.conj() ) / denom; 
+        return ((*this * other.conj() ) / denom).sanitize(); 
     }
 
     inline Complex operator/(double value) const {
@@ -279,34 +279,29 @@ public:
     // pow
     Complex pow(const Complex& exponent) const {
         double r = this->abs();
-        if (complex_type && exponent.complex_type) {
-            double theta = std::atan2(imag, real);
-    
-            double new_magnitude = std::pow(r, exponent.real) * std::exp(-exponent.imag * theta);
-            double new_phase = exponent.real * theta + exponent.imag * std::log(r);
+        double theta = std::atan2(imag, real);
 
+        double new_magnitude = std::pow(r, exponent.real) * std::exp(-exponent.imag * theta);
+        double new_phase = exponent.real * theta + exponent.imag * std::log(r);
+
+        if (j == 0 && k == 0 && exponent.j == 0 && exponent.k == 0) {
             return Complex(
                 new_magnitude * std::cos(new_phase),
                 new_magnitude * std::sin(new_phase)
             );
-        } else {
-            double real_part = real;
-            double imag_magnitude = std::sqrt(imag * imag + j * j + k * k);
-    
-            double theta = std::atan2(imag_magnitude, real_part);
-    
-            double new_magnitude = std::pow(r, exponent.real) * std::exp(-exponent.imag * theta);
-            double new_phase = exponent.real * theta + exponent.imag * std::log(r);
-    
-            double scale = (imag_magnitude == 0) ? 0 : new_magnitude * std::sin(new_phase) / imag_magnitude;
-    
-            return Complex(
-                new_magnitude * std::cos(new_phase),
-                scale * imag,
-                scale * j,
-                scale * k
-            );
         }
+        double imag_magnitude = std::sqrt(imag * imag + j * j + k * k);
+        theta = (imag_magnitude == 0) ? 0 : std::atan2(imag_magnitude, real);
+        new_phase = exponent.real * theta + exponent.imag * std::log(r); 
+
+        double scale = (imag_magnitude == 0) ? 0 : new_magnitude * std::sin(new_phase) / imag_magnitude;
+
+        return Complex(
+            new_magnitude * std::cos(new_phase),
+            scale * imag,
+            scale * j,
+            scale * k
+        );
     }
 
     // pow
@@ -327,7 +322,7 @@ public:
                 magnitude * std::sin(angle) * (k / imag_magnitude)
             );
         } 
-}
+    }
 
     // root
     Complex root(const Complex& n1) const {
@@ -517,14 +512,10 @@ public:
 
 
     friend std::ostream& operator<<(std::ostream& os, const Complex& c) {
-        if (c.complex_type) {
-            os << "(" << c.real << (c.imag >= 0.0 ? " +" : " -") << std::abs(c.imag) << "i)";
-        } else {
-            os << "(" << c.real 
-               << (c.imag >= 0.0 ? " +" : " -") << std::abs(c.imag) << "i"
-               << (c.j >= 0.0 ? " +" : " -") << std::abs(c.j) << "j"
-               << (c.k >= 0.0 ? " +" : " -") << std::abs(c.k) << "k)";
-        }
+        os << "(" << c.real 
+            << (c.imag >= 0.0 ? " +" : " -") << std::abs(c.imag) << "i"
+            << (c.j >= 0.0 ? " +" : " -") << std::abs(c.j) << "j"
+            << (c.k >= 0.0 ? " +" : " -") << std::abs(c.k) << "k)";
         return os;
     }
     
