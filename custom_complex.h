@@ -520,14 +520,10 @@ public:
     }
     
     void print() const {
-        if (complex_type) {
-            std::cout << "(" << real << (imag >= 0.0 ? " +" : " -" ) << std::abs(imag) << "i)\n";
-        } else {
-            std::cout << "(" << real 
-                      << (imag >= 0.0 ? " +" : " -") << std::abs(imag) << "i"
-                      << (j >= 0.0 ? " +" : " -") << std::abs(j) << "j"
-                      << (k >= 0.0 ? " +" : " -") << std::abs(k) << "k)\n";
-        }
+        std::cout << "(" << real 
+                  << (imag >= 0.0 ? " +" : " -") << std::abs(imag) << "i"
+                  << (j >= 0.0 ? " +" : " -") << std::abs(j) << "j"
+                  << (k >= 0.0 ? " +" : " -") << std::abs(k) << "k)\n";
     }
 };
 
