@@ -231,20 +231,24 @@ public:
         }
     }
 
-    // abs
-    inline double abs() const {
-        return complex_type ? std::sqrt(real * real + imag * imag) : std::sqrt(real * real + imag * imag + j * j + k * k); 
+    // abs / remove the sign
+    inline Complex abs() const {
+        return Complex(std::abs(real), std::abs(imag), std::abs(j), std::abs(k));
     }
 
-    inline Complex c_abs() const {
-        return complex_type ? Complex (std::sqrt(real * real + imag * imag), 0.0) :
-            Complex(std::sqrt(real * real + imag * imag + j * j + k * k), 0.0);
+    // magnitude
+    inline double mag() const {
+        return std::sqrt(real * real + imag * imag + j * j + k * k); 
+    }
+
+    inline Complex c_mag() const {
+        return Complex(std::sqrt(real * real + imag * imag + j * j + k * k), 0.0);
     }
 
     // sqrt
     Complex sqrt() const {
         if (complex_type) {
-            double magnitude = std::sqrt(abs());
+            double magnitude = std::sqrt(mag());
             double angle = std::atan2(imag, real) / 2.0;
             return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
         } else {
@@ -268,17 +272,17 @@ public:
     // log
     Complex log() const {
         if (complex_type) {
-            return Complex(std::log(abs()), std::atan2(imag, real));
+            return Complex(std::log(mag()), std::atan2(imag, real));
         } else {
             double imag_magnitude = std::sqrt(imag * imag + j * j + k * k);
             double scale = std::atan2(imag_magnitude, real) / imag_magnitude;
-            return Complex(std::log(this->abs()), imag * scale, j * scale, k * scale);
+            return Complex(std::log(this->mag()), imag * scale, j * scale, k * scale);
         }
     }
     
     // pow
     Complex pow(const Complex& exponent) const {
-        double r = this->abs();
+        double r = this->mag();
         double theta = std::atan2(imag, real);
 
         double new_magnitude = std::pow(r, exponent.real) * std::exp(-exponent.imag * theta);
@@ -307,12 +311,12 @@ public:
     // pow
     Complex pow(double exponent) const {
         if (complex_type) {
-            double magnitude = std::pow(abs(), exponent);
+            double magnitude = std::pow(mag(), exponent);
             double angle = std::atan2(imag, real) * exponent;
             return Complex(magnitude * std::cos(angle), magnitude * std::sin(angle));
         } else {
-            double magnitude = std::pow(this->abs(), exponent);
-            double angle = std::acos(real / this->abs()) * exponent;
+            double magnitude = std::pow(this->mag(), exponent);
+            double angle = std::acos(real / this->mag()) * exponent;
             double imag_magnitude = std::sqrt(imag * imag + j * j + k * k);
         
             return Complex(
@@ -407,11 +411,11 @@ public:
     }
 
     inline Complex maximum(const Complex& arg2) const {
-        return this->abs() < arg2.abs() ? arg2 : *this;
+        return this->mag() < arg2.mag() ? arg2 : *this;
     }
 
     inline Complex minimum(const Complex& arg2) const {
-        return this->abs() > arg2.abs() ? arg2 : *this;
+        return this->mag() > arg2.mag() ? arg2 : *this;
     }
 
     Complex round() const {
@@ -420,19 +424,19 @@ public:
 
     Complex circle(const Complex radius) const {
         double angle = std::atan2(imag, real);
-        double rad = radius.abs();
+        double rad = radius.mag();
         return Complex(std::cos(angle) * rad, std::sin(angle) * rad);
     }
 
     Complex square(const Complex sideLength) const {
-        double side = sideLength.abs()/2.0;
+        double side = sideLength.mag()/2.0;
         double x_proj = (real > 0) ? side : -side;
         double y_proj = (imag > 0) ? side : -side;
         return Complex(x_proj, y_proj);
     }
 
     Complex triangle(const Complex sideLength) const {
-        double side = sideLength.abs();
+        double side = sideLength.mag();
         double height = std::sqrt(3) / 2 * side;
         double x_proj = (real > 0) ? side / 2 : -side / 2;
         double y_proj = (imag > 0) ? height / 3 : -height / 3;
@@ -441,7 +445,7 @@ public:
 
     Complex ellipsoid(Complex radiusX, Complex radiusY) const {
         double angle = std::atan2(imag, real);
-        return Complex(std::cos(angle) * radiusX.abs(), std::sin(angle) * radiusY.abs());
+        return Complex(std::cos(angle) * radiusX.mag(), std::sin(angle) * radiusY.mag());
     }
 
 
@@ -521,9 +525,9 @@ public:
     
     void print() const {
         std::cout << "(" << real 
-                  << (imag >= 0.0 ? " +" : " -") << std::abs(imag) << "i"
-                  << (j >= 0.0 ? " +" : " -") << std::abs(j) << "j"
-                  << (k >= 0.0 ? " +" : " -") << std::abs(k) << "k)\n";
+                    << (imag >= 0.0 ? " +" : " -") << std::abs(imag) << "i"
+                    << (j >= 0.0 ? " +" : " -") << std::abs(j) << "j"
+                    << (k >= 0.0 ? " +" : " -") << std::abs(k) << "k)\n";
     }
 };
 

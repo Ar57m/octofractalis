@@ -225,12 +225,12 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = noNan(z.abs());
+                    double temp = noNan(z.mag());
                     
     
                     while ( temp < 2 && iteration < max_iter) {
                         z = z*z+c;
-                        temp = noNan(z.abs());
+                        temp = noNan(z.mag());
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
@@ -269,12 +269,12 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = noNan(z.abs());
+                    double temp = noNan(z.mag());
 
     
                     while (temp < 2 && iteration < max_iter) {
                         z = (ast->evaluate());
-                        temp = noNan(z.abs());
+                        temp = noNan(z.mag());
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
@@ -336,7 +336,7 @@ extern "C" {
     
             int scale_factor = static_cast<int>(point_size - depth);
     
-            if (pixel_x > -1 && pixel_x < width && pixel_y > -1 && pixel_y < height) {
+            if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
                 drawFilledCircle(output, depthBuffer.data(), height, width, pixel_x, pixel_y, scale_factor,
                                  depth, array_top_colors_outside[i % (top_colors_outside + 1)]);
             }
@@ -376,13 +376,13 @@ extern "C" {
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
                             v = (b * v * (1.0 - v));
-                            l += (((b * (1.0 - 2.0 * v)).c_abs()).log());
+                            l += (((b * (1.0 - 2.0 * v)).c_mag()).log());
                         } else {
                             v = (a * v * (1.0 - v));
-                            l += (((a * (1.0 - 2.0 * v)).c_abs()).log());
+                            l += (((a * (1.0 - 2.0 * v)).c_mag()).log());
                         }
                     }
-                    update_output( output, array_top_colors_outside, array_top_colors_lake, l.abs(), width,
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, l.mag(), width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
                 }
                 //display_progress( current, width, 80);
@@ -428,7 +428,7 @@ extern "C" {
                             l += (ast->evaluate());
                         }
                     }
-                    const double labs = noNan(l.abs());
+                    const double labs = noNan(l.mag());
                     *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
@@ -472,7 +472,7 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = noNan(z.abs());
+                    double temp = noNan(z.mag());
                     
                     while (iteration < max_iter) {
                         
@@ -480,7 +480,7 @@ extern "C" {
                         const Complex last_z = z;
                         const Complex znew = 3.0*z*z;
                         z = (z*z*z-1+c);
-                        temp = noNan(z.abs());
+                        temp = noNan(z.mag());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         z = ( last_z - ( z/znew ));
@@ -524,7 +524,7 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
                     uint16_t iteration = 0;
-                    double temp = noNan(z.abs());
+                    double temp = noNan(z.mag());
                     
                     while (iteration < max_iter) {
 
@@ -536,7 +536,7 @@ extern "C" {
                         z = last_z;
                         z = ast->evaluate();
                         
-                        temp = noNan(z.abs());
+                        temp = noNan(z.mag());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         const Complex znew = ( next_z - z )/(h); 
