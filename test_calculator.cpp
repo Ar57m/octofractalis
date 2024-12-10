@@ -7,24 +7,25 @@
 #include "custom_complex.h"
 #include "parser.h"
 
-const Complex pi(3.141592653589793, 0.0);
-const Complex e(2.718281828459045, 0.0);
-const Complex phi(1.618033988749895, 0.0);
+const Quaternion pi(3.141592653589793, 0.0);
+const Quaternion e(2.718281828459045, 0.0);
+const Quaternion phi(1.618033988749895, 0.0);
 
 int main() {
-    Complex z, c;
+    Quaternion z, c;
     double x = 1, y = 2;
-    z = Complex(0.5, 1.5, 0.2, 0.1);
-    c = Complex(1.0, -1.0, 0.8, 0.4);
+    z = Quaternion(0.5, 1.5);//, 0.2, 0.1);
+    c = Quaternion(1.0, -1.0);//, 0.8, 0.4);
+    std::cout << z.pow(0.0) << z/(Quaternion(0.0)) << z/0.0 <<"\n";
 
-    const std::map<std::string, std::function<Complex()>> variables = {
+    const std::map<std::string, std::function<Quaternion()>> variables = {
         {"z", [&z]() { return z; }},
         {"c", [&c]() { return c; }},
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
         {"e", [&]() { return e; }},
-        {"y", [&]() { return Complex(y, 0.0); }},
-        {"x", [&]() { return Complex(x, 0.0); }}
+        {"y", [&]() { return Quaternion(y, 0.0); }},
+        {"x", [&]() { return Quaternion(x, 0.0); }}
     };
 
     std::string expression;
@@ -56,7 +57,7 @@ int main() {
 
             Parser parser(expression, variables);
             const auto ast = parser.parse();
-            Complex result = ast->evaluate();
+            Quaternion result = ast->evaluate();
             std::cout << "\nResult: " << result << "\n";
         } catch (const std::exception& e) {
             std::cerr << "\nError: " << e.what() << "\n";
