@@ -241,10 +241,12 @@ public:
             double angle = std::atan2(imag, real) / 2.0;
             return Quaternion(magnitude * std::cos(angle), magnitude * std::sin(angle));
         } else {
-            return Quaternion(std::sqrt((magnitude + real) / 2.0),
-                    (imag / std::sqrt(2 * (magnitude + real))),
-                    (j / std::sqrt(2 * (magnitude + real))),
-                    (k / std::sqrt(2 * (magnitude + real))));
+            magnitude += real;
+            double imag_mag =  std::sqrt(2 * magnitude);
+            return Quaternion(std::sqrt( magnitude / 2.0),
+                    (imag / imag_mag),
+                    (j / imag_mag),
+                    (k / imag_mag));
         }
     }
     // arg
@@ -306,12 +308,13 @@ public:
         } else {
             double angle = std::acos(real / magnitude) * exponent;
             double imag_magnitude = imag_mag();
+            double sin_angle = magnitude * std::sin(angle);
         
             return Quaternion(
                 magnitude * std::cos(angle),
-                magnitude * std::sin(angle) * (imag / imag_magnitude),
-                magnitude * std::sin(angle) * (j / imag_magnitude) ,
-                magnitude * std::sin(angle) * (k / imag_magnitude)
+                sin_angle * (imag / imag_magnitude),
+                sin_angle * (j / imag_magnitude),
+                sin_angle * (k / imag_magnitude)
             );
         } 
     }

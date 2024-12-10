@@ -4,7 +4,7 @@
 #include <string>
 #include <algorithm>
 
-#include "custom_complex.h"
+#include "custom_quaternion.h"
 #include "parser.h"
 
 const Quaternion pi(3.141592653589793, 0.0);
