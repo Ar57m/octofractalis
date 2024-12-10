@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import cv2
-from ctypes import cdll, c_double, POINTER, c_int, c_uint32, c_uint16, c_uint8, c_bool, c_float, c_char_p #, c_longdouble
+from ctypes import cdll, c_double, POINTER, c_int, c_uint32, c_uint16, c_uint8, c_bool, c_char_p
 import argparse
 import sys
 import os
@@ -440,7 +440,7 @@ def generate_wrapper(all_parameters):
     
     if all_parameters['zoom']:
         fractals = all_parameters['fractals']
-        assert fractals["sandpile"]== False, "Error: Can't zoom on sandpile."
+        assert fractals["sandpile"] is False, "Error: Can't zoom on sandpile."
         # The first image generated
         n_coordinates = all_parameters['n_coordinates']
         max_zoom = all_parameters['max_zoom']
@@ -455,7 +455,7 @@ def generate_wrapper(all_parameters):
         
     
         for i in range(n_coordinates+max_zoom): 
-            if (i < n_coordinates) and (n_coordinates !=False):
+            if (i < n_coordinates) and (n_coordinates is not False):
                 xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(i+1), :], xmin1, xmax1, ymin1, ymax1)
             else:
                 
@@ -531,7 +531,7 @@ def imgs_to_video(all_parameters):
 
 
 # stop_gen = False
-import multiprocessing
+#import multiprocessing
 
 
 received_params = {}
@@ -669,8 +669,8 @@ def process_form_data(params):
     all_parameters["axis"] = int(params.get('axis', -1))
     all_parameters["max_point_size"] = int(params.get('max_point_size', 1))
 
-    zoom = False
-    max_zoom = 20
+    #zoom = False
+    #max_zoom = 20
 
 
     if all_parameters['use_palette'] and not os.path.exists(palette):

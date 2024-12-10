@@ -14,7 +14,7 @@
 #include <sstream>
 #include <chrono>
 
-#include "custom_complex.h"
+#include "custom_quaternion.h"
 #include "parser.h"
 
 
@@ -127,7 +127,7 @@ void drawFilledCircle(uint8_t* array, float* depthBuffer, const int rows, const 
 }
 
 
-void setComplexValues(const bool juliaset, Complex& c, Complex& z,
+void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
                     const double c_real, const double c_imag,
                     const double r_part, const double i_part,
                     const double z_initial_r, const double z_initial_i,
@@ -135,12 +135,12 @@ void setComplexValues(const bool juliaset, Complex& c, Complex& z,
 
         switch (static_cast<int>(juliaset)) {
             case 1:
-                c = Complex(c_real, c_imag);
-                z = Complex(r_part, i_part, quaternion_j, quaternion_k);
+                c = Quaternion(c_real, c_imag);
+                z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
                 break;
             case 0:
-                c = Complex(r_part, i_part);
-                z = Complex(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                c = Quaternion(r_part, i_part);
+                z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                 break;
         }
 }
@@ -148,12 +148,12 @@ void setComplexValues(const bool juliaset, Complex& c, Complex& z,
 
 
 
-std::vector<Complex> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
+std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
-    std::vector<Complex> trajectory(max_iter);
+    std::vector<Quaternion> trajectory(max_iter);
 
-    Complex point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-    const std::map<std::string, std::function<Complex()>> variables = {
+    Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    const std::map<std::string, std::function<Quaternion()>> variables = {
         {"rt", [&point]() { return point; }},
         {"z_k", [&point]() { return point.k; }},
         {"phi", [&]() { return phi; }},
@@ -219,9 +219,9 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 for (int y = 0; y < height; ++y) {
-                    Complex c, z;
+                    Quaternion c, z;
                     
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
@@ -247,16 +247,16 @@ extern "C" {
             *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Complex z,c;
+                Quaternion z,c;
     
-                const std::map<std::string, std::function<Complex()>> variables = {
+                const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"rt", [&z]() { return z; }},
                     {"rw", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
-                    {"y", [&]() { return Complex (y, 0.0); }},
-                    {"x", [&]() { return Complex (x, 0.0); }}
+                    {"y", [&]() { return Quaternion (y, 0.0); }},
+                    {"x", [&]() { return Quaternion (x, 0.0); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
@@ -265,7 +265,7 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
@@ -312,7 +312,7 @@ extern "C" {
             expression = "dx+dy*1i+dz*1j";
         }
     
-        const std::vector<Complex> trajectory = generate_lorenz_trajectory(sigma, rho, beta, dt, max_iter,
+        const std::vector<Quaternion> trajectory = generate_lorenz_trajectory(sigma, rho, beta, dt, max_iter,
                                                 expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
         const double camera_position_z = zmin;
@@ -322,7 +322,7 @@ extern "C" {
     
         #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < max_iter; ++i) {
-            Complex temp = trajectory[i];
+            Quaternion temp = trajectory[i];
     
             if (temp.j < camera_position_z || temp.j > zmax) {
                 continue;
@@ -368,10 +368,10 @@ extern "C" {
                 for (int j = 0; j < height; ++j) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
-                    const Complex a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-                    const Complex b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-                    Complex l(0.0, 0.0);
-                    Complex v(0.5, 0.0);
+                    const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
+                    Quaternion l(0.0, 0.0);
+                    Quaternion v(0.5, 0.0);
 
                     for (int k = 0; k < max_iter; ++k) {
                         if (k % 12 < 6) {
@@ -395,8 +395,8 @@ extern "C" {
             *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
-                Complex l, v, temp;
-                const std::map<std::string, std::function<Complex()>> variables = {
+                Quaternion l, v, temp;
+                const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"rt", [&v]() { return v; }},
                     {"rw", [&l]() { return l; }},
                     {"rk", [&temp]() { return temp; }},
@@ -411,10 +411,10 @@ extern "C" {
                 for (int j = 0; j < height; ++j) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
-                    const Complex a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-                    const Complex b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-                    l = Complex (0.0, 0.0);
-                    v = Complex (0.5, 0.0);
+                    const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
+                    l = Quaternion (0.0, 0.0);
+                    v = Quaternion (0.5, 0.0);
 
 
                     for (int k = 0; k < max_iter; ++k) {
@@ -467,8 +467,8 @@ extern "C" {
 
                 for (int y = 0; y < height; ++y) {
                     
-                    Complex c, z;
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                    Quaternion c, z;
+                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
@@ -477,8 +477,8 @@ extern "C" {
                     while (iteration < max_iter) {
                         
 
-                        const Complex last_z = z;
-                        const Complex znew = 3.0*z*z;
+                        const Quaternion last_z = z;
+                        const Quaternion znew = 3.0*z*z;
                         z = (z*z*z-1+c);
                         temp = noNan(z.mag());
                         
@@ -502,16 +502,16 @@ extern "C" {
             const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Complex z,c;
+                Quaternion z,c;
     
-                const std::map<std::string, std::function<Complex()>> variables = {
+                const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"rt", [&z]() { return z; }},
                     {"rw", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
-                    {"y", [&]() { return Complex (y, 0.0); }},
-                    {"x", [&]() { return Complex (x, 0.0); }}
+                    {"y", [&]() { return Quaternion (y, 0.0); }},
+                    {"x", [&]() { return Quaternion (x, 0.0); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
@@ -520,7 +520,7 @@ extern "C" {
     
     
                 for (int y = 0; y < height; ++y) {
-                    setComplexValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
                     uint16_t iteration = 0;
@@ -528,18 +528,18 @@ extern "C" {
                     
                     while (iteration < max_iter) {
 
-                        const Complex last_z = z;
-                        const Complex h(newton_epsilon, newton_epsilon, q_epsilon, q_epsilon);
+                        const Quaternion last_z = z;
+                        const Quaternion h(newton_epsilon, newton_epsilon, q_epsilon, q_epsilon);
                         
                         z += h;
-                        const Complex next_z = ast->evaluate();
+                        const Quaternion next_z = ast->evaluate();
                         z = last_z;
                         z = ast->evaluate();
                         
                         temp = noNan(z.mag());
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
-                        const Complex znew = ( next_z - z )/(h); 
+                        const Quaternion znew = ( next_z - z )/(h); 
                         z = last_z - ( z/znew );
                         
                         ++iteration;
