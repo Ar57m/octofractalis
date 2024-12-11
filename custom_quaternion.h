@@ -174,8 +174,23 @@ public:
     inline Quaternion conj() const {
         return Quaternion(real, -imag, -j, -k);
     }
-
-
+    
+    Quaternion rotation(const Quaternion angle, const Quaternion& axis) const {
+        Quaternion normalized_axis = axis / axis.mag();
+    
+        double angle_mag = angle.mag();
+        double half_angle = std::sin(angle_mag / 2.0);
+    
+        Quaternion rotation_quaternion(
+            std::cos(angle_mag / 2.0),
+            normalized_axis.imag * half_angle,
+            normalized_axis.j * half_angle,
+            normalized_axis.k * half_angle
+        );
+    
+        return rotation_quaternion * (*this) * rotation_quaternion.conj();
+    }
+    
     void rotate(double angle, int axis) {
         double rad, cosTheta, sinTheta;
         double x = real;
