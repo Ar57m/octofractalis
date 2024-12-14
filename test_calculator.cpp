@@ -15,8 +15,9 @@ int main() {
     Quaternion z, c;
     double x = 1, y = 2;
     z = Quaternion(0.5, 1.5);//, 0.2, 0.1);
-    c = Quaternion(1.0, -1.0);//, 0.8, 0.4);
-    std::cout << z.pow(0.0) << z/(Quaternion(0.0)) << z/0.0 <<"\n";
+    c = Quaternion(1.0, -1.0,3.0,2.0);//, 0.8, 0.4);
+    
+    //sstd::cout << z.pow(2) << z.pow(Quaternion(2.0)) <<c.pow(2) << c.pow(Quaternion(2.0))<<"\n";
 
     const std::map<std::string, std::function<Quaternion()>> variables = {
         {"z", [&z]() { return z; }},
@@ -66,4 +67,4 @@ int main() {
 
     return 0;
 }
-// g++ -O3 -Wall -Wextra -pedantic -march=native -fPIC -funroll-loops -ffinite-math-only -fopenmp -o test_calculator test_calculator.cpp 
+// g++ -O3 -Wall -Wextra -pedantic -march=native -fPIC -funroll-loops -fopenmp -o test_calculator test_calculator.cpp 
