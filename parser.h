@@ -121,6 +121,7 @@ static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNo
     {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.zeta(); }); }},
     {"airy", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.airy(); }); }},
     {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.ellipsoid(b,c); }); }},
+    {"rotation", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.rotation(b,c); }); }},
     {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.circle(b); }); }},
     {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.square(b); }); }},
     {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.triangle(b); }); }},
@@ -130,24 +131,23 @@ bool printerror = false; // to not fill the cli with errors
 
 
 // Parser class
+
 class Parser {
 public:
-    Parser(const std::string& expr, const std::map<std::string, std::function<Quaternion()>>& vars) 
+    Parser(const std::string& expr, const std::map<std::string, std::function<Quaternion()>>& vars)
         : expr(expr), pos(0), variables(vars) {}
 
     std::shared_ptr<ASTNode> parse() {
         return parseExpression();
     }
 
-
 private:
     std::string expr;
     size_t pos;
     std::map<std::string, std::function<Quaternion()>> variables;
 
-
-
-
+    // Cache to store evaluated expressions
+    std::unordered_map<std::string, std::shared_ptr<ASTNode>> cache;
 
     void print_error(bool& value, const std::string& message) const {
         if (!value) {
@@ -201,36 +201,35 @@ private:
             }
         }
         return node;
-    } 
-    const std::shared_ptr<ASTNode> parseFactor() {
+    }
 
+
+    const std::shared_ptr<ASTNode> parseFactor() {
         if (expr[pos] == '+') {
             ++pos;
             return parseFactor();
         } else if (expr[pos] == '-') {
             ++pos;
-
             return std::make_shared<UnaryFunctionNode>(parseFactor(), [](const Quaternion& a) { return -a; });
         }
 
         if (isalpha(expr[pos])) {
             return parseVariableOrFunction();
-        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k' ) {
+        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k') {
             return parseNumber();
         } else if (expr[pos] == '(') {
             ++pos;
             auto node = parseExpression();
             if (expr[pos] != ')') {
                 print_error(printerror,"Expected ')'" "\n");
-                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
             ++pos;
             return node;
         }
         print_error(printerror,"Unexpected character in expression" "\n");
-        return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+        return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
     }
-
 
     const std::shared_ptr<ASTNode> parseVariableOrFunction() {
         std::string name;
@@ -246,16 +245,15 @@ private:
             return std::make_shared<VariableNode>(variables.at(name));
         } else {
             print_error(printerror,"Unknown variable: " + name + "\n");
-            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+            return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
     }
 
-    
     const std::shared_ptr<ASTNode> parseNumber() {
         std::string number;
         double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
         char identifier = '\0';
-    
+
         while (pos < expr.size() && (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k')) {
             if (expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k') {
                 identifier = expr[pos++];
@@ -264,9 +262,9 @@ private:
                 number += expr[pos++];
             }
         }
-    
+
         double parsedValue = number.empty() ? 0.0 : std::stod(number);
-    
+
         switch (identifier) {
             case 'i':
                 imagPart = parsedValue;
@@ -281,64 +279,66 @@ private:
                 realPart = parsedValue;
                 break;
         }
-    
+
         return std::make_shared<ConstantNode>(Quaternion(realPart, imagPart, jPart, kPart));
-    }   
+    }
 
     const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
-        ++pos;  // Skip '('
+        // Check cache before parsing
+        std::string funcKey = func + expr.substr(pos);
+        if (cache.find(funcKey) != cache.end()) {
+            return cache[funcKey];
+        }
 
-        const auto arg1 = parseExpression(); // Parse the first argument
+        ++pos;  // Skip '('
+        const auto arg1 = parseExpression();
 
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
 
-
-        // Parse binary functions (expecting a second argument)
+        // Cache logic
         if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle") {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
                 arg2 = parseExpression();  // Parse the second argument for binary functions
             } else {
                 print_error(printerror,"Expected ',' between arguments for " + func + "\n");
-                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
         }
-  
 
-        // Parse functions that expect a third argument
-        if (func == "ellipsoid") {
-
+        // Parsing functions that expect a third argument
+        if (func == "ellipsoid" || func == "rotation") {
             if (expr[pos] == ',') {
                 ++pos;
-  
                 arg2 = parseExpression();
                 ++pos;
-
                 arg3 = parseExpression();
             } else {
                 print_error(printerror,"Expected ',' between arguments for " + func + "\n");
-                return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
             }
         }
 
-
         if (expr[pos] != ')') {
             print_error(printerror,"Expected ')' to close the function " + func + "\n");
-            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+            return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
         ++pos;  // Skip ')'
 
-
+        // Store result in cache
         const auto it = functionMap.find(func);
         if (it != functionMap.end()) {
-            return it->second(arg1, arg2, arg3);  // Call the mapped function
+            auto resultNode = it->second(arg1, arg2, arg3);  // Call the mapped function
+            cache[funcKey] = resultNode;
+            return resultNode;
         } else {
             print_error(printerror,"Function not recognized: " + func + "\n");
-            return std::shared_ptr<ASTNode> (error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+            return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
         }
     }
 };
+
 
 
 

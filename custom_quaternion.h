@@ -8,6 +8,13 @@
 
 
 class Quaternion {
+private:
+    // Constrain angle to the principal branch [-π, π]
+    double constrainAngle(double angle) const {
+        while (angle > pi) angle -= 2 * pi;
+        while (angle < -pi) angle += 2 * pi;
+        return angle;
+    }
 public:
     double real;
     double imag;
@@ -174,8 +181,23 @@ public:
     inline Quaternion conj() const {
         return Quaternion(real, -imag, -j, -k);
     }
-
-
+    
+    Quaternion rotation(const Quaternion angle, const Quaternion& axis) const {
+        Quaternion normalized_axis = axis / axis.mag();
+    
+        double angle_mag = angle.mag();
+        double half_angle = std::sin(angle_mag / 2.0);
+    
+        Quaternion rotation_quaternion(
+            std::cos(angle_mag / 2.0),
+            normalized_axis.imag * half_angle,
+            normalized_axis.j * half_angle,
+            normalized_axis.k * half_angle
+        );
+    
+        return rotation_quaternion * (*this) * rotation_quaternion.conj();
+    }
+    
     void rotate(double angle, int axis) {
         double rad, cosTheta, sinTheta;
         double x = real;
@@ -249,82 +271,94 @@ public:
                     (k / imag_mag));
         }
     }
+
     // arg
     inline double arg() const {
-        if (j == 0 && k == 0 ) {
-            return std::atan2(imag, real);
-        } else {
-            double norm = mag();
-            return (norm == 0.0) ? 0.0 : std::acos(real / norm);
-        }
+        double imagmag = imag_mag();
+        return (imagmag == 0.0) ? 0.0 : std::atan2(imagmag, real);
     }
 
     // log
     Quaternion log() const {
-        double log_mag = std::log(mag());
-        if (j == 0 && k == 0 ) {
-            return Quaternion(log_mag, std::atan2(imag, real));
-        } else {
-            double imag_magnitude = imag_mag();
-            double scale = std::atan2(imag_magnitude, real) / imag_magnitude;
-            return Quaternion(log_mag, imag * scale, j * scale, k * scale);
+        double mag = this->mag();
+        if (mag == 0) {
+            return Quaternion(0); // log(0) is undefined, return 0
         }
-    }
     
-    // pow
-    Quaternion pow(const Quaternion& exponent) const {
-        double r = this->mag();
-        double theta = std::atan2(imag, real);
-
-        double new_magnitude = std::pow(r, exponent.real) * std::exp(-exponent.imag * theta);
-        double new_phase = exponent.real * theta + exponent.imag * std::log(r);
-
-        if (j == 0 && k == 0 && exponent.j == 0 && exponent.k == 0) {
-            return Quaternion(
-                new_magnitude * std::cos(new_phase),
-                new_magnitude * std::sin(new_phase)
-            );
+        double vecMag = imag_mag();
+        if (vecMag == 0) {
+            return Quaternion(std::log(mag), real > 0 ? 0 : pi); // Negative real: add π (branch cut)
         }
-        double imag_magnitude = this->imag_mag();
-        theta = (imag_magnitude == 0) ? 0 : std::atan2(imag_magnitude, real);
-        new_phase = exponent.real * theta + exponent.imag * std::log(r); 
-
-        double scale = (imag_magnitude == 0) ? 0 : new_magnitude * std::sin(new_phase) / imag_magnitude;
-
+    
+        double theta = std::atan2(vecMag, real)/vecMag; // This ensures continuity
+    
+        // Logarithmic form
         return Quaternion(
-            new_magnitude * std::cos(new_phase),
-            scale * imag,
-            scale * j,
-            scale * k
+            std::log(mag),
+            theta * imag,
+            theta * j,
+            theta * k
         );
     }
 
-    // pow
-    Quaternion pow(double exponent) const {
-        double magnitude = std::pow(this->mag(), exponent);
-        if (j == 0 && k == 0 ) {
-            double angle = std::atan2(imag, real) * exponent;
-            return Quaternion(magnitude * std::cos(angle), magnitude * std::sin(angle));
-        } else {
-            double angle = std::acos(real / magnitude) * exponent;
-            double imag_magnitude = imag_mag();
-            double sin_angle = magnitude * std::sin(angle);
-        
-            return Quaternion(
-                magnitude * std::cos(angle),
-                sin_angle * (imag / imag_magnitude),
-                sin_angle * (j / imag_magnitude),
-                sin_angle * (k / imag_magnitude)
-            );
-        } 
+    //exp
+    Quaternion exp() const {
+        double vecMag = imag_mag();
+        double expReal = std::exp(real);
+    
+        if (vecMag == 0) {
+            // Purely real quaternion
+            return Quaternion(expReal);
+        }
+    
+        // Exponential form
+        double cosVecMag = std::cos(vecMag)*expReal;
+        expReal *= std::sin(vecMag)/ vecMag;
+    
+        return Quaternion(
+            cosVecMag,
+            expReal * imag,
+            expReal * j,
+            expReal * k
+        );
+    }
+    
+    // Q power
+    Quaternion pow(const Quaternion& p) const {
+        if (this->isZero()) {
+            return Quaternion( (p.isZero()) ? 1 : 0 ); // 0^p = 0 for non-zero p
+        }
+        return (this->log()*p).exp();
     }
 
+    // Quaternion power with a scalar exponent
+    Quaternion pow(double exponent) const {
+        if (this->isZero()) {
+            return Quaternion( (exponent == 0) ? 1 : 0 ); // 0^exponent = 0 for exponent != 0
+        }
+        return (this->log() * exponent).exp();
+    }
+    
     // root
     Quaternion root(const Quaternion& n1) const {
         return this->pow(1.0/n1);
     }
+
+    inline bool isZero() const {
+        return real == 0 && imag == 0 && j == 0 && k == 0;
+    }
     
+    void test_quaternion_math() {
+        Quaternion q(1, 1, 1, 1);
+        Quaternion log_q = q.log();
+        Quaternion exp_log_q = log_q.exp();
+        std::cout  << ((exp_log_q - q).mag() ) << "\n"; // exp(log(q)) ≈ q
     
+        Quaternion rotated = Quaternion(0, 1, 0, 0) * q * Quaternion(0, -1, 0, 0);
+        Quaternion log_rotated = rotated.log();
+        Quaternion transformed_log = Quaternion(0, 1, 0, 0) * log_q * Quaternion(0, -1, 0, 0);
+        std::cout  << ((log_rotated - transformed_log).mag()) << "\n"; // ln(xyx^-1) ≈ x ln(y) x^-1
+    }
 
 
     // Sin
