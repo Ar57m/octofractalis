@@ -274,12 +274,8 @@ public:
 
     // arg
     inline double arg() const {
-        if (j == 0 && k == 0 ) {
-            return std::atan2(imag, real);
-        } else {
-            double norm = mag();
-            return (norm == 0.0) ? 0.0 : std::acos(real / norm);
-        }
+        double imagmag = imag_mag();
+        return (imagmag == 0.0) ? 0.0 : std::atan2(imagmag, real);
     }
 
     // log
@@ -291,7 +287,7 @@ public:
     
         double vecMag = imag_mag();
         if (vecMag == 0) {
-            return Quaternion(std::log(mag), real > 0 ? 0 : pi, 0, 0); // Negative real: add π (branch cut)
+            return Quaternion(std::log(mag), real > 0 ? 0 : pi); // Negative real: add π (branch cut)
         }
     
         double theta = std::atan2(vecMag, real)/vecMag; // This ensures continuity
@@ -312,7 +308,7 @@ public:
     
         if (vecMag == 0) {
             // Purely real quaternion
-            return Quaternion(expReal, 0, 0, 0);
+            return Quaternion(expReal);
         }
     
         // Exponential form
@@ -329,15 +325,15 @@ public:
     
     // Q power
     Quaternion pow(const Quaternion& p) const {
-        if (this->mag() == 0) {
-            return Quaternion( (p.mag() == 0) ? 1 : 0 ); // 0^p = 0 for non-zero p
+        if (this->isZero()) {
+            return Quaternion( (p.isZero()) ? 1 : 0 ); // 0^p = 0 for non-zero p
         }
         return (this->log()*p).exp();
     }
 
     // Quaternion power with a scalar exponent
     Quaternion pow(double exponent) const {
-        if (this->mag() == 0) {
+        if (this->isZero()) {
             return Quaternion( (exponent == 0) ? 1 : 0 ); // 0^exponent = 0 for exponent != 0
         }
         return (this->log() * exponent).exp();
@@ -346,6 +342,10 @@ public:
     // root
     Quaternion root(const Quaternion& n1) const {
         return this->pow(1.0/n1);
+    }
+
+    inline bool isZero() const {
+        return real == 0 && imag == 0 && j == 0 && k == 0;
     }
     
     void test_quaternion_math() {
