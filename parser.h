@@ -203,59 +203,6 @@ private:
         return node;
     }
 
-    // const std::shared_ptr<ASTNode> parseTerm() {
-    //     auto node = parseFactor();
-    //     while (pos < expr.size()) {
-    //         std::string node_op_key = std::to_string(reinterpret_cast<uintptr_t>(node.get())) + expr[pos];
-
-    //         // Check if this operation is already cached
-    //         if (cache.find(node_op_key) != cache.end()) {
-    //             return cache[node_op_key];  // Return the cached result if available
-    //         }
-
-    //         switch (expr[pos]) {
-    //             case '*':
-    //                 ++pos;
-    //                 {
-    //                     auto factor = parseFactor();
-    //                     node = std::make_shared<BinaryOpNode>(node, factor, [](const Quaternion& a, const Quaternion& b) { return (a * b); });
-    //                     cache[node_op_key] = node;  // Store the result in cache
-    //                 }
-    //                 break;
-
-    //             case '/':
-    //                 ++pos;
-    //                 {
-    //                     auto factor = parseFactor();
-    //                     node = std::make_shared<BinaryOpNode>(node, factor, [](const Quaternion& a, const Quaternion& b) { return (a / b); });
-    //                     cache[node_op_key] = node;  // Store the result in cache
-    //                 }
-    //                 break;
-
-    //             case '%':
-    //                 ++pos;
-    //                 {
-    //                     auto factor = parseFactor();
-    //                     node = std::make_shared<BinaryOpNode>(node, factor, [](const Quaternion& a, const Quaternion& b) { return (a % b); });
-    //                     cache[node_op_key] = node;  // Store the result in cache
-    //                 }
-    //                 break;
-
-    //             case '^':
-    //                 ++pos;
-    //                 {
-    //                     auto factor = parseFactor();
-    //                     node = std::make_shared<BinaryOpNode>(node, factor, [](const Quaternion& a, const Quaternion& b) { return (a.pow(b)); });
-    //                     cache[node_op_key] = node;  // Store the result in cache
-    //                 }
-    //                 break;
-
-    //             default:
-    //                 return node;  // Return the current node if no matching operator
-    //         }
-    //     }
-    //     return node;
-    // }
 
     const std::shared_ptr<ASTNode> parseFactor() {
         if (expr[pos] == '+') {
