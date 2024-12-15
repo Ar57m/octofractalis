@@ -28,9 +28,6 @@ static constexpr double pi = 3.1415926535897932384626433832795028841971693993751
 static constexpr double phi =1.6180339887498948482045868343656381177203091798057;
 static constexpr double e =  2.7182818284590452353602874713526624977572470937000;
 
-double noNan(double value) {
-    return ( std::abs(value) < 1e300) ? value : 0;
-}
 
 
 
@@ -225,12 +222,12 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = noNan(z.mag());
+                    double temp = z.mag();
                     
     
                     while ( temp < 2 && iteration < max_iter) {
                         z = z*z+c;
-                        temp = noNan(z.mag());
+                        temp = z.mag();
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
@@ -269,12 +266,12 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = noNan(z.mag());
+                    double temp = z.mag();
 
     
                     while (temp < 2 && iteration < max_iter) {
                         z = (ast->evaluate());
-                        temp = noNan(z.mag());
+                        temp = z.mag();
                         ++iteration;
                     }
                     *failed_gen = temp > *failed_gen ? temp : *failed_gen;
@@ -428,7 +425,7 @@ extern "C" {
                             l += (ast->evaluate());
                         }
                     }
-                    const double labs = noNan(l.mag());
+                    const double labs = l.mag();
                     *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
@@ -472,7 +469,7 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
-                    double temp = noNan(z.mag());
+                    double temp = z.mag();
                     
                     while (iteration < max_iter) {
                         
@@ -480,7 +477,7 @@ extern "C" {
                         const Quaternion last_z = z;
                         const Quaternion znew = 3.0*z*z;
                         z = (z*z*z-1+c);
-                        temp = noNan(z.mag());
+                        temp = z.mag();
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         z = ( last_z - ( z/znew ));
@@ -524,7 +521,7 @@ extern "C" {
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
                     uint16_t iteration = 0;
-                    double temp = noNan(z.mag());
+                    double temp = z.mag();
                     
                     while (iteration < max_iter) {
 
@@ -536,7 +533,7 @@ extern "C" {
                         z = last_z;
                         z = ast->evaluate();
                         
-                        temp = noNan(z.mag());
+                        temp = z.mag();
                         
                         if ( temp < 1e-13 || temp > 1e300 ) break;
                         const Quaternion znew = ( next_z - z )/(h); 
