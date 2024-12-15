@@ -253,19 +253,19 @@ private:
         }
         const bool parse_fun = pos < expr.size() && expr[pos] == '(';
         switch ( parse_fun + 3*(variables.find(name) != variables.end()) ) {
-                case 0:
-                    print_error(printerror,"Unknown variable: " + name + "\n");
-                    return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-                    break;
-                case 1:
-                    return parseFunction(name);
-                    break;
-                case 3:
-                    return std::make_shared<VariableNode>(variables.at(name));
-                    break;
-                case 4:
-                    return parseFunction(name);
-                    break; 
+            case 0:
+                print_error(printerror,"Unknown variable: " + name + "\n");
+                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                break;
+            case 1:
+                return parseFunction(name);
+                break;
+            case 3:
+                return std::make_shared<VariableNode>(variables.at(name));
+                break;
+            case 4:
+                return parseFunction(name);
+                break; 
         }
         print_error(printerror,"Unknown variable: " + name + "\n");
         return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
