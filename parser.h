@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <iostream>
 #include "custom_quaternion.h"
@@ -156,17 +157,27 @@ private:
         }
     }
 
+    bool isValidFunction(const std::string& func) {
+        static const std::unordered_set<std::string> validFunctions = {
+            "logn", "pow", "root", "max", "min", "square", "triangle", "circle"
+        };
+        return validFunctions.find(func) != validFunctions.end();
+    }
+
     const std::shared_ptr<ASTNode> parseExpression() {
         auto node = parseTerm();
         while (pos < expr.size()) {
-            if (expr[pos] == '+') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Quaternion& a, const Quaternion& b) { return (a + b); });
-            } else if (expr[pos] == '-') {
-                ++pos;
-                node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Quaternion& a, const Quaternion& b) { return (a - b); });
-            } else {
-                break;
+            switch (expr[pos]) {
+                case '+':
+                    ++pos;
+                    node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Quaternion& a, const Quaternion& b) { return (a + b); });
+                    break;
+                case '-':
+                    ++pos;
+                    node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Quaternion& a, const Quaternion& b) { return (a - b); });
+                    break;
+                default:
+                    return node;
             }
         }
         return node;
@@ -178,22 +189,22 @@ private:
             switch (expr[pos]) {
                 case '*':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return (a * b); });
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a * b; });
                     break;
     
                 case '/':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return (a / b); });
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a / b; });
                     break;
     
                 case '%':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return (a % b); });
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a % b; });
                     break;
 
                 case '^':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return (a.pow(b)); });
+                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
                     break;
 
                 default:
@@ -205,19 +216,23 @@ private:
 
 
     const std::shared_ptr<ASTNode> parseFactor() {
-        if (expr[pos] == '+') {
-            ++pos;
-            return parseFactor();
-        } else if (expr[pos] == '-') {
-            ++pos;
-            return std::make_shared<UnaryFunctionNode>(parseFactor(), [](const Quaternion& a) { return -a; });
+        switch (expr[pos]) {
+                case '+':
+                    ++pos;
+                    return parseFactor();
+                    break;
+                case '-':
+                    ++pos;
+                    return std::make_shared<UnaryFunctionNode>(parseFactor(), [](const Quaternion& a) { return -a; });
+                    break;
         }
-
-        if (isalpha(expr[pos])) {
+        
+        const char exprpos = expr[pos];
+        if (isalpha(exprpos)) {
             return parseVariableOrFunction();
-        } else if (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k') {
+        } else if (isdigit(exprpos) || exprpos == '.' ||  (exprpos > 'h' && exprpos < 'l') ) {
             return parseNumber();
-        } else if (expr[pos] == '(') {
+        } else if (exprpos == '(') {
             ++pos;
             auto node = parseExpression();
             if (expr[pos] != ')') {
@@ -236,34 +251,45 @@ private:
         while (pos < expr.size() && isalpha(expr[pos])) {
             name += expr[pos++];
         }
-
-        if (pos < expr.size() && expr[pos] == '(') {
-            return parseFunction(name);
+        const bool parse_fun = pos < expr.size() && expr[pos] == '(';
+        switch ( parse_fun + 3*(variables.find(name) != variables.end()) ) {
+                case 0:
+                    print_error(printerror,"Unknown variable: " + name + "\n");
+                    return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                    break;
+                case 1:
+                    return parseFunction(name);
+                    break;
+                case 3:
+                    return std::make_shared<VariableNode>(variables.at(name));
+                    break;
+                case 4:
+                    return parseFunction(name);
+                    break; 
         }
-
-        if (variables.find(name) != variables.end()) {
-            return std::make_shared<VariableNode>(variables.at(name));
-        } else {
-            print_error(printerror,"Unknown variable: " + name + "\n");
-            return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-        }
+        print_error(printerror,"Unknown variable: " + name + "\n");
+        return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
     }
 
     const std::shared_ptr<ASTNode> parseNumber() {
         std::string number;
         double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
         char identifier = '\0';
+        char exprpos = expr[pos];
+        bool imag = (exprpos > 'h' && exprpos < 'l'); // i, j, k
 
-        while (pos < expr.size() && (isdigit(expr[pos]) || expr[pos] == '.' || expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k')) {
-            if (expr[pos] == 'i' || expr[pos] == 'j' || expr[pos] == 'k') {
+        while (pos < expr.size() && (isdigit(exprpos) || exprpos == '.' || imag)) {
+            if (imag) {
                 identifier = expr[pos++];
                 break;
             } else {
                 number += expr[pos++];
             }
+            exprpos = expr[pos];
+            imag = (exprpos > 'h' && exprpos < 'l');
         }
 
-        double parsedValue = number.empty() ? 0.0 : std::stod(number);
+        const double parsedValue = number.empty() ? 0.0 : std::stod(number);
 
         switch (identifier) {
             case 'i':
@@ -284,11 +310,6 @@ private:
     }
 
     const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
-        // Check cache before parsing
-        std::string funcKey = func + expr.substr(pos);
-        if (cache.find(funcKey) != cache.end()) {
-            return cache[funcKey];
-        }
 
         ++pos;  // Skip '('
         const auto arg1 = parseExpression();
@@ -296,8 +317,8 @@ private:
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
 
-        // Cache logic
-        if (func == "logn" || func == "pow" || func == "root" || func == "max" || func == "min" || func == "square" || func == "triangle" || func == "circle") {
+        
+        if ( isValidFunction(func) ) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
                 arg2 = parseExpression();  // Parse the second argument for binary functions
@@ -329,9 +350,7 @@ private:
         // Store result in cache
         const auto it = functionMap.find(func);
         if (it != functionMap.end()) {
-            auto resultNode = it->second(arg1, arg2, arg3);  // Call the mapped function
-            cache[funcKey] = resultNode;
-            return resultNode;
+            return it->second(arg1, arg2, arg3);  // Call the mapped function
         } else {
             print_error(printerror,"Function not recognized: " + func + "\n");
             return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
