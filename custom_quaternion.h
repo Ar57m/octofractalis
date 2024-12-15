@@ -5,7 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <cstdint>
-
+#include <sstream>
 
 class Quaternion {
 private:
@@ -15,22 +15,25 @@ private:
         while (angle < -pi) angle += 2 * pi;
         return angle;
     }
+
+    inline double noNan(double value) const {
+        return ( std::abs(value) < 1e300) ? value : 0.0;
+    }
+
 public:
     double real;
     double imag;
     double j;
     double k;
-    // bool complex_type;
 
 
-    static constexpr double MAX_THRESHOLD = 1e300;
+
     
     inline Quaternion(double r = 0.0, double i = 0.0, double j_ = 0.0, double k_ = 0.0) {
-        real = (std::abs(r) < MAX_THRESHOLD) ? r : 0.0;
-        imag = (std::abs(i) < MAX_THRESHOLD) ? i : 0.0;
-        j = (std::abs(j_) < MAX_THRESHOLD) ? j_ : 0.0;
-        k = (std::abs(k_) < MAX_THRESHOLD) ? k_ : 0.0;
-        
+        real = noNan(r);
+        imag = noNan(i);
+        j = noNan(j_);
+        k = noNan(k_);
     }
 
     static constexpr double e = 2.7182818284590452353602874713526624977572470937000;
@@ -38,10 +41,10 @@ public:
 
 
     inline Quaternion& sanitize() {
-        real = (std::abs(real) < MAX_THRESHOLD) ? real : 0.0;
-        imag = (std::abs(imag) < MAX_THRESHOLD) ? imag : 0.0;
-        j = (std::abs(j) < MAX_THRESHOLD) ? j : 0.0;
-        k = (std::abs(k) < MAX_THRESHOLD) ? k : 0.0;
+        real = noNan(real);
+        imag = noNan(imag);
+        j = noNan(j);
+        k = noNan(k);
         return *this;
     }
 
@@ -244,7 +247,7 @@ public:
 
     // magnitude
     inline double mag() const {
-        return std::sqrt(real * real + imag * imag + j * j + k * k); 
+        return noNan(std::sqrt(real * real + imag * imag + j * j + k * k)); 
     }
 
     inline Quaternion c_mag() const {
@@ -252,7 +255,7 @@ public:
     }
 
     inline double imag_mag() const {
-        return std::sqrt(imag * imag + j * j + k * k);
+        return noNan(std::sqrt(imag * imag + j * j + k * k));
     }
 
     // sqrt
@@ -378,7 +381,7 @@ public:
             return Quaternion(std::cos(real) * std::cosh(imag), -std::sin(real) * std::sinh(imag));
         } else {
             double imag_magnitude = imag_mag();
-            double scale = -std::sin(real) * std::sinh(imag_magnitude) / imag_magnitude;
+            double scale = -std::sin(real) * noNan(std::sinh(imag_magnitude) / imag_magnitude);
             return Quaternion(std::cos(real) * std::cosh(imag_magnitude), imag * scale, j * scale, k * scale);
         }
     }
@@ -394,7 +397,7 @@ public:
             return Quaternion(std::sinh(real) * std::cos(imag), std::cosh(real) * std::sin(imag));
         } else {
             double imag_magnitude = imag_mag();
-            double scale = std::cosh(real) * std::sin(imag_magnitude) / imag_magnitude;
+            double scale = std::cosh(real) * noNan(std::sin(imag_magnitude) / imag_magnitude);
             return Quaternion(
                 std::sinh(real) * std::cos(imag_magnitude),
                 imag * scale,
@@ -410,7 +413,7 @@ public:
             return Quaternion(std::cosh(real) * std::cos(imag), std::sinh(real) * std::sin(imag));
         } else {
             double imag_magnitude = imag_mag();
-            double scale = std::sinh(real) * std::sin(imag_magnitude) / imag_magnitude;
+            double scale = std::sinh(real) * noNan(std::sin(imag_magnitude) / imag_magnitude);
             return Quaternion(
                 std::cosh(real) * std::cos(imag_magnitude),
                 imag * scale,
@@ -495,7 +498,7 @@ public:
 
         Quaternion x(lanczos_coeffs[0], 0.0);
         for (int i = 1; i < 9; ++i) {
-            x = x + lanczos_coeffs[i] / (z + Quaternion(static_cast<double>(i), 0.0));
+            x += lanczos_coeffs[i] / (z + Quaternion(static_cast<double>(i), 0.0));
         }
 
         const Quaternion t = z + 7.0 + 0.5;
@@ -537,22 +540,23 @@ public:
         }
         return sum / pi;
     }
-
-
+    
+    std::string to_string() const {
+        std::ostringstream os;
+        os << "(" << real 
+           << (imag >= 0.0 ? " +" : " -") << std::abs(imag) << "i"
+           << (j >= 0.0 ? " +" : " -") << std::abs(j) << "j"
+           << (k >= 0.0 ? " +" : " -") << std::abs(k) << "k)";
+        return os.str();
+    }
 
     friend std::ostream& operator<<(std::ostream& os, const Quaternion& c) {
-        os << "(" << c.real 
-            << (c.imag >= 0.0 ? " +" : " -") << std::abs(c.imag) << "i"
-            << (c.j >= 0.0 ? " +" : " -") << std::abs(c.j) << "j"
-            << (c.k >= 0.0 ? " +" : " -") << std::abs(c.k) << "k)";
+        os << c.to_string();
         return os;
     }
-    
+
     void print() const {
-        std::cout << "(" << real 
-                    << (imag >= 0.0 ? " +" : " -") << std::abs(imag) << "i"
-                    << (j >= 0.0 ? " +" : " -") << std::abs(j) << "j"
-                    << (k >= 0.0 ? " +" : " -") << std::abs(k) << "k)\n";
+        std::cout << to_string() << std::endl;
     }
 };
 
