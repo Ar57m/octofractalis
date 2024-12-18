@@ -6,7 +6,7 @@
 
 # another_fractal_generator
 
-Should probably work on linux, was tested on termux(android) and google colab.
+Should probably work almost anywhere, was tested on termux(android), linux(debian,ubuntu) and windows 11(with w64devkit).
 <br>
 
 ## Installation
