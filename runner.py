@@ -40,6 +40,18 @@ sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uin
 
 
 
+def write_to_file(file_name, text):
+    try:
+        # Open the file in append mode
+        with open(file_name, 'a+', encoding='utf-8') as file:
+            file.seek(0)  # Move to the start of the file
+            content = file.read()
+            if content:  # Check if the file has content
+                file.write('\n')  # Add a newline if it's not empty
+            file.write(text)
+    except IOError as e:
+        print(f"An error occurred: {e}")
+
 
 
 def image_to_array(image_path, min=0, max=2**24-1):
@@ -164,7 +176,7 @@ all_parameters = {
 
 
     # The equation
-    'expression' : "z*z+c",         # z = "z^2 + c"
+    'expression' : "z^2+c",         # z = "z^2 + c"
 
     # You can generate different types of fractals
     'fractals' : {
@@ -249,6 +261,8 @@ all_parameters = {
 
     #coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
     #coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
+    'save_expressions': True,
+
 }
 
 
@@ -282,9 +296,11 @@ def generate(all_parameters):
     img_names = []
 
     expression = all_parameters['expression']
+    input_expression = expression
     print(expression.replace(" ", ""))
     expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
     array_top_colors = all_parameters['array_top_colors']
+    
 
     if all_parameters['zoom']:
         max_zoom = str(all_parameters['max_zoom'])
@@ -432,6 +448,7 @@ def generate(all_parameters):
             end_time = time.perf_counter()
             del gen_array
             print("Took ", end_time - start_time, "seconds to save\n")
+    write_to_file("last_expressions.txt" , input_expression + ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
     return img_names
 
 
@@ -769,22 +786,44 @@ def main():
 
     # Add the --noserver flag
     parser.add_argument(
-        '--noserver', 
-        action='store_true', 
+        '-noserver',
+        action='store_true',
         help='If specified, the server will not be started.'
     )
     parser.add_argument(
-        '--port', 
+        '-port',
         type=int,
         default=8888,
         help='Port to serve. Defaults to 8888 if not specified.'
     )
-    
+    parser.add_argument(
+        '-e',
+        type=str,
+        help='Expression to use "z^2+c".'
+    )
+    parser.add_argument(
+        '-d',
+        action='store_true',
+        help='Don\'t save expressions on last_expressions.txt'
+    )
+
     args = parser.parse_args()
+    all_parameters["save_expressions"] = not args.d
+
     
     if args.noserver:
+        if args.e:
+            all_parameters['expression'] = str(args.e)
+
+
         # Let's Run
         generate_wrapper(all_parameters)
+
+        # for i in range(36):
+        #     all_parameters['expression'] = f"rotation(z*z+c,pi/{36-(i+1)}, 1k)" #(1/35)*i
+        #     time.sleep(1)
+
+
         # n_coordinates is how many times it will use the array coordinates.
         if all_parameters['video_out']:
             imgs_to_video(all_parameters)
