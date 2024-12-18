@@ -11,26 +11,32 @@ Should probably work on linux, was tested on termux(android) and google colab.
 
 ## Installation
 Requirements:
-```sh
+```bash
 pip install numpy opencv-python
 ```
 (on termux is necessary to `apt install x11-repo && apt update && apt install opencv && apt install opencv-python`)
 <br>
 
-```sh
+```bash
 git clone https://github.com/Ar57m/another_fractal_generator
 cd another_fractal_generator
-sh start.sh
+bash build.sh
 ```
 
 <br>
-start.sh builds and runs the generator, once is built you can just run the python file.
+build.sh builds the generator, once is built you can just run the python file.
 
-```sh
+```bash
 python runner.py
 ```
+
 On that python script there is a lot of options to change if needed.
 You can zoom into fractals(until some depth where precision limits hits).
+
+You can see the flags by running:
+```bash
+python runner.py -h
+```
 
 <br>
 <br>
