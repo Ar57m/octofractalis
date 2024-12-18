@@ -33,7 +33,10 @@ python runner.py
 On that python script there is a lot of options to change if needed.
 You can zoom into fractals(until some depth where precision limits hits).
 
-You
+You can see the flags by running:
+```bash
+python runner.py -h
+```
 
 <br>
 <br>
