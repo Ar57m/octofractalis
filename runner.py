@@ -6,7 +6,7 @@ import argparse
 import sys
 import os
 import re
-from decimal import Decimal, getcontext
+
 # Carregue a biblioteca
 lib = cdll.LoadLibrary('./libfract.so')
 
@@ -51,7 +51,6 @@ def write_to_file(file_name, text):
             file.write(text)
     except IOError as e:
         print(f"An error occurred: {e}")
-
 
 
 def image_to_array(image_path, min=0, max=2**24-1):
@@ -146,8 +145,10 @@ def create_image(data, filename):
     
 # This helps you to aim by dividing in squares(grid)
 def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
-    list = list_c.copy()
+    list = np.array(list_c)
+    list = list.copy()
     list[:,:2] = list[:,:2]-1
+
     for col, line, n_squares in list:
         size_x = (xmax - xmin) / n_squares
         size_y = (ymax - ymin) / n_squares
@@ -176,7 +177,7 @@ all_parameters = {
 
 
     # The equation
-    'expression' : "z*z+c",         # z = "z^2 + c"
+    'expression' : "z^2+c",         # z = "z^2 + c"
 
     # You can generate different types of fractals
     'fractals' : {
@@ -192,7 +193,7 @@ all_parameters = {
 
     'zoom' : False,
     'max_zoom' : 10, # How many images # it's gonna generate  +n_coordinates more images than expected
-    'per_zoom' : Decimal("0.9"), # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
+    'per_zoom' : 0.9, # Zooming after aiming: Using a value greater than 1.0 will zoom out; using a value less than 1.0 will zoom in
     'video_out' : False, # If you want to generate a video with the images using ffmpeg
     'imgfromvidfolder' : "",       # Folder to save all the imgs, it will be on ./images/yourfoldername try "imgs/"
     
@@ -245,28 +246,36 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': Decimal("-2.5")* 1,
-    'xmax': Decimal("2.5") * 1,
-    'ymin': Decimal("-2.5")* 1,
-    'ymax': Decimal("2.5") * 1,
+    'xmin': -2.5 * 1,
+    'xmax':  2.5 * 1,
+    'ymin': -2.5 * 1,
+    'ymax':  2.5 * 1,
 
     # For Lorenz
-    'zmin': Decimal("-1e30")* 1,
-    'zmax': Decimal("1e30") * 1,
+    'zmin': -1e30 * 1,
+    'zmax':  1e30 * 1,
 
     # This part is to help you aim
     'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
     #                       ([(column, row, grid n*n)])
-    'coordinates' : np.array([(1,2,3),(2,2,3),(2,1,2),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]),
+    'coordinates' : [
+        (1, 2, 3),
+        (2, 2, 3),
+        (2, 1, 2),
+        (1, 2, 3),
+        (3, 3, 5),
+        (2, 2, 3),
+        (1, 2, 3),
+        (2, 2, 3),
+        (1, 2, 3),
+        (2, 2, 3)
+    ],
 
-    #coordinates = np.array([(1,1,3),(2,3,4),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)]) 
-    #coordinates = np.array([(3,3,3),(3,4,5),(1,2,3),(1,2,3),(3,3,5),(2,2,3),(1,2,3),(2,2,3),(1,2,3),(2,2,3)])
     'save_expressions': True,
 
 }
 
 
-getcontext().prec = 28
 
 imgfromvidfolder = all_parameters['imgfromvidfolder']
 os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and all_parameters['video_out'] else None
@@ -275,7 +284,9 @@ os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and all_par
 n_coordinates = all_parameters['n_coordinates']
 if n_coordinates>0:
     coordinates = all_parameters['coordinates']
-    all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = divide_in_squares(coordinates[:(n_coordinates), :], all_parameters["xmin"], all_parameters["xmax"], all_parameters["ymin"], all_parameters["ymax"])
+    all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = divide_in_squares(coordinates[:(n_coordinates), :],
+                                                                                                                       all_parameters["xmin"], all_parameters["xmax"],
+                                                                                                                       all_parameters["ymin"], all_parameters["ymax"])
 
 use_palette = all_parameters["use_palette"]
 all_parameters['array_top_colors'] = palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
@@ -669,10 +680,10 @@ def process_form_data(params):
         xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
         all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
     else:
-        all_parameters['xmin'] = Decimal(params.get('xmin', -2.7))
-        all_parameters['xmax'] = Decimal(params.get('xmax', 2.7))
-        all_parameters['ymin'] = Decimal(params.get('ymin', -2.7))
-        all_parameters['ymax'] = Decimal(params.get('ymax', 2.7))
+        all_parameters['xmin'] = float(params.get('xmin', -2.7))
+        all_parameters['xmax'] = float(params.get('xmax', 2.7))
+        all_parameters['ymin'] = float(params.get('ymin', -2.7))
+        all_parameters['ymax'] = float(params.get('ymax', 2.7))
 
 
     all_parameters["z_initial_r"]= float(params.get('z_initial_r', 0.0))
