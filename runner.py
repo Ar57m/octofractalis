@@ -177,7 +177,7 @@ all_parameters = {
 
 
     # The equation
-    'expression' : "z^2+c",         # z = "z^2 + c"
+    'expression' : "z*z+c",         # z = "z^2 + c"
 
     # You can generate different types of fractals
     'fractals' : {
