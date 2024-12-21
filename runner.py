@@ -145,11 +145,12 @@ def create_image(data, filename):
     
 # This helps you to aim by dividing in squares(grid)
 def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
-    list = np.array(list_c)
-    list = list.copy()
-    list[:,:2] = list[:,:2]-1
+    # Convert the first two columns to zero-based indexing
+    for i in range(len(list_c)):
+        list_c[i][0] -= 1  # Subtract 1 from the `col` value
+        list_c[i][1] -= 1  # Subtract 1 from the `line` value
 
-    for col, line, n_squares in list:
+    for col, line, n_squares in list_c:
         size_x = (xmax - xmin) / n_squares
         size_y = (ymax - ymin) / n_squares
         
@@ -160,6 +161,7 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
         xmin, xmax, ymin, ymax = new_xmin, new_xmax, new_ymin, new_ymax
     
     return xmin, xmax, ymin, ymax
+
 
 
 all_parameters = {
@@ -177,7 +179,7 @@ all_parameters = {
 
 
     # The equation
-    'expression' : "z*z+c",         # z = "z^2 + c"
+    'expression' : "z^2+c",         # z = "z^2 + c"
 
     # You can generate different types of fractals
     'fractals' : {
@@ -256,19 +258,19 @@ all_parameters = {
     'zmax':  1e30 * 1,
 
     # This part is to help you aim
-    'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
+    'n_coordinates' : 1,   #  Number of coordinates to use, set 0 to not use it
     #                       ([(column, row, grid n*n)])
     'coordinates' : [
-        (1, 2, 3),
-        (2, 2, 3),
-        (2, 1, 2),
-        (1, 2, 3),
-        (3, 3, 5),
-        (2, 2, 3),
-        (1, 2, 3),
-        (2, 2, 3),
-        (1, 2, 3),
-        (2, 2, 3)
+        [1, 2, 3],
+        [2, 2, 3],
+        [2, 1, 2],
+        [1, 2, 3],
+        [3, 3, 5],
+        [2, 2, 3],
+        [1, 2, 3],
+        [2, 2, 3],
+        [1, 2, 3],
+        [2, 2, 3],
     ],
 
     'save_expressions': True,
@@ -284,7 +286,7 @@ os.mkdir("./images/"+imgfromvidfolder) if len(imgfromvidfolder) != 0 and all_par
 n_coordinates = all_parameters['n_coordinates']
 if n_coordinates>0:
     coordinates = all_parameters['coordinates']
-    all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = divide_in_squares(coordinates[:(n_coordinates), :],
+    all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = divide_in_squares(coordinates[:(n_coordinates)][ :],
                                                                                                                        all_parameters["xmin"], all_parameters["xmax"],
                                                                                                                        all_parameters["ymin"], all_parameters["ymax"])
 
@@ -484,7 +486,7 @@ def generate_wrapper(all_parameters):
     
         for i in range(n_coordinates+max_zoom): 
             if (i < n_coordinates) and (n_coordinates is not False):
-                xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(i+1), :], xmin1, xmax1, ymin1, ymax1)
+                xmin, xmax, ymin, ymax = divide_in_squares(coordinates[:(i+1)][ :], xmin1, xmax1, ymin1, ymax1)
             else:
                 
                 x_center = (xmin + xmax) / 2
@@ -666,7 +668,7 @@ def process_form_data(params):
     column_aim = min(int(params.get('column_aim', 2)), grid_length)
     row_aim = min(int(params.get('row_aim', 2)), grid_length)
 
-    coordinates = np.array([(column_aim,row_aim,grid_length)])
+    coordinates = [[column_aim,row_aim,grid_length]]
     all_parameters['column_aim'] = column_aim
     all_parameters['row_aim'] = row_aim
     all_parameters['grid_length'] = grid_length
