@@ -179,7 +179,7 @@ all_parameters = {
 
 
     # The equation
-    'expression' : "z^2+c",         # z = "z^2 + c"
+    'expression' : "z*z+c",         # z = "z^2 + c"
 
     # You can generate different types of fractals
     'fractals' : {
@@ -258,7 +258,7 @@ all_parameters = {
     'zmax':  1e30 * 1,
 
     # This part is to help you aim
-    'n_coordinates' : 1,   #  Number of coordinates to use, set 0 to not use it
+    'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
     #                       ([(column, row, grid n*n)])
     'coordinates' : [
         [1, 2, 3],
