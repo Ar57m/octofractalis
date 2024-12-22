@@ -125,4 +125,4 @@ def get_python_executable():
         if shutil.which(python_cmd):
             return python_cmd
 
-    raise RuntimeError("Python executável não encontrado!")
+    raise RuntimeError("Python not found!")
