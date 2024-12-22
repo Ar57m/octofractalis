@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import sys
+import shutil
 
 
 def image_to_array(image_path, min=0, max=2**24-1):
@@ -113,4 +115,14 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
    
   
  
- 
+
+def get_python_executable():
+    python_exec = sys.executable
+    if python_exec and shutil.which(python_exec):
+        return python_exec
+
+    for python_cmd in ["python3", "python"]:
+        if shutil.which(python_cmd):
+            return python_cmd
+
+    raise RuntimeError("Python executável não encontrado!")
