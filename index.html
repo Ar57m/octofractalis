@@ -339,7 +339,7 @@
 
             </div>
             <input type="submit" value="Generate Fractal"> 
-            <input type="button" id="stop_button" value="Stop (Not working yet)">
+            <input type="button" id="stop_button" value="Stop">
             
         </form>
 
@@ -561,7 +561,7 @@
     });
 
 
-    // Not working yet :(
+    // Now its working :)
     document.getElementById("stop_button").addEventListener("click", function() {
         fetch('/stop', {
             method: 'POST',
@@ -579,6 +579,7 @@
         });
     });
 
+    
 </script>
 </body>
 </html>

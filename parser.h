@@ -157,7 +157,7 @@ private:
         }
     }
 
-    bool isValidFunction(const std::string& func) {
+    bool isTwoArgFunction(const std::string& func) {
         static const std::unordered_set<std::string> validFunctions = {
             "logn", "pow", "root", "max", "min", "square", "triangle", "circle"
         };
@@ -317,8 +317,9 @@ private:
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
 
-        
-        if ( isValidFunction(func) ) {
+
+
+        if ( isTwoArgFunction(func) ) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
                 arg2 = parseExpression();  // Parse the second argument for binary functions
