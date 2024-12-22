@@ -19,7 +19,7 @@ received_params = {}
 
 stop_gen_event = Event()
 
-
+python_exe = tools.get_python_executable()
 
 def process_form_data(params, timeout):
     global all_parameters, stop_gen_event
@@ -173,7 +173,7 @@ def process_form_data(params, timeout):
     
     
     process = subprocess.Popen(
-        ["python", "runner.py", "-json_data", json_data],
+        [python_exe, "runner.py", "-json_data", json_data],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
@@ -325,7 +325,7 @@ def main():
 
 
     result = subprocess.run(
-        ["python", "runner.py", "-returndict"],
+        [python_exe, "runner.py", "-returndict"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
