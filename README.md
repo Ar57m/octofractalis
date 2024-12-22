@@ -27,7 +27,7 @@ bash build.sh
 build.sh builds the generator, once is built you can just run the python file.
 
 ```bash
-python runner.py
+python server.py
 ```
 
 On that python script there is a lot of options to change if needed.
@@ -35,7 +35,7 @@ You can zoom into fractals(until some depth where precision limits hits).
 
 You can see the flags by running:
 ```bash
-python runner.py -h
+python server.py -h
 ```
 
 <br>
