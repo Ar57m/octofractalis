@@ -1,4 +1,3 @@
-import tools
 import subprocess
 import json
 import time
@@ -6,11 +5,15 @@ import argparse
 import re
 import os
 import sys
-# from multiprocessing import Event
+
 from http.server import SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn, TCPServer
 from threading import Event
 import signal
+
+import tools
+
+
 
 all_parameters = {}
 
@@ -185,14 +188,18 @@ def process_form_data(params, timeout):
         if process.poll() is not None:
             break
     
-        elapsed_time = time.time() - start_time
-        if (timeout > 0 and elapsed_time > timeout) or stop_gen_event.is_set():
-
-            process.kill()
-            print("Timeout.")
-            return ["./failed_gen.png"] 
+        if timeout > 0 and (time.time() - start_time) > timeout:
+            process.kill()  
+            print("Timeout")
+            return ["./failed_gen.png"]
+        elif stop_gen_event.is_set():
+            process.kill()  
+            print("Generation stopped")
+            return ["./failed_gen.png"]
+        else:
+            time.sleep(0.2)
+            continue
     
-        time.sleep(0.2)
 
     print("Took: ",time.time() - start_time,"seconds")
 
