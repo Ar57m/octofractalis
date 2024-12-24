@@ -208,7 +208,7 @@ def generate(all_parameters):
     expression = all_parameters['expression']
     input_expression = expression
     #print(expression.replace(" ", ""))
-    expression = re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
+    expression = expression.replace(" ", "") #re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
     
     #array_top_colors = all_parameters['array_top_colors']
     

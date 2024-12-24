@@ -151,7 +151,7 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
     const std::map<std::string, std::function<Quaternion()>> variables = {
-        {"rt", [&point]() { return point; }},
+        {"z", [&point]() { return point; }},
         {"z_k", [&point]() { return point.k; }},
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
@@ -212,7 +212,7 @@ extern "C" {
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw")  ) {
+        if ( (expression == "z*z+c" || expression == "pow(z,2)+c")  ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 for (int y = 0; y < height; ++y) {
@@ -247,8 +247,8 @@ extern "C" {
                 Quaternion z,c;
     
                 const std::map<std::string, std::function<Quaternion()>> variables = {
-                    {"rt", [&z]() { return z; }},
-                    {"rw", [&c]() { return c; }},
+                    {"z", [&z]() { return z; }},
+                    {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
@@ -305,7 +305,7 @@ extern "C" {
 
         *failed_gen = std::max(*failed_gen, 1.0);
         std::string expression = std::string(exp);
-        if (expression == "rt*rt+rw") {
+        if (expression == "z*z+c") {
             expression = "dx+dy*1i+dz*1j";
         }
     
@@ -358,7 +358,7 @@ extern "C" {
 
         const std::string expression = std::string(exp);
 
-        if ( expression == "rt*rt+rw" ) {
+        if ( expression == "z*z+c" ) {
 
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
@@ -394,9 +394,9 @@ extern "C" {
             for (int i = 0; i < width; ++i) {
                 Quaternion l, v, temp;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
-                    {"rt", [&v]() { return v; }},
-                    {"rw", [&l]() { return l; }},
-                    {"rk", [&temp]() { return temp; }},
+                    {"v", [&v]() { return v; }},
+                    {"l", [&l]() { return l; }},
+                    {"k", [&temp]() { return temp; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
@@ -458,7 +458,7 @@ extern "C" {
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") ) {
+        if ( (expression == "z*z*z-1+c" || expression == "pow(z,3)-1+c") ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
@@ -502,8 +502,8 @@ extern "C" {
                 Quaternion z,c;
     
                 const std::map<std::string, std::function<Quaternion()>> variables = {
-                    {"rt", [&z]() { return z; }},
-                    {"rw", [&c]() { return c; }},
+                    {"z", [&z]() { return z; }},
+                    {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
