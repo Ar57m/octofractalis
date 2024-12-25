@@ -284,7 +284,125 @@ extern "C" {
        } 
     }
     
+/*    
+    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
+                const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                const double xmin, const double xmax, const double ymin,
+                const double ymax, const double c_real, const double c_imag,
+                const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
+                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+
+        std::signal(SIGINT, signal_handler);
+
+        const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
+
+        *failed_gen = *failed_gen == 0 ? 1 : 1;
+        current = 0;
+
+        const std::string expression = std::string(exp);
+
+        static Quaternion attractors[] = {
+            Quaternion(1.0, 0.0, 0.0, 0.0),
+            Quaternion(-0.5, 0.866, 0.0, 0.0),
+            Quaternion(-0.5, -0.866, 0.0, 0.0)
+        };
+
+        if (expression == "z*z+c") {
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                for (int y = 0; y < height; ++y) {
+                    // Initialize position and velocity
+                    Quaternion z(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
+                    Quaternion velocity(0, 0, 0, 0);
+
+                    // Magnetic pendulum parameters
+                    const double damping = 0.1;       // Damping factor (β)
+                    const double r0 = 0.1;           // Regularization factor
+
+
+                    // Magnetic attractor positions
+
+                    const int num_attractors = sizeof(attractors) / sizeof(Quaternion);
+
+                    uint16_t iteration = 0;
+                    double temp = 0;
+                    while (iteration < max_iter) {
+                        Quaternion force(0, 0, 0, 0);
+
+                        // Compute force from all attractors
+                        for (int i = 0; i < num_attractors; ++i) {
+                            Quaternion diff = attractors[i] - z;
+                            double distance2 = diff.magSquared() + r0 * r0; // r² + r₀²
+                            force += diff / distance2;              // Force contribution
+                        }
+
+                        // Apply damping
+                        force -= velocity * damping;
+
+                        // Update velocity and position
+                        velocity += force;
+                        z += velocity;
+
+                        // Check for divergence
+                        temp = z.mag();
+                        if (temp > 2) break; // Diverged
+                        ++iteration;
+                    }
+
+                    *failed_gen = std::max(*failed_gen, temp);
+                    update_output(output, array_top_colors_outside, array_top_colors_lake, temp, width,
+                                iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
+                }
+            }
+
+
+
+        } else {
+            
+            int y;
+            *failed_gen = 0.0;
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Quaternion z,c;
     
+                const std::map<std::string, std::function<Quaternion()>> variables = {
+                    {"z", [&z]() { return z; }},
+                    {"c", [&c]() { return c; }},
+                    {"phi", [&]() { return phi; }},
+                    {"pi", [&]() { return pi; }},
+                    {"e", [&]() { return e;   }},
+                    {"y", [&]() { return Quaternion (y, 0.0); }},
+                    {"x", [&]() { return Quaternion (x, 0.0); }}
+                };
+    
+                //Parser parser(x % 2 < 1 ? expression : exp, variables);
+                Parser parser( expression, variables);
+                const auto ast = parser.parse();
+    
+    
+                for (int y = 0; y < height; ++y) {
+                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+
+                    uint16_t iteration = 0;
+                    double temp = z.mag();
+
+    
+                    while (temp < 2 && iteration < max_iter) {
+                        z = (ast->evaluate());
+                        temp = z.mag();
+                        ++iteration;
+                    }
+                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
+                        iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
+                }
+                //display_progress( current, width, 80);
+            }
+            //std::cout << "\n";
+       } 
+    }
+*/
 
     
     void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
