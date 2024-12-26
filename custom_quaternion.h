@@ -185,6 +185,16 @@ public:
         return Quaternion(real, -imag, -j, -k);
     }
     
+    // Quaternion rotate_in_circle(Quaternion angle) const {
+    //     double angle_in_radians = angle.mag();
+    //     // Apenas usa as componentes real (r) e imaginária (i) para a rotação no plano
+    //     double new_r = real * std::cos(angle_in_radians) - imag * std::sin(angle_in_radians);
+    //     double new_i = real * std::sin(angle_in_radians) + imag * std::cos(angle_in_radians);
+        
+    //     // Retorna um novo Quaternion com a rotação no plano (parte j e k permanecem 0)
+    //     return Quaternion(new_r, new_i, j, k);
+    // }
+    
     Quaternion rotation(const Quaternion angle, const Quaternion& axis) const {
         Quaternion normalized_axis = axis / axis.mag();
     
@@ -249,7 +259,11 @@ public:
     inline double mag() const {
         return noNan(std::sqrt(real * real + imag * imag + j * j + k * k)); 
     }
-
+    
+    inline double magSquared() const {
+        return noNan(real * real + imag * imag + j * j + k * k); 
+    }
+    
     inline Quaternion c_mag() const {
         return Quaternion(std::sqrt(real * real + imag * imag + j * j + k * k), 0.0);
     }

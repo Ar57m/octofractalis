@@ -142,8 +142,32 @@ void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
         }
 }
 
+void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
+                            const uint16_t x, const uint16_t y, const int attractor_index, const int num_attractors) {
+    int index = (y * width + x) * 3;
+    int it = array_top_colors_outside[attractor_index % num_attractors];
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
 
 
+void generate_attractors(Quaternion* attractors, int n) {
+    if (n <= 0) return;
+
+    Quaternion start_point(1.5, 0.0, 0.0, 0.0);
+    double angle_step = 2 * pi / n;
+
+    for (int i = 0; i < n; ++i) {
+        double angle_in_radians = angle_step * i;
+        // Apenas usa as componentes real (r) e imaginária (i) para a rotação no plano
+        double new_r = start_point.real * std::cos(angle_in_radians) - start_point.imag * std::sin(angle_in_radians);
+        double new_i = start_point.real * std::sin(angle_in_radians) + start_point.imag * std::cos(angle_in_radians);
+        
+        attractors[i] =  Quaternion(new_r, new_i, start_point.j, start_point.k);
+    }
+}
 
 std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
@@ -284,74 +308,72 @@ extern "C" {
        } 
     }
     
-/*    
-    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
+    
+    void magnet(uint8_t* output, const int* array_top_colors_outside, double* failed_gen, const char* exp,
                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
                 const double xmin, const double xmax, const double ymin,
-                const double ymax, const double c_real, const double c_imag,
-                const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+                const double ymax, const double v_real, const double v_imag,
+                const double quaternion_j, const double quaternion_k,
+                int n_points) {
 
         std::signal(SIGINT, signal_handler);
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
+        *failed_gen = 1;
         current = 0;
 
         const std::string expression = std::string(exp);
 
-        static Quaternion attractors[] = {
-            Quaternion(1.0, 0.0, 0.0, 0.0),
-            Quaternion(-0.5, 0.866, 0.0, 0.0),
-            Quaternion(-0.5, -0.866, 0.0, 0.0)
-        };
-
+        n_points = n_points > 0 ? n_points : 2;
+        std::vector<Quaternion> attractors(n_points);
+    
+        // Generate attractors
+        generate_attractors(attractors.data(), n_points);
+        
         if (expression == "z*z+c") {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 for (int y = 0; y < height; ++y) {
-                    // Initialize position and velocity
+
                     Quaternion z(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
-                    Quaternion velocity(0, 0, 0, 0);
+                    Quaternion velocity(v_real, v_imag);
+            
+                    const double damping = 0.1;
+                    const double r0 = 0.1;
 
-                    // Magnetic pendulum parameters
-                    const double damping = 0.1;       // Damping factor (β)
-                    const double r0 = 0.1;           // Regularization factor
-
-
-                    // Magnetic attractor positions
-
-                    const int num_attractors = sizeof(attractors) / sizeof(Quaternion);
-
+                    const int num_attractors = attractors.size();
+            
                     uint16_t iteration = 0;
                     double temp = 0;
+                    int closest_attractor_index = -1;
+                    double min_distance = std::numeric_limits<double>::max();
+            
                     while (iteration < max_iter) {
                         Quaternion force(0, 0, 0, 0);
-
-                        // Compute force from all attractors
+            
                         for (int i = 0; i < num_attractors; ++i) {
                             Quaternion diff = attractors[i] - z;
-                            double distance2 = diff.magSquared() + r0 * r0; // r² + r₀²
-                            force += diff / distance2;              // Force contribution
+                            double distance2 = diff.magSquared() + r0 * r0;
+                            force += diff / distance2;
+
+                            if (distance2 < min_distance) {
+                                min_distance = distance2;
+                                closest_attractor_index = i;
+                            }
                         }
 
-                        // Apply damping
                         force -= velocity * damping;
-
-                        // Update velocity and position
                         velocity += force;
                         z += velocity;
+            
 
-                        // Check for divergence
-                        temp = z.mag();
-                        if (temp > 2) break; // Diverged
+                        temp = z.magSquared();
+                        if (temp > 9) break;
                         ++iteration;
                     }
-
-                    *failed_gen = std::max(*failed_gen, temp);
-                    update_output(output, array_top_colors_outside, array_top_colors_lake, temp, width,
-                                iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
+            
+                    update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
                 }
             }
 
@@ -360,14 +382,18 @@ extern "C" {
         } else {
             
             int y;
-            *failed_gen = 0.0;
+
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion z,c;
+                Quaternion z,velocity, force, diff;
+                const double damping = 0.1;
     
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
-                    {"c", [&c]() { return c; }},
+                    {"v", [&velocity]() { return velocity; }},
+                    {"f", [&force]() { return force; }},
+                    {"diff", [&diff]() { return diff; }},
+                    {"d", [&]() { return Quaternion(damping); }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
@@ -377,32 +403,49 @@ extern "C" {
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
                 Parser parser( expression, variables);
-                const auto ast = parser.parse();
-    
-    
+                const std::shared_ptr<ASTNode> ast = parser.parse();
+
+                const int num_attractors = attractors.size();    
+                const double r0 = 0.1;
                 for (int y = 0; y < height; ++y) {
-                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                    z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
+                    velocity = Quaternion(v_real, v_imag);;
 
                     uint16_t iteration = 0;
-                    double temp = z.mag();
+                    double temp = 0;
+                    int closest_attractor_index = -1;
+                    double min_distance = std::numeric_limits<double>::max();
+            
+                    while (iteration < max_iter) {
+                        force = Quaternion(0);
+            
+                        for (int i = 0; i < num_attractors; ++i) {
+                            diff = attractors[i] - z;
+                            double distance2 = diff.magSquared() + r0 * r0;
+                            force += diff / distance2;
 
-    
-                    while (temp < 2 && iteration < max_iter) {
-                        z = (ast->evaluate());
-                        temp = z.mag();
+                            if (distance2 < min_distance) {
+                                min_distance = distance2;
+                                closest_attractor_index = i;
+                            }
+                        }
+
+                        force -= velocity * damping;
+                        velocity += force;
+                        z = ast->evaluate();
+            
+
+                        temp = z.magSquared();
+                        if (temp > 9) break;
                         ++iteration;
                     }
-                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
-                    update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
-                        iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
+            
+                    update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
        } 
     }
-*/
+
 
     
     void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
