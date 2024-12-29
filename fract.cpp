@@ -32,40 +32,39 @@ static constexpr double e =  2.7182818284590452353602874713526624977572470937000
 
 
 
-int current = 0;
 
-void display_progress( int &current, const int total, const int iteration_interval) {
-    static auto start_time = std::chrono::steady_clock::now();
-    static int avg_it_per_sec = 0;
-    static auto last_update_time = start_time;
+// void display_progress( int &current, const int total, const int iteration_interval) {
+//     static auto start_time = std::chrono::steady_clock::now();
+//     static int avg_it_per_sec = 0;
+//     static auto last_update_time = start_time;
 
-    if (current % iteration_interval == 0 || current == total) {
-        auto now = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_since_last_update = now - last_update_time;
+//     if (current % iteration_interval == 0 || current == total) {
+//         auto now = std::chrono::steady_clock::now();
+//         std::chrono::duration<double> elapsed_since_last_update = now - last_update_time;
 
-        if (elapsed_since_last_update.count() > 1.0 || current == total) {
-            last_update_time = now;
+//         if (elapsed_since_last_update.count() > 1.0 || current == total) {
+//             last_update_time = now;
 
-            double progress = static_cast<double>(current) / total * 100.0;
+//             double progress = static_cast<double>(current) / total * 100.0;
 
-            std::chrono::duration<double> elapsed = now - start_time;
-            avg_it_per_sec = (avg_it_per_sec == 0) ? static_cast<int>(current / elapsed.count()) : static_cast<int>((avg_it_per_sec + current / elapsed.count()) / 2.0);
+//             std::chrono::duration<double> elapsed = now - start_time;
+//             avg_it_per_sec = (avg_it_per_sec == 0) ? static_cast<int>(current / elapsed.count()) : static_cast<int>((avg_it_per_sec + current / elapsed.count()) / 2.0);
 
-            int bar_width = 50;
-            int pos = static_cast<int>(bar_width * progress / 100.0);
+//             int bar_width = 50;
+//             int pos = static_cast<int>(bar_width * progress / 100.0);
 
-            std::cout << "[";
-            for (int i = 0; i < bar_width; ++i) {
-                if (i <= pos) std::cout << "=";
-                else std::cout << " ";
-            }
-            std::cout << "] " << int(progress) << "%  [ "
-                      << avg_it_per_sec << " it/s; " << int((total - current) / avg_it_per_sec) << "s left ] \r";
-            std::cout.flush();
-        }
-    }
-    current++;
-}
+//             std::cout << "[";
+//             for (int i = 0; i < bar_width; ++i) {
+//                 if (i <= pos) std::cout << "=";
+//                 else std::cout << " ";
+//             }
+//             std::cout << "] " << int(progress) << "%  [ "
+//                       << avg_it_per_sec << " it/s; " << int((total - current) / avg_it_per_sec) << "s left ] \r";
+//             std::cout.flush();
+//         }
+//     }
+//     current++;
+// }
 
 
 
@@ -220,7 +219,7 @@ extern "C" {
 
 
 
-    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
+    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
@@ -231,8 +230,7 @@ extern "C" {
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
@@ -254,18 +252,14 @@ extern "C" {
                         temp = z.mag();
                         ++iteration;
                     }
-                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
 
         } else {
             
             int y;
-            *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
@@ -298,18 +292,15 @@ extern "C" {
                         temp = z.mag();
                         ++iteration;
                     }
-                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
        } 
     }
     
     
-    void magnet(uint8_t* output, const int* array_top_colors_outside, double* failed_gen, const char* exp,
+    void magnet(uint8_t* output, const int* array_top_colors_outside, const char* exp,
                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
                 const double xmin, const double xmax, const double ymin,
                 const double ymax, const double v_real, const double v_imag,
@@ -320,8 +311,7 @@ extern "C" {
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
-        *failed_gen = 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
@@ -449,7 +439,7 @@ extern "C" {
 
     
     void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
-                double* failed_gen, const char* exp,
+                const char* exp,
                 const uint16_t width, const uint16_t height, const int max_iter,
                 const double xmin, const double xmax, const double ymin, const double ymax,
                 const double zmin, const double zmax, const double sigma, const double rho, const double beta,
@@ -464,7 +454,6 @@ extern "C" {
         const double dy = (ymax - ymin) / height;
         const double dz = (zmax - zmin) / max_wh;
 
-        *failed_gen = std::max(*failed_gen, 1.0);
         std::string expression = std::string(exp);
         if (expression == "z*z+c") {
             expression = "dx+dy*1i+dz*1j";
@@ -481,11 +470,11 @@ extern "C" {
         #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < max_iter; ++i) {
             Quaternion temp = trajectory[i];
-    
+            temp = temp.rotate_in_circle(Quaternion(angle * (pi / 180.0)), Quaternion(axis));
             if (temp.j < camera_position_z || temp.j > zmax) {
                 continue;
             }
-            temp.rotate(angle, axis);
+
             double depth = (temp.j - zmin) / dz;
     
             int pixel_x = static_cast<int>((temp.real - xmin) / dx);
@@ -502,7 +491,7 @@ extern "C" {
     }
 
 
-    void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen,const char* exp,
+    void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, double complex_a, double complex_b,
@@ -514,8 +503,7 @@ extern "C" {
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
         
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
@@ -543,14 +531,11 @@ extern "C" {
                     update_output( output, array_top_colors_outside, array_top_colors_lake, l.mag(), width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
 
         } else {
 
             
-            *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 Quaternion l, v, temp;
@@ -587,19 +572,16 @@ extern "C" {
                         }
                     }
                     const double labs = l.mag();
-                    *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
                     
                 }
-                // display_progress( current, width, 80);
             }
-            // std::cout << "\n";
         }
     }
 
 
-    void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
+    void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
@@ -614,8 +596,7 @@ extern "C" {
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
@@ -645,18 +626,15 @@ extern "C" {
                         
                         ++iteration;
                     }
-                    *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
+
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, false, false);
                 }
-                // display_progress( current, width, 80);
             }
-            // std::cout << "\n";
 
         } else {
             
             int y;
-            *failed_gen = 0.0;
             const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
@@ -702,14 +680,10 @@ extern "C" {
                         
                         ++iteration;
                     }
-                    *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, false, false);
                 }
-
-                // display_progress( current, width, 80);
             }
-            // std::cout << "\n";
        } 
     }
 

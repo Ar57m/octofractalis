@@ -22,25 +22,25 @@ sandpile = lib.sandpile
 magnet = lib.magnet
 
 
-fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
-    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
+    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
     c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double]
 
-lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
-    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
+    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
     c_double, c_double, c_double, c_int, c_int]
 
-newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), POINTER(c_double),
-    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
+    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
     c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double]
 
-lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, POINTER(c_double),
-    c_char_p, c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
+lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
+    c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
     c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double, c_double, c_double]
 
-magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_double),
-    c_char_p, c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_int]
+magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
+    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_int]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -72,7 +72,7 @@ all_parameters = {
     'height' : int(1024), #2304
 
     # Number of iterations
-    'max_iter' : 1000,
+    'max_iter' : 400,
 
     # Sandpile max grains
     'max_grains' : 4,
@@ -128,7 +128,7 @@ all_parameters = {
     'beta' : 8/3,
     'dt' : 0.01,
     'rotation_angle': 0.0, #in degress
-    'axis': -1, # 0 = X, 1 = Y, 2 = Z, anything else desactivated
+    'axis': -1, #
     'max_point_size': 1, # to get the 3d effect, bigger points should be closer to the view
 
     #Lyapunov uses it as the imaginary part if juliaset is off
@@ -287,8 +287,6 @@ def generate(all_parameters):
     for key, value in fractals.items():
         gen_array = np.zeros((height, width, 3), dtype=np.uint8)
 
-
-        failed_gen = np.zeros((1), dtype=np.float64)
      
         # Mandelbrot Set/Julia Set
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
@@ -296,100 +294,72 @@ def generate(all_parameters):
             #start_time = time.perf_counter()
             fractal(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i
             )
-            #end_time = time.perf_counter()
-            
-            #print("Took ", end_time - start_time, "seconds to generate")
             
             
         # Lyapunov Set
         if (key == "lyapunov") and (value):
-            
-            #start_time = time.perf_counter()
+
             lyapunov(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1
             )
-            #end_time = time.perf_counter()
-            
-            #print("Took ", end_time - start_time, "seconds to generate")
 
         # Newton Fractal   
         if ((key == "newton") or (key == "newton_juliaset")) and (value):
-            
-            #start_time = time.perf_counter()
+
             newton(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                array_top_colors_lake.ctypes.data_as(POINTER(c_int)), failed_gen.ctypes.data_as(POINTER(c_double)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon
             )
-            #end_time = time.perf_counter()
-            
-            #print("Took ", end_time - start_time, "seconds to generate")
+
 
         # Lorenz Attractor / Lorenz system
         if ((key == "lorenz")) and (value):
-            
-            #start_time = time.perf_counter()
+
             lorenz(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                rotation_angle, failed_gen.ctypes.data_as(POINTER(c_double)),
+                rotation_angle,
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
                 axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i
             )
-            #end_time = time.perf_counter()
-            
-            #print("Took ", end_time - start_time, "seconds to generate")
+
 
         # Magnet Pendulum Attractor
         if (key == "magnet") and (value):
             
-            #start_time = time.perf_counter()
             magnet(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                failed_gen.ctypes.data_as(POINTER(c_double)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 velocity_r, velocity_i, quaternion_j, quaternion_k, n_points
             )
-            #end_time = time.perf_counter()
-            
-            #print("Took ", end_time - start_time, "seconds to generate")
+
 
         # Abelian Sandpile Fractal
         if (key == "sandpile") and (value):
             
-            #start_time = time.perf_counter()
-            failed_gen[0] = 1.0
             sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)),array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
-            #end_time = time.perf_counter()
-            #print("Took ", end_time - start_time, "seconds to generate")
-            
+
             
         if value:
             imgfromvidfolder = all_parameters['imgfromvidfolder']
-            #start_time = time.perf_counter()
-            #print(failed_gen[0])
             localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-            if failed_gen[0] > 0:
-                tools.create_image((gen_array), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key)
-                img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
-            else:
-                #print("ERROR: Generation Failed.")
-                img_names.append("./failed_gen.png")
-            #end_time = time.perf_counter()
+            tools.create_image((gen_array), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key)
+            img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
+
             del gen_array
-            #print("Took ", end_time - start_time, "seconds to save\n")
     write_to_file("last_expressions.txt" , input_expression + ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
     return img_names
 
