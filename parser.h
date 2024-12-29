@@ -36,19 +36,6 @@ public:
     Quaternion evaluate() const override { return getter(); }
 };
 
-// BinaryOpNode class
-class BinaryOpNode : public ASTNode {
-    std::shared_ptr<ASTNode> left, right;
-    std::function<Quaternion(const Quaternion&, const Quaternion&)> op;
-public:
-    BinaryOpNode(const std::shared_ptr<ASTNode>& left, const std::shared_ptr<ASTNode>& right, const std::function<Quaternion(const Quaternion&, const Quaternion&)>& op)
-        : left(left), right(right), op(op) {}
-
-    Quaternion evaluate() const override {
-        return op(left->evaluate(), right->evaluate());
-    }
-};
-
 // UnaryFunctionNode class
 class UnaryFunctionNode : public ASTNode {
     std::shared_ptr<ASTNode> operand;
@@ -76,6 +63,7 @@ public:
     }
 };
 
+
 // TernaryFunctionNode class
 class TernaryFunctionNode : public ASTNode {
     std::shared_ptr<ASTNode> operand1, operand2, operand3;
@@ -93,17 +81,19 @@ public:
 };
 
 
-
-static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> error_zero = {
-    {"zero", [](std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<ConstantNode>(Quaternion(0.0)); }}
-};
+static const std::shared_ptr<ASTNode> error_zero = std::make_shared<ConstantNode>(Quaternion(0));
 
 static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNode>(std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>)>> functionMap = {
+    {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.logn(b); }); }},
+    {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.pow(b); }); }},
+    {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.root(b); }); }},
+    {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.maximum(b); }); }},
+    {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.minimum(b); }); }},
+    {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.sqrt(); }); }},
+    {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.log(); }); }},
     {"sin", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.sin(); }); }},
     {"cos", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.cos(); }); }},
     {"tan", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.tan(); }); }},
-    {"sqrt", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.sqrt(); }); }},
-    {"log", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.log(); }); }},
     {"logten", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.log10(); }); }},
     {"sinh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.sinh(); }); }},
     {"cosh", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.cosh(); }); }},
@@ -112,23 +102,24 @@ static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNo
     {"conj", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.conj(); }); }},
     {"mag", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.c_mag(); }); }},
     {"abs", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.abs(); }); }},
+    {"exp", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.exp(); }); }},
+    {"re", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return Quaternion(a.real); }); }},
+    {"qaim", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return Quaternion(0,a.imag,a.j,a.k); }); }},
+    {"qiim", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return Quaternion(0,a.imag); }); }},
+    {"qjim", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return Quaternion(0,0,a.j); }); }},
+    {"qkim", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return Quaternion(0,0,0,a.k); }); }},
     {"round", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.round(); }); }},
-    {"logn", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.logn(b); }); }},
-    {"pow", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.pow(b); }); }},
-    {"root", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.root(b); }); }},
-    {"max", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.maximum(b); }); }},
-    {"min", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.minimum(b); }); }},
     {"gamma", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.gamma(); }); }},
     {"zeta", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.zeta(); }); }},
     {"airy", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>) { return std::make_shared<UnaryFunctionNode>(arg1, [](const Quaternion& a) { return a.airy(); }); }},
     {"ellipsoid", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.ellipsoid(b,c); }); }},
     {"rotation", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.rotation(b,c); }); }},
+    {"rotate", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.rotate_in_circle(b,c); }); }},
     {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.circle(b); }); }},
     {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.square(b); }); }},
     {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.triangle(b); }); }},
 };
 
-bool printerror = false; // to not fill the cli with errors
 
 
 // Parser class
@@ -147,15 +138,8 @@ private:
     size_t pos;
     std::map<std::string, std::function<Quaternion()>> variables;
 
-    // Cache to store evaluated expressions
-    std::unordered_map<std::string, std::shared_ptr<ASTNode>> cache;
-
-    void print_error(bool& value, const std::string& message) const {
-        if (!value) {
-            std::cout << message << std::endl;
-            value = true;
-        }
-    }
+   
+    
 
     bool isTwoArgFunction(const std::string& func) {
         static const std::unordered_set<std::string> validFunctions = {
@@ -165,16 +149,20 @@ private:
     }
 
     const std::shared_ptr<ASTNode> parseExpression() {
-        auto node = parseTerm();
+        std::shared_ptr<ASTNode> node = parseTerm();
         while (pos < expr.size()) {
             switch (expr[pos]) {
                 case '+':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Quaternion& a, const Quaternion& b) { return (a + b); });
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseTerm(), 
+                        [](const Quaternion& a, const Quaternion& b) { return (a + b); });
                     break;
                 case '-':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseTerm(), [](const Quaternion& a, const Quaternion& b) { return (a - b); });
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseTerm(), 
+                        [](const Quaternion& a, const Quaternion& b) { return (a - b); });
                     break;
                 default:
                     return node;
@@ -184,36 +172,44 @@ private:
     }
 
     const std::shared_ptr<ASTNode> parseTerm() {
-        auto node = parseFactor();
+        std::shared_ptr<ASTNode> node = parseFactor();
+    
         while (pos < expr.size()) {
             switch (expr[pos]) {
                 case '*':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a * b; });
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a * b; });
                     break;
     
                 case '/':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a / b; });
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a / b; });
                     break;
     
                 case '%':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a % b; });
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a % b; });
                     break;
-
+    
                 case '^':
                     ++pos;
-                    node = std::make_shared<BinaryOpNode>(node, parseFactor(), [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
                     break;
-
+    
                 default:
                     return node;
             }
         }
         return node;
     }
-
 
     const std::shared_ptr<ASTNode> parseFactor() {
         switch (expr[pos]) {
@@ -223,7 +219,9 @@ private:
                     break;
                 case '-':
                     ++pos;
-                    return std::make_shared<UnaryFunctionNode>(parseFactor(), [](const Quaternion& a) { return -a; });
+                    return std::make_shared<UnaryFunctionNode>(
+                        parseFactor(), 
+                        [](const Quaternion& a) { return -a; });
                     break;
         }
         
@@ -234,16 +232,12 @@ private:
             return parseNumber();
         } else if (exprpos == '(') {
             ++pos;
-            auto node = parseExpression();
-            if (expr[pos] != ')') {
-                print_error(printerror,"Expected ')'" "\n");
-                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-            }
+            std::shared_ptr<ASTNode> node = parseExpression();
+            if (expr[pos] != ')') return error_zero;
             ++pos;
             return node;
         }
-        print_error(printerror,"Unexpected character in expression" "\n");
-        return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+        return error_zero;
     }
 
     const std::shared_ptr<ASTNode> parseVariableOrFunction() {
@@ -254,8 +248,7 @@ private:
         const bool parse_fun = pos < expr.size() && expr[pos] == '(';
         switch ( parse_fun + 3*(variables.find(name) != variables.end()) ) {
             case 0:
-                print_error(printerror,"Unknown variable: " + name + "\n");
-                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                return error_zero;
                 break;
             case 1:
                 return parseFunction(name);
@@ -267,8 +260,7 @@ private:
                 return parseFunction(name);
                 break; 
         }
-        print_error(printerror,"Unknown variable: " + name + "\n");
-        return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+        return error_zero;
     }
 
     const std::shared_ptr<ASTNode> parseNumber() {
@@ -310,52 +302,38 @@ private:
     }
 
     const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
-
         ++pos;  // Skip '('
-        const auto arg1 = parseExpression();
-
+        const std::shared_ptr<ASTNode> arg1 = parseExpression();
+    
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
-
-
-
-        if ( isTwoArgFunction(func) ) {
+    
+        // Parsing functions with two or three arguments
+        const bool treeArgs = func == "ellipsoid" || func == "rotation" || func == "rotate";
+        if (isTwoArgFunction(func) || treeArgs) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
-                arg2 = parseExpression();  // Parse the second argument for binary functions
-            } else {
-                print_error(printerror,"Expected ',' between arguments for " + func + "\n");
-                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-            }
-        }
-
-        // Parsing functions that expect a third argument
-        if (func == "ellipsoid" || func == "rotation") {
-            if (expr[pos] == ',') {
-                ++pos;
                 arg2 = parseExpression();
-                ++pos;
-                arg3 = parseExpression();
             } else {
-                print_error(printerror,"Expected ',' between arguments for " + func + "\n");
-                return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+                return error_zero;
+            }
+            if (treeArgs) {
+                if ( (expr[pos] != ',') ) return error_zero;
+                ++pos; // Skip ','
+                arg3 = parseExpression();
             }
         }
-
-        if (expr[pos] != ')') {
-            print_error(printerror,"Expected ')' to close the function " + func + "\n");
-            return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
-        }
+    
+        if (expr[pos] != ')') return error_zero;
         ++pos;  // Skip ')'
+        
 
-        // Store result in cache
+    
         const auto it = functionMap.find(func);
         if (it != functionMap.end()) {
-            return it->second(arg1, arg2, arg3);  // Call the mapped function
-        } else {
-            print_error(printerror,"Function not recognized: " + func + "\n");
-            return std::shared_ptr<ASTNode>(error_zero.find("zero")->second(nullptr, nullptr, nullptr));
+           return it->second(arg1, arg2, arg3);  // Call the mapped function
         }
+        return error_zero;
     }
 };
 

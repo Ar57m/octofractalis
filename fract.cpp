@@ -32,40 +32,39 @@ static constexpr double e =  2.7182818284590452353602874713526624977572470937000
 
 
 
-int current = 0;
 
-void display_progress( int &current, const int total, const int iteration_interval) {
-    static auto start_time = std::chrono::steady_clock::now();
-    static int avg_it_per_sec = 0;
-    static auto last_update_time = start_time;
+// void display_progress( int &current, const int total, const int iteration_interval) {
+//     static auto start_time = std::chrono::steady_clock::now();
+//     static int avg_it_per_sec = 0;
+//     static auto last_update_time = start_time;
 
-    if (current % iteration_interval == 0 || current == total) {
-        auto now = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_since_last_update = now - last_update_time;
+//     if (current % iteration_interval == 0 || current == total) {
+//         auto now = std::chrono::steady_clock::now();
+//         std::chrono::duration<double> elapsed_since_last_update = now - last_update_time;
 
-        if (elapsed_since_last_update.count() > 1.0 || current == total) {
-            last_update_time = now;
+//         if (elapsed_since_last_update.count() > 1.0 || current == total) {
+//             last_update_time = now;
 
-            double progress = static_cast<double>(current) / total * 100.0;
+//             double progress = static_cast<double>(current) / total * 100.0;
 
-            std::chrono::duration<double> elapsed = now - start_time;
-            avg_it_per_sec = (avg_it_per_sec == 0) ? static_cast<int>(current / elapsed.count()) : static_cast<int>((avg_it_per_sec + current / elapsed.count()) / 2.0);
+//             std::chrono::duration<double> elapsed = now - start_time;
+//             avg_it_per_sec = (avg_it_per_sec == 0) ? static_cast<int>(current / elapsed.count()) : static_cast<int>((avg_it_per_sec + current / elapsed.count()) / 2.0);
 
-            int bar_width = 50;
-            int pos = static_cast<int>(bar_width * progress / 100.0);
+//             int bar_width = 50;
+//             int pos = static_cast<int>(bar_width * progress / 100.0);
 
-            std::cout << "[";
-            for (int i = 0; i < bar_width; ++i) {
-                if (i <= pos) std::cout << "=";
-                else std::cout << " ";
-            }
-            std::cout << "] " << int(progress) << "%  [ "
-                      << avg_it_per_sec << " it/s; " << int((total - current) / avg_it_per_sec) << "s left ] \r";
-            std::cout.flush();
-        }
-    }
-    current++;
-}
+//             std::cout << "[";
+//             for (int i = 0; i < bar_width; ++i) {
+//                 if (i <= pos) std::cout << "=";
+//                 else std::cout << " ";
+//             }
+//             std::cout << "] " << int(progress) << "%  [ "
+//                       << avg_it_per_sec << " it/s; " << int((total - current) / avg_it_per_sec) << "s left ] \r";
+//             std::cout.flush();
+//         }
+//     }
+//     current++;
+// }
 
 
 
@@ -142,8 +141,32 @@ void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
         }
 }
 
+void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
+                            const uint16_t x, const uint16_t y, const int attractor_index, const int num_attractors) {
+    int index = (y * width + x) * 3;
+    int it = array_top_colors_outside[attractor_index % num_attractors];
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
 
 
+void generate_attractors(Quaternion* attractors, int n) {
+    if (n <= 0) return;
+
+    Quaternion start_point(1.5, 0.0, 0.0, 0.0);
+    double angle_step = 2 * pi / n;
+
+    for (int i = 0; i < n; ++i) {
+        double angle_in_radians = angle_step * i;
+        // Apenas usa as componentes real (r) e imaginária (i) para a rotação no plano
+        double new_r = start_point.real * std::cos(angle_in_radians) - start_point.imag * std::sin(angle_in_radians);
+        double new_i = start_point.real * std::sin(angle_in_radians) + start_point.imag * std::cos(angle_in_radians);
+        
+        attractors[i] =  Quaternion(new_r, new_i, start_point.j, start_point.k);
+    }
+}
 
 std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
@@ -151,7 +174,7 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
     const std::map<std::string, std::function<Quaternion()>> variables = {
-        {"rt", [&point]() { return point; }},
+        {"z", [&point]() { return point; }},
         {"z_k", [&point]() { return point.k; }},
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
@@ -196,7 +219,7 @@ extern "C" {
 
 
 
-    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
+    void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
@@ -207,12 +230,11 @@ extern "C" {
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt+rw" || expression == "pow(rt,2)+rw")  ) {
+        if ( (expression == "z*z+c" || expression == "pow(z,2)+c")  ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 for (int y = 0; y < height; ++y) {
@@ -230,25 +252,21 @@ extern "C" {
                         temp = z.mag();
                         ++iteration;
                     }
-                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
 
         } else {
             
             int y;
-            *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
     
                 const std::map<std::string, std::function<Quaternion()>> variables = {
-                    {"rt", [&z]() { return z; }},
-                    {"rw", [&c]() { return c; }},
+                    {"z", [&z]() { return z; }},
+                    {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
@@ -274,21 +292,154 @@ extern "C" {
                         temp = z.mag();
                         ++iteration;
                     }
-                    *failed_gen = temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
        } 
     }
     
     
+    void magnet(uint8_t* output, const int* array_top_colors_outside, const char* exp,
+                const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                const double xmin, const double xmax, const double ymin,
+                const double ymax, const double v_real, const double v_imag,
+                const double quaternion_j, const double quaternion_k,
+                int n_points) {
+
+        std::signal(SIGINT, signal_handler);
+
+        const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
+
+        ;
+
+        const std::string expression = std::string(exp);
+
+        n_points = n_points > 0 ? n_points : 2;
+        std::vector<Quaternion> attractors(n_points);
+    
+        // Generate attractors
+        generate_attractors(attractors.data(), n_points);
+        
+        if (expression == "z*z+c") {
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                for (int y = 0; y < height; ++y) {
+
+                    Quaternion z(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
+                    Quaternion velocity(v_real, v_imag);
+            
+                    const double damping = 0.1;
+                    const double r0 = 0.1;
+
+                    const int num_attractors = attractors.size();
+            
+                    uint16_t iteration = 0;
+                    double temp = 0;
+                    int closest_attractor_index = -1;
+                    double min_distance = std::numeric_limits<double>::max();
+            
+                    while (iteration < max_iter) {
+                        Quaternion force(0, 0, 0, 0);
+            
+                        for (int i = 0; i < num_attractors; ++i) {
+                            Quaternion diff = attractors[i] - z;
+                            double distance2 = diff.magSquared() + r0 * r0;
+                            force += diff / distance2;
+
+                            if (distance2 < min_distance) {
+                                min_distance = distance2;
+                                closest_attractor_index = i;
+                            }
+                        }
+
+                        force -= velocity * damping;
+                        velocity += force;
+                        z += velocity;
+            
+
+                        temp = z.magSquared();
+                        if (temp > 9) break;
+                        ++iteration;
+                    }
+            
+                    update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
+                }
+            }
+
+
+
+        } else {
+            
+            int y;
+
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Quaternion z,velocity, force, diff;
+                const double damping = 0.1;
+    
+                const std::map<std::string, std::function<Quaternion()>> variables = {
+                    {"z", [&z]() { return z; }},
+                    {"v", [&velocity]() { return velocity; }},
+                    {"f", [&force]() { return force; }},
+                    {"diff", [&diff]() { return diff; }},
+                    {"d", [&]() { return Quaternion(damping); }},
+                    {"phi", [&]() { return phi; }},
+                    {"pi", [&]() { return pi; }},
+                    {"e", [&]() { return e;   }},
+                    {"y", [&]() { return Quaternion (y, 0.0); }},
+                    {"x", [&]() { return Quaternion (x, 0.0); }}
+                };
+    
+                //Parser parser(x % 2 < 1 ? expression : exp, variables);
+                Parser parser( expression, variables);
+                const std::shared_ptr<ASTNode> ast = parser.parse();
+
+                const int num_attractors = attractors.size();    
+                const double r0 = 0.1;
+                for (int y = 0; y < height; ++y) {
+                    z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
+                    velocity = Quaternion(v_real, v_imag);;
+
+                    uint16_t iteration = 0;
+                    double temp = 0;
+                    int closest_attractor_index = -1;
+                    double min_distance = std::numeric_limits<double>::max();
+            
+                    while (iteration < max_iter) {
+                        force = Quaternion(0);
+            
+                        for (int i = 0; i < num_attractors; ++i) {
+                            diff = attractors[i] - z;
+                            double distance2 = diff.magSquared() + r0 * r0;
+                            force += diff / distance2;
+
+                            if (distance2 < min_distance) {
+                                min_distance = distance2;
+                                closest_attractor_index = i;
+                            }
+                        }
+
+                        force -= velocity * damping;
+                        velocity += force;
+                        z = ast->evaluate();
+            
+
+                        temp = z.magSquared();
+                        if (temp > 9) break;
+                        ++iteration;
+                    }
+            
+                    update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
+                }
+            }
+       } 
+    }
+
 
     
     void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
-                double* failed_gen, const char* exp,
+                const char* exp,
                 const uint16_t width, const uint16_t height, const int max_iter,
                 const double xmin, const double xmax, const double ymin, const double ymax,
                 const double zmin, const double zmax, const double sigma, const double rho, const double beta,
@@ -303,9 +454,8 @@ extern "C" {
         const double dy = (ymax - ymin) / height;
         const double dz = (zmax - zmin) / max_wh;
 
-        *failed_gen = std::max(*failed_gen, 1.0);
         std::string expression = std::string(exp);
-        if (expression == "rt*rt+rw") {
+        if (expression == "z*z+c") {
             expression = "dx+dy*1i+dz*1j";
         }
     
@@ -320,11 +470,11 @@ extern "C" {
         #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < max_iter; ++i) {
             Quaternion temp = trajectory[i];
-    
+            temp = temp.rotate_in_circle(Quaternion(angle * (pi / 180.0)), Quaternion(axis));
             if (temp.j < camera_position_z || temp.j > zmax) {
                 continue;
             }
-            temp.rotate(angle, axis);
+
             double depth = (temp.j - zmin) / dz;
     
             int pixel_x = static_cast<int>((temp.real - xmin) / dx);
@@ -341,7 +491,7 @@ extern "C" {
     }
 
 
-    void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen,const char* exp,
+    void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, double complex_a, double complex_b,
@@ -353,12 +503,11 @@ extern "C" {
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
         
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
-        if ( expression == "rt*rt+rw" ) {
+        if ( expression == "z*z+c" ) {
 
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
@@ -382,21 +531,18 @@ extern "C" {
                     update_output( output, array_top_colors_outside, array_top_colors_lake, l.mag(), width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
                 }
-                //display_progress( current, width, 80);
             }
-            //std::cout << "\n";
 
         } else {
 
             
-            *failed_gen = 0.0;
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 Quaternion l, v, temp;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
-                    {"rt", [&v]() { return v; }},
-                    {"rw", [&l]() { return l; }},
-                    {"rk", [&temp]() { return temp; }},
+                    {"v", [&v]() { return v; }},
+                    {"l", [&l]() { return l; }},
+                    {"k", [&temp]() { return temp; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
@@ -426,19 +572,16 @@ extern "C" {
                         }
                     }
                     const double labs = l.mag();
-                    *failed_gen = labs > *failed_gen ? labs : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
                         0, i, j, top_colors_outside, top_colors_lake, false, true);
                     
                 }
-                // display_progress( current, width, 80);
             }
-            // std::cout << "\n";
         }
     }
 
 
-    void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, double* failed_gen, const char* exp,
+    void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
@@ -453,12 +596,11 @@ extern "C" {
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         
-        *failed_gen = *failed_gen == 0 ? 1 : 1;
-        current = 0;
+        ;
 
         const std::string expression = std::string(exp);
 
-        if ( (expression == "rt*rt*rt-1+rw" || expression == "pow(rt,3)-1+rw") ) {
+        if ( (expression == "z*z*z-1+c" || expression == "pow(z,3)-1+c") ) {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
 
@@ -484,26 +626,23 @@ extern "C" {
                         
                         ++iteration;
                     }
-                    *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
+
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, false, false);
                 }
-                // display_progress( current, width, 80);
             }
-            // std::cout << "\n";
 
         } else {
             
             int y;
-            *failed_gen = 0.0;
             const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
     
                 const std::map<std::string, std::function<Quaternion()>> variables = {
-                    {"rt", [&z]() { return z; }},
-                    {"rw", [&c]() { return c; }},
+                    {"z", [&z]() { return z; }},
+                    {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
@@ -541,14 +680,10 @@ extern "C" {
                         
                         ++iteration;
                     }
-                    *failed_gen = 3.0; //temp > *failed_gen ? temp : *failed_gen;
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
                         iteration, x, y, top_colors_outside, top_colors_lake, false, false);
                 }
-
-                // display_progress( current, width, 80);
             }
-            // std::cout << "\n";
        } 
     }
 
