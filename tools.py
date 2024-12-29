@@ -4,6 +4,15 @@ import sys
 import shutil
 
 
+
+
+
+
+
+
+
+
+
 def image_to_array(image_path, min=0, max=2**24-1):
         img = cv2.imread(image_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 

@@ -185,6 +185,48 @@ public:
         return Quaternion(real, -imag, -j, -k);
     }
     
+    Quaternion rotate_in_circle(Quaternion angle, Quaternion axis) const {
+        double angle_in_radians = angle.mag(); // Magnitude as angle in radians
+        double sin_angle = std::sin(angle_in_radians);
+        double cos_angle = std::cos(angle_in_radians);
+
+        // Quaternion components
+        double new_r = real, new_i = imag, new_j = j, new_k = k;
+
+        // Identify the rotation plane based on the axis
+        switch (static_cast<int>(axis.mag())) {
+        case 0: // Rotation in the (real, imag) plane
+            new_r = real * cos_angle - imag * sin_angle;
+            new_i = real * sin_angle + imag * cos_angle;
+            break;
+        case 1: // Rotation in the (real, j) plane
+            new_r = real * cos_angle - j * sin_angle;
+            new_j = real * sin_angle + j * cos_angle;
+            break;
+        case 2: // Rotation in the (real, k) plane
+            new_r = real * cos_angle - k * sin_angle;
+            new_k = real * sin_angle + k * cos_angle;
+            break;
+        case 3: // Rotation in the (imag, j) plane
+            new_i = imag * cos_angle - j * sin_angle;
+            new_j = imag * sin_angle + j * cos_angle;
+            break;
+        case 4: // Rotation in the (imag, k) plane
+            new_i = imag * cos_angle - k * sin_angle;
+            new_k = imag * sin_angle + k * cos_angle;
+            break;
+        case 5: // Rotation in the (j, k) plane
+            new_j = j * cos_angle - k * sin_angle;
+            new_k = j * sin_angle + k * cos_angle;
+            break;
+        default: // Invalid axis, return unchanged quaternion
+            break;
+        }
+
+        return Quaternion(new_r, new_i, new_j, new_k);
+    }
+
+    
     Quaternion rotation(const Quaternion angle, const Quaternion& axis) const {
         Quaternion normalized_axis = axis / axis.mag();
     
@@ -201,44 +243,6 @@ public:
         return rotation_quaternion * (*this) * rotation_quaternion.conj();
     }
     
-    void rotate(double angle, int axis) {
-        double rad, cosTheta, sinTheta;
-        double x = real;
-        double y = imag;
-        double z = j;
-
-        switch (axis) {
-            case 0: // X
-                rad = angle * (pi / 180.0);
-                cosTheta = std::cos(rad);
-                sinTheta = std::sin(rad);
-
-                imag = y * cosTheta - z * sinTheta;
-                j = y * sinTheta + z * cosTheta;
-                break;
-
-            case 1: // Y
-                rad = angle * (pi / 180.0);
-                cosTheta = std::cos(rad);
-                sinTheta = std::sin(rad);
-
-                real = x * cosTheta + z * sinTheta;
-                j = -x * sinTheta + z * cosTheta;
-                break;
-
-            case 2: // Z
-                rad = angle * (pi / 180.0);
-                cosTheta = std::cos(rad);
-                sinTheta = std::sin(rad);
-
-                real = x * cosTheta - y * sinTheta;
-                imag = x * sinTheta + y * cosTheta;
-                break;
-
-            default:
-                break;
-        }
-    }
 
     // abs / remove the sign
     inline Quaternion abs() const {
@@ -249,7 +253,11 @@ public:
     inline double mag() const {
         return noNan(std::sqrt(real * real + imag * imag + j * j + k * k)); 
     }
-
+    
+    inline double magSquared() const {
+        return noNan(real * real + imag * imag + j * j + k * k); 
+    }
+    
     inline Quaternion c_mag() const {
         return Quaternion(std::sqrt(real * real + imag * imag + j * j + k * k), 0.0);
     }

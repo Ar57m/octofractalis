@@ -195,6 +195,9 @@
                         <label><input type="checkbox" name="fractals[newton_juliaset]" class="small-input"> Newton JuliaSet</label>
                     </fieldset>
                     <fieldset>
+                        <label><input type="checkbox" name="fractals[magnet]" class="small-input"> Magnet Pendulum</label>
+                    </fieldset>
+                    <fieldset>
                         <label><input type="checkbox" name="fractals[lorenz]" class="small-input"> Lorenz Attractor</label>
                     </fieldset>
                     <fieldset>
@@ -225,7 +228,9 @@
 
                     <label for="newton_epsilon">Newton Epsilon:</label>
                     <input type="text" id="newton_epsilon" name="newton_epsilon" value="0.000001" required class="small-input" pattern="0\.[0-9]{1,7}">
-                    
+
+                    <label for="n_points">Number of Magnets:</label>
+                    <input type="number" id="n_points" name="n_points" min="2" max="10000" value="3" required class="small-input"><br>
                 </fieldset>
 
                 <fieldset>
@@ -317,7 +322,7 @@
                     <label for="rotation_angle">Rotation Angle:</label>
                     <input type="text" id="rotation_angle" name="rotation_angle" value="0.0" required class="small-input"><br>
                     <label for="axis">Axis:</label>
-                    <input type="number" id="axis" name="axis" min="-1" max="2" value="-1" required class="small-input"><br>
+                    <input type="number" id="axis" name="axis" min="-1" max="5" value="-1" required class="small-input"><br>
                     <label for="max_point_size">Max Point Size:</label>
                     <input type="number" id="max_point_size" name="max_point_size" min="1" max="256" value="1" required class="small-input"><br>
                 </fieldset>
@@ -473,6 +478,7 @@
                     juliaset: formData.get('fractals[juliaset]') === 'on',
                     newton: formData.get('fractals[newton]') === 'on',
                     newton_juliaset: formData.get('fractals[newton_juliaset]') === 'on',
+                    magnet: formData.get('fractals[magnet]') === 'on',
                     lorenz: formData.get('fractals[lorenz]') === 'on',
                     lyapunov: formData.get('fractals[lyapunov]') === 'on',
                     sandpile: formData.get('fractals[sandpile]') === 'on'
@@ -498,6 +504,8 @@
                 rotation_angle: formData.get('rotation_angle'),
                 axis: formData.get('axis'),
                 max_point_size: formData.get('max_point_size'),
+
+                n_points: formData.get('n_points'),
                 // zoom: formData.get('zoom') === 'on',
                 // max_zoom: formData.get('max_zoom')
             })

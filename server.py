@@ -1,4 +1,3 @@
-import tools
 import subprocess
 import json
 import time
@@ -6,20 +5,34 @@ import argparse
 import re
 import os
 import sys
-# from multiprocessing import Event
+
 from http.server import SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn, TCPServer
-from threading import Event
+import threading as thr
 import signal
+
+import tools
+
+
+
+
+
+stop_gen_event = thr.Event()
+generating = thr.Event()
+
 
 all_parameters = {}
 
 received_params = {}
 
-
-stop_gen_event = Event()
-
 python_exe = tools.get_python_executable()
+
+current_client_id = 0
+
+
+def set_current_gen(id):
+    global current_client_id
+    current_client_id = id
 
 def process_form_data(params, timeout):
     global all_parameters, stop_gen_event
@@ -92,6 +105,7 @@ def process_form_data(params, timeout):
     'juliaset': False,
     'newton' : False,
     'newton_juliaset': False,
+    'magnet': False,
     'lyapunov': False,
     'sandpile': False,
     })
@@ -154,6 +168,7 @@ def process_form_data(params, timeout):
     all_parameters["rotation_angle"] = float(params.get('rotation_angle', 0.0))
     all_parameters["axis"] = int(params.get('axis', -1))
     all_parameters["max_point_size"] = int(params.get('max_point_size', 1))
+    all_parameters["n_points"] = int(params.get('n_points',3))
 
     #zoom = False
     #max_zoom = 20
@@ -180,30 +195,37 @@ def process_form_data(params, timeout):
     )
     
     start_time = time.time()
-    
+
+
     while True:
         if process.poll() is not None:
             break
     
-        elapsed_time = time.time() - start_time
-        if (timeout > 0 and elapsed_time > timeout) or stop_gen_event.is_set():
-
-            process.kill()
-            print("Timeout.")
-            return ["./failed_gen.png"] 
+        if timeout > 0 and (time.time() - start_time) > timeout:
+            process.kill()  
+            print("Timeout")
+            return ["./failed_gen.png"]
+        elif stop_gen_event.is_set():
+            process.kill()  
+            print("Generation stopped")
+            return ["./failed_gen.png"]
+        else:
+            time.sleep(0.2)
+            continue
     
-        time.sleep(0.2)
 
     print("Took: ",time.time() - start_time,"seconds")
 
     stdout, stderr = process.communicate()
     
+    print(stdout)
+    
 
     if stderr:
         print(f"Error: {stderr}")
         
-    print(stdout)
     
+
     if stdout:
         try:
             return json.loads(stdout.strip())
@@ -224,7 +246,10 @@ def server(port, timeout):
     DIRECTORY = ""
 
     class MyHttpRequestHandler(SimpleHTTPRequestHandler):
+
         def do_POST(self):
+            global current_client_id
+
             content_type = self.headers.get('Content-Type')
             if content_type != 'application/json; charset=utf-8':
                 self.send_response(400)
@@ -240,7 +265,9 @@ def server(port, timeout):
                 self.end_headers()
                 return
 
-            if self.path == '/stop':
+            client_id = self.client_address[0]
+
+            if self.path == '/stop' and (client_id == current_client_id):
                 # Handle stop action
                 if 'action' in received_params and received_params['action'] == 'stop':
                     stop_gen_event.set()  # Set the event to signal stop
@@ -253,15 +280,35 @@ def server(port, timeout):
                     self.end_headers()
                 return
 
+            
             # Fractal generation request
             required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
-            if all(key in received_params for key in required_keys):
+            if all(key in received_params for key in required_keys) and not generating.is_set() :
+                generating.set()
                 stop_gen_event.clear()
+                set_current_gen(client_id)
                 fractal_result = ",".join(process_form_data(received_params, timeout))
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.end_headers()
                 self.wfile.write(fractal_result.encode('utf-8'))
+                generating.clear()
+            elif generating.is_set():
+                print("On queue...")
+                while generating.is_set():
+                    time.sleep(0.5)
+                if all(key in received_params for key in required_keys):
+                    generating.set()
+                    stop_gen_event.clear()
+                    set_current_gen(client_id)
+                    fractal_result = ",".join(process_form_data(received_params, timeout))
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json; charset=utf-8')
+                    self.end_headers()
+                    self.wfile.write(fractal_result.encode('utf-8'))
+                    generating.clear()
+                else:
+                    return
             else:
                 self.send_response(400)
                 self.end_headers()
