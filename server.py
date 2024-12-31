@@ -265,12 +265,12 @@ def server(port, timeout):
                 self.end_headers()
                 return
 
-            client_id = self.client_address[0]
-
-            if self.path == '/stop' and (client_id == current_client_id):
-                # Handle stop action
-                if 'action' in received_params and received_params['action'] == 'stop':
-                    stop_gen_event.set()  # Set the event to signal stop
+           
+            if self.path == '/stop':
+                tab_id = str(received_params.get('tabId', False))
+    
+                if received_params.get('action', False) == 'stop' and tab_id == current_client_id:
+                    stop_gen_event.set()
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json; charset=utf-8')
                     self.end_headers()
@@ -286,7 +286,7 @@ def server(port, timeout):
             if all(key in received_params for key in required_keys) and not generating.is_set() :
                 generating.set()
                 stop_gen_event.clear()
-                set_current_gen(client_id)
+                set_current_gen(str(received_params.get('tab_id', 0)))
                 fractal_result = ",".join(process_form_data(received_params, timeout))
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -300,7 +300,7 @@ def server(port, timeout):
                 if all(key in received_params for key in required_keys):
                     generating.set()
                     stop_gen_event.clear()
-                    set_current_gen(client_id)
+                    set_current_gen(str(received_params.get('tab_id', 0)))
                     fractal_result = ",".join(process_form_data(received_params, timeout))
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json; charset=utf-8')
