@@ -161,7 +161,7 @@ public:
             (-value * c.k) / denom
         );
     }
-    
+
     inline double fmod(const double a, const double b) const {
         double abs_b = std::abs(b);
         double abs_a = std::abs(a);
@@ -179,7 +179,15 @@ public:
             fmod(k, other.k)
         );
     }
-    
+
+    Quaternion& operator=(const double& value) {
+        real = value;
+        imag = 0;
+        j = 0;
+        k = 0;
+        return (*this).sanitize();
+    }
+
     // Conj
     inline Quaternion conj() const {
         return Quaternion(real, -imag, -j, -k);
@@ -358,7 +366,11 @@ public:
     inline bool isZero() const {
         return real == 0 && imag == 0 && j == 0 && k == 0;
     }
-    
+
+    inline bool isZeroQ() const {
+        return j == 0 && k == 0;
+    }
+
     void test_quaternion_math() {
         Quaternion q(1, 1, 1, 1);
         Quaternion log_q = q.log();

@@ -340,7 +340,7 @@ extern "C" {
                     double min_distance = std::numeric_limits<double>::max();
             
                     while (iteration < max_iter) {
-                        Quaternion force(0, 0, 0, 0);
+                        Quaternion force(0);
             
                         for (int i = 0; i < num_attractors; ++i) {
                             Quaternion diff = attractors[i] - z;

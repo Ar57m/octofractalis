@@ -296,7 +296,7 @@ def server(port, timeout):
             elif generating.is_set():
                 print("On queue...")
                 while generating.is_set():
-                    time.sleep(0.5)
+                    time.sleep(0.25)
                 if all(key in received_params for key in required_keys):
                     generating.set()
                     stop_gen_event.clear()

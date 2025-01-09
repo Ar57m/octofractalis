@@ -138,8 +138,8 @@ private:
     size_t pos;
     std::map<std::string, std::function<Quaternion()>> variables;
 
+
    
-    
 
     bool isTwoArgFunction(const std::string& func) {
         static const std::unordered_set<std::string> validFunctions = {
@@ -147,6 +147,26 @@ private:
         };
         return validFunctions.find(func) != validFunctions.end();
     }
+    
+    
+    std::string replaceChar(std::string input, const char char_find, const std::string& replacement) {
+        size_t length = input.size();
+        
+        for (size_t i = 0; i < length; ++i) {
+            if (input[i] == char_find) {
+                bool left_is_letter = (i > 0 && std::isalpha(input[i - 1]));
+                bool right_is_letter = (i < length - 1 && std::isalpha(input[i + 1]));
+    
+                if (!left_is_letter && !right_is_letter) {
+                    input.replace(i, 1, replacement);
+                    i += replacement.size() - 1;
+                }
+            }
+        }
+        return input;
+    }
+    
+    
 
     const std::shared_ptr<ASTNode> parseExpression() {
         std::shared_ptr<ASTNode> node = parseTerm();
@@ -300,11 +320,41 @@ private:
 
         return std::make_shared<ConstantNode>(Quaternion(realPart, imagPart, jPart, kPart));
     }
-
-    const std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
-        ++pos;  // Skip '('
-        const std::shared_ptr<ASTNode> arg1 = parseExpression();
     
+    
+    
+    std::shared_ptr<ASTNode> parseFunction(const std::string& func) {
+        ++pos;  // Skip '('
+        std::shared_ptr<ASTNode> arg1 = nullptr;
+        
+        
+        if ( func != "diff" ) {
+            arg1 = parseExpression();
+        } else {
+            std::string old_expr = expr;
+            size_t old_pos = pos;
+            bool q = false;
+
+            arg1 = parseExpression();
+
+            q = arg1->evaluate().isZeroQ();
+
+            expr = replaceChar(old_expr.erase(0, old_pos), 'z' , "(z+0.000001+0.000001i" + std::string(q ? ")" : "+0.000001j+0.000001k)"));
+
+            pos = 0;
+
+            arg1 = std::make_shared<BinaryFunctionNode>(
+                parseExpression(), arg1,
+                [q](const Quaternion& a, const Quaternion& b) { 
+                    return (a-b)/( q ? Quaternion(1e-6,1e-6) : Quaternion(1e-6,1e-6,1e-6,1e-6)); });
+
+            if (expr[pos] != ')') return error_zero;
+            ++pos;  // Skip ')'
+            return arg1;
+        }
+
+
+
         std::shared_ptr<ASTNode> arg2 = nullptr; // Optional second argument
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
     
