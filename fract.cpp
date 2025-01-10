@@ -635,7 +635,7 @@ extern "C" {
         } else {
             
             int y;
-            const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
+            // const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
@@ -665,7 +665,7 @@ extern "C" {
                     while (iteration < max_iter) {
 
                         const Quaternion last_z = z;
-                        const Quaternion h(newton_epsilon, newton_epsilon, q_epsilon, q_epsilon);
+                        const double h(newton_epsilon);
                         
                         z += h;
                         const Quaternion next_z = ast->evaluate();
