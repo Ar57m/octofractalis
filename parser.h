@@ -246,7 +246,7 @@ private:
         }
         
         const char exprpos = expr[pos];
-        if (isalpha(exprpos)) {
+        if (isalpha(exprpos) && !(exprpos > 'h' && exprpos < 'l')) {
             return parseVariableOrFunction();
         } else if (isdigit(exprpos) || exprpos == '.' ||  (exprpos > 'h' && exprpos < 'l') ) {
             return parseNumber();
@@ -301,7 +301,9 @@ private:
             imag = (exprpos > 'h' && exprpos < 'l');
         }
 
-        const double parsedValue = number.empty() ? 0.0 : std::stod(number);
+        if (number.empty()) number = "0.0";
+        const double parsedValue = (identifier != '\0' && number == "0.0") ? 1.0 : std::stod(number);
+
 
         switch (identifier) {
             case 'i':
@@ -333,20 +335,17 @@ private:
         } else {
             std::string old_expr = expr;
             size_t old_pos = pos;
-            bool q = false;
 
             arg1 = parseExpression();
 
-            q = arg1->evaluate().isZeroQ();
-
-            expr = replaceChar(old_expr.erase(0, old_pos), 'z' , "(z+0.000001+0.000001i" + std::string(q ? ")" : "+0.000001j+0.000001k)"));
+            expr = replaceChar(old_expr.erase(0, old_pos), 'z' , "(z+0.000001)");
 
             pos = 0;
 
             arg1 = std::make_shared<BinaryFunctionNode>(
                 parseExpression(), arg1,
-                [q](const Quaternion& a, const Quaternion& b) { 
-                    return (a-b)/( q ? Quaternion(1e-6,1e-6) : Quaternion(1e-6,1e-6,1e-6,1e-6)); });
+                [](const Quaternion& a, const Quaternion& b) { 
+                    return (a-b)/1e-6; });
 
             if (expr[pos] != ')') return error_zero;
             ++pos;  // Skip ')'
