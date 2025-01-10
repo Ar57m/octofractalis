@@ -542,7 +542,7 @@ extern "C" {
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"v", [&v]() { return v; }},
                     {"l", [&l]() { return l; }},
-                    {"k", [&temp]() { return temp; }},
+                    {"c", [&temp]() { return temp; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
