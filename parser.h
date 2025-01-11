@@ -148,19 +148,25 @@ private:
         return validFunctions.find(func) != validFunctions.end();
     }
     
-    
+
+
     std::string replaceChar(std::string input, const char char_find, const std::string& replacement) {
-        size_t length = input.size();
+        size_t i = 0; // Start at the beginning of the string
         
-        for (size_t i = 0; i < length; ++i) {
+        while (i < input.size()) {
             if (input[i] == char_find) {
+                // Check if characters to the left and right are letters
                 bool left_is_letter = (i > 0 && std::isalpha(input[i - 1]));
-                bool right_is_letter = (i < length - 1 && std::isalpha(input[i + 1]));
-    
+                bool right_is_letter = (i < input.size() - 1 && std::isalpha(input[i + 1]));
+                
                 if (!left_is_letter && !right_is_letter) {
                     input.replace(i, 1, replacement);
-                    i += replacement.size() - 1;
+                    i += replacement.size(); // Move the index past the replacement
+                } else {
+                    ++i; // Move to the next character
                 }
+            } else {
+                ++i; // Move to the next character
             }
         }
         return input;
