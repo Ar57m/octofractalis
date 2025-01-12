@@ -160,7 +160,7 @@ void generate_attractors(Quaternion* attractors, int n) {
 
     for (int i = 0; i < n; ++i) {
         double angle_in_radians = angle_step * i;
-        // Apenas usa as componentes real (r) e imaginária (i) para a rotação no plano
+
         double new_r = start_point.real * std::cos(angle_in_radians) - start_point.imag * std::sin(angle_in_radians);
         double new_i = start_point.real * std::sin(angle_in_radians) + start_point.imag * std::cos(angle_in_radians);
         
