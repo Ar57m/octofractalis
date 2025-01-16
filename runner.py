@@ -24,7 +24,7 @@ magnet = lib.magnet
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double]
+    c_double, c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -40,7 +40,7 @@ lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
 
 magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_int]
+    c_double, c_double, c_double, c_int]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -73,6 +73,7 @@ all_parameters = {
 
     # Number of iterations
     'max_iter' : 400,
+    'escape_radius': 0.0, 
 
     # Sandpile max grains
     'max_grains' : 4,
@@ -240,6 +241,7 @@ def generate(all_parameters):
     width = all_parameters["width"]
     height = all_parameters["height"]
     max_iter = all_parameters["max_iter"]
+    escape_radius = all_parameters["escape_radius"]
     max_grains = all_parameters["max_grains"]
     xmin = all_parameters["xmin"]
     xmax = all_parameters["xmax"]
@@ -296,7 +298,7 @@ def generate(all_parameters):
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                juliaset_c_real, juliaset_c_imag, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
+                juliaset_c_real, juliaset_c_imag, escape_radius, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i
             )
             
@@ -342,7 +344,7 @@ def generate(all_parameters):
             magnet(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                velocity_r, velocity_i, quaternion_j, quaternion_k, n_points
+                velocity_r, velocity_i, escape_radius, quaternion_j, quaternion_k, n_points
             )
 
 
