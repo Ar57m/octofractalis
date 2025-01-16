@@ -181,11 +181,11 @@ public:
     }
 
     Quaternion& operator=(const double& value) {
-        real = value;
+        real = std::abs(value) < 1e300 ? value : 0.0;
         imag = 0;
         j = 0;
         k = 0;
-        return (*this).sanitize();
+        return *this;
     }
 
     // Conj
@@ -369,6 +369,19 @@ public:
 
     inline bool isZeroQ() const {
         return j == 0 && k == 0;
+    }
+
+
+    double mseScore(const Quaternion& other) const {
+        // Calculate Mean Squared Error (MSE) of the components
+        double mse = 0.0;
+        mse += std::pow(real - other.real, 2); // Difference in real parts
+        mse += std::pow(imag - other.imag, 2); // Difference in imag parts
+        mse += std::pow(j - other.j, 2);       // Difference in j parts
+        mse += std::pow(k - other.k, 2);       // Difference in k parts
+
+        // Normalize the score to prevent extremely large values
+        return mse / 4.0; // Average over the 4 components
     }
 
     void test_quaternion_math() {

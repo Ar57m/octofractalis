@@ -70,13 +70,13 @@ static constexpr double e =  2.7182818284590452353602874713526624977572470937000
 
 
 void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const double temp,
-                const uint16_t width, const uint16_t iteration, const uint16_t x,
-                const uint16_t y, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
+                const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
+                const double escape_radius, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
 
     int index = (y * width + x) * 3;
     int it;
     
-    if (temp < 2 && lake) {
+    if (temp < escape_radius && lake) {
         it = array_top_colors_lake[static_cast<int>(std::round((temp / (temp + 1.0)) * top_colors_lake))];
     } else if (lya) {
         it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
@@ -95,6 +95,7 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
 void drawFilledCircle(uint8_t* array, float* depthBuffer, const int rows, const int cols, 
                       const int centerX, const int centerY, 
                       const int radius, const float depth, const int color) {
+
     for (int y = -radius; y <= radius; ++y) {
         for (int x = -radius; x <= radius; ++x) {
             int newX = centerX + x;
@@ -143,6 +144,7 @@ void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
 
 void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
                             const uint16_t x, const uint16_t y, const int attractor_index, const int num_attractors) {
+
     int index = (y * width + x) * 3;
     int it = array_top_colors_outside[attractor_index % num_attractors];
 
@@ -168,8 +170,11 @@ void generate_attractors(Quaternion* attractors, int n) {
     }
 }
 
+
+
 std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
+
     std::vector<Quaternion> trajectory(max_iter);
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
@@ -222,15 +227,16 @@ extern "C" {
     void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
-                    const double ymax, const double c_real, const double c_imag,
+                    const double ymax, const double c_real, const double c_imag, double escape_radius,
                     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
                     const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
 
         std::signal(SIGINT, signal_handler);
 
+        escape_radius = escape_radius == 0.0 ? 2.0 : escape_radius;
+
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         
-        ;
 
         const std::string expression = std::string(exp);
 
@@ -247,13 +253,13 @@ extern "C" {
                     double temp = z.mag();
                     
     
-                    while ( temp < 2 && iteration < max_iter) {
+                    while ( temp < escape_radius && iteration < max_iter) {
                         z = z*z+c;
                         temp = z.mag();
                         ++iteration;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
-                        iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
+                        iteration, x, y, escape_radius, top_colors_outside, top_colors_lake, lake, false);
                 }
             }
 
@@ -287,13 +293,13 @@ extern "C" {
                     double temp = z.mag();
 
     
-                    while (temp < 2 && iteration < max_iter) {
+                    while (temp < escape_radius && iteration < max_iter) {
                         z = (ast->evaluate());
                         temp = z.mag();
                         ++iteration;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
-                        iteration, x, y, top_colors_outside, top_colors_lake, lake, false);
+                        iteration, x, y, escape_radius, top_colors_outside, top_colors_lake, lake, false);
                 }
             }
        } 
@@ -304,14 +310,15 @@ extern "C" {
                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
                 const double xmin, const double xmax, const double ymin,
                 const double ymax, const double v_real, const double v_imag,
-                const double quaternion_j, const double quaternion_k,
+                double escape_radius, const double quaternion_j, const double quaternion_k,
                 int n_points) {
 
         std::signal(SIGINT, signal_handler);
 
+        escape_radius = escape_radius == 0.0 ? 9.0 : escape_radius;
+
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
-        ;
 
         const std::string expression = std::string(exp);
 
@@ -359,7 +366,7 @@ extern "C" {
             
 
                         temp = z.magSquared();
-                        if (temp > 9) break;
+                        if (temp > escape_radius) break;
                         ++iteration;
                     }
             
@@ -399,7 +406,7 @@ extern "C" {
                 const double r0 = 0.1;
                 for (int y = 0; y < height; ++y) {
                     z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
-                    velocity = Quaternion(v_real, v_imag);;
+                    velocity = Quaternion(v_real, v_imag);
 
                     uint16_t iteration = 0;
                     double temp = 0;
@@ -426,7 +433,7 @@ extern "C" {
             
 
                         temp = z.magSquared();
-                        if (temp > 9) break;
+                        if (temp > escape_radius) break;
                         ++iteration;
                     }
             
@@ -503,7 +510,6 @@ extern "C" {
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
         
-        ;
 
         const std::string expression = std::string(exp);
 
@@ -518,8 +524,10 @@ extern "C" {
                     const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
                     Quaternion l(0.0, 0.0);
                     Quaternion v(0.5, 0.0);
+                    
 
-                    for (int k = 0; k < max_iter; ++k) {
+                    int k = 0;
+                    while (k < max_iter) {
                         if (k % 12 < 6) {
                             v = (b * v * (1.0 - v));
                             l += (((b * (1.0 - 2.0 * v)).c_mag()).log());
@@ -527,9 +535,11 @@ extern "C" {
                             v = (a * v * (1.0 - v));
                             l += (((a * (1.0 - 2.0 * v)).c_mag()).log());
                         }
+                        ++k;
                     }
+
                     update_output( output, array_top_colors_outside, array_top_colors_lake, l.mag(), width,
-                        0, i, j, top_colors_outside, top_colors_lake, false, true);
+                        0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
                 }
             }
 
@@ -573,7 +583,7 @@ extern "C" {
                     }
                     const double labs = l.mag();
                     update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
-                        0, i, j, top_colors_outside, top_colors_lake, false, true);
+                        0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
                     
                 }
             }
@@ -596,7 +606,6 @@ extern "C" {
 
         const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
         
-        ;
 
         const std::string expression = std::string(exp);
 
@@ -628,7 +637,7 @@ extern "C" {
                     }
 
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-                        iteration, x, y, top_colors_outside, top_colors_lake, false, false);
+                        iteration, x, y, 0.0, top_colors_outside, top_colors_lake, false, false);
                 }
             }
 
@@ -681,7 +690,7 @@ extern "C" {
                         ++iteration;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-                        iteration, x, y, top_colors_outside, top_colors_lake, false, false);
+                        iteration, x, y, 0.0, top_colors_outside, top_colors_lake, false, false);
                 }
             }
        } 
@@ -689,8 +698,9 @@ extern "C" {
 
     void sandpile(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
                 const uint16_t height, const uint32_t n_grains, const int top_colors_outside,const uint16_t max_grains=3) {
-            std::signal(SIGINT, signal_handler);
-            std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
+                    
+        std::signal(SIGINT, signal_handler);
+        std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
         
         // Add grains to the center of the sandpile
         int half_height = height / 2;
