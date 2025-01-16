@@ -246,6 +246,10 @@
 
                     <label for="top_colors">Top Colors:</label>
                     <input type="number" id="top_colors" name="top_colors" min="2" max="256" value="24" required class="small-input"><br>
+
+                    <label for="escape_radius">Escape Radius:</label>
+                    <input type="text" id="escape_radius" name="escape_radius" value="0.0" required class="small-input"><br>
+
                 </fieldset><br>
 
                 <fieldset>
@@ -366,6 +370,7 @@
         });
     }
 
+    validateInput("escape_radius", 0.0, 1000000000.0, 0.0);
     validateInput("newton_epsilon", 0.0000001, 1.0, 0.000001);
     validateInput("quaternion_j", -100.0, 100.0, 0.0);
     validateInput("quaternion_k", -100.0, 100.0, 0.0);
@@ -479,6 +484,7 @@
                 width: formData.get('width'),
                 height: formData.get('height'),
                 max_iter: formData.get('max_iter'),
+                escape_radius: formData.get('escape_radius'),
                 top_colors: formData.get('top_colors'),
                 max_grains: formData.get('max_grains'),
                 juliaset_c_real: formData.get('juliaset_c_real'),
@@ -597,7 +603,7 @@
             headers: {
                 'Content-Type': 'application/json; charset=utf-8'
             },
-            body: JSON.stringify({ action: 'stop', tabId: tabId }) // Send tabId
+            body: JSON.stringify({ action: 'stop', tabId: tabId }) // Envia o tabId junto
         })
         .then(response => response.json())
         .then(data => {
