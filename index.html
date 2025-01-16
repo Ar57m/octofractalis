@@ -603,7 +603,7 @@
             headers: {
                 'Content-Type': 'application/json; charset=utf-8'
             },
-            body: JSON.stringify({ action: 'stop', tabId: tabId }) // Envia o tabId junto
+            body: JSON.stringify({ action: 'stop', tabId: tabId }) // Send tabId
         })
         .then(response => response.json())
         .then(data => {
