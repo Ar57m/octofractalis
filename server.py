@@ -113,6 +113,7 @@ def process_form_data(params, timeout):
     all_parameters['width'] = int(params.get('width', 1024))
     all_parameters['height'] = int(params.get('height', 1024))
     all_parameters['max_iter'] = int(params.get('max_iter', 400))
+    all_parameters["escape_radius"] = float(params.get('escape_radius',0.0))
     all_parameters['top_colors'] = int(params.get('top_colors', 24))
     all_parameters['max_grains'] = int(params.get('max_grains', 3))
     all_parameters['juliaset_c_real'] = float(params.get('juliaset_c_real', -0.8))
