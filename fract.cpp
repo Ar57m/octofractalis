@@ -176,6 +176,7 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
 
     std::vector<Quaternion> trajectory(max_iter);
+    int i = 0;
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
     const std::map<std::string, std::function<Quaternion()>> variables = {
@@ -184,6 +185,7 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
         {"e", [&]() { return e; }},
+        {"It", [&]() { return Quaternion(i);   }},
         {"dx", [&]() { return sigma * (point.imag - point.real) * dt; }},
         {"dy", [&]() { return (point.real * (rho - point.j) - point.imag) * dt; }},
         {"dz", [&]() { return (point.real * point.imag - beta * point.j) * dt; }}
@@ -192,9 +194,10 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
     Parser parser(expression, variables);
     const auto ast = parser.parse();
 
-    for (int i = 0; i < max_iter; ++i) {
+    while (i < max_iter) {
         point += ast->evaluate();
         trajectory[i] = point;
+        ++i;
     }
 
     return trajectory;
@@ -265,19 +268,21 @@ extern "C" {
 
         } else {
             
-            int y;
+            
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
-    
+                uint16_t iteration = 0;
+                int y;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
-                    {"y", [&]() { return Quaternion (y, 0.0); }},
-                    {"x", [&]() { return Quaternion (x, 0.0); }}
+                    {"It", [&]() { return Quaternion(iteration);   }},
+                    {"y", [&]() { return Quaternion(y, 0.0); }},
+                    {"x", [&]() { return Quaternion(x, 0.0); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
@@ -289,7 +294,7 @@ extern "C" {
                     setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
-                    uint16_t iteration = 0;
+                    iteration = 0;
                     double temp = z.mag();
 
     
@@ -378,13 +383,14 @@ extern "C" {
 
         } else {
             
-            int y;
+            
 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,velocity, force, diff;
                 const double damping = 0.1;
-    
+                uint16_t iteration = 0;
+                int y;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"v", [&velocity]() { return velocity; }},
@@ -394,8 +400,9 @@ extern "C" {
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
-                    {"y", [&]() { return Quaternion (y, 0.0); }},
-                    {"x", [&]() { return Quaternion (x, 0.0); }}
+                    {"It", [&]() { return Quaternion(iteration);   }},
+                    {"y", [&]() { return Quaternion(y, 0.0); }},
+                    {"x", [&]() { return Quaternion(x, 0.0); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
@@ -408,7 +415,7 @@ extern "C" {
                     z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
                     velocity = Quaternion(v_real, v_imag);
 
-                    uint16_t iteration = 0;
+                    iteration = 0;
                     double temp = 0;
                     int closest_attractor_index = -1;
                     double min_distance = std::numeric_limits<double>::max();
@@ -549,28 +556,33 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 Quaternion l, v, temp;
+                int k = 0;
+                int j = 0;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"v", [&v]() { return v; }},
                     {"l", [&l]() { return l; }},
                     {"c", [&temp]() { return temp; }},
+                    {"It", [&k]() { return Quaternion(k);   }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
+                    {"x", [&]() { return Quaternion(i); }},
+                    {"y", [&]() { return Quaternion(j);   }},
                 };
 
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
                 Parser parser( expression, variables);
                 const auto ast = parser.parse();
-                for (int j = 0; j < height; ++j) {
+                while (j < height) {
                     const double x = xmin + i * dx;
                     const double y = ymin + j * dy;
                     const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
                     const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-                    l = Quaternion (0.0, 0.0);
-                    v = Quaternion (0.5, 0.0);
+                    l = Quaternion(0.0, 0.0);
+                    v = Quaternion(0.5, 0.0);
 
-
-                    for (int k = 0; k < max_iter; ++k) {
+                    k = 0;
+                    while (k < max_iter) {
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
                             temp = b;
@@ -580,11 +592,13 @@ extern "C" {
                             temp = a;
                             l += (ast->evaluate());
                         }
+                        ++k;
                     }
                     const double labs = l.mag();
                     update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
                         0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
                     
+                    ++j;
                 }
             }
         }
@@ -643,20 +657,22 @@ extern "C" {
 
         } else {
             
-            int y;
+            
             // const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
-    
+                uint16_t iteration = 0;
+                int y;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
                     {"pi", [&]() { return pi; }},
                     {"e", [&]() { return e;   }},
-                    {"y", [&]() { return Quaternion (y, 0.0); }},
-                    {"x", [&]() { return Quaternion (x, 0.0); }}
+                    {"It", [&]() { return Quaternion(iteration);   }},
+                    {"y", [&]() { return Quaternion(y, 0.0); }},
+                    {"x", [&]() { return Quaternion(x, 0.0); }}
                 };
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
@@ -668,7 +684,7 @@ extern "C" {
                     setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
-                    uint16_t iteration = 0;
+                    iteration = 0;
                     double temp = z.mag();
                     
                     while (iteration < max_iter) {
