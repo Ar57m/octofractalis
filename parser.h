@@ -236,6 +236,13 @@ private:
                         node, parseFactor(),
                         [](const Quaternion& a, const Quaternion& b) { return a.mseScore(b); });
                     break;
+                    
+                case '&':
+                    ++pos;
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a.cosSim(b); });
+                    break;
                 
                 default:
                     return node;
