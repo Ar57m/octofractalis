@@ -374,16 +374,27 @@ public:
 
     double mseScore(const Quaternion& other) const {
         // Calculate Mean Squared Error (MSE) of the components
-        double mse = 0.0;
-        mse += std::pow(real - other.real, 2); // Difference in real parts
-        mse += std::pow(imag - other.imag, 2); // Difference in imag parts
-        mse += std::pow(j - other.j, 2);       // Difference in j parts
-        mse += std::pow(k - other.k, 2);       // Difference in k parts
+        double mse = noNan( (real - other.real) * (real - other.real)); // Difference in real parts
+        mse = noNan( mse + (imag - other.imag) * (imag - other.imag)); // Difference in imag parts
+        mse = noNan( mse + (j - other.j) * (j - other.j));       // Difference in j parts
+        mse = noNan( mse + (k - other.k) * (k - other.k));       // Difference in k parts
 
         // Normalize the score to prevent extremely large values
         return mse / 4.0; // Average over the 4 components
     }
-
+    
+    
+    double cosSim(const Quaternion& other) const {
+        double normThis = mag();
+        double normOther = other.mag();
+    
+        if (normThis == 0 || normOther == 0) {
+            return 0.0;
+        }
+        return (real * other.real + imag * other.imag + j * other.j + k * other.k) / (normThis * normOther);
+    }
+    
+    
     void test_quaternion_math() {
         Quaternion q(1, 1, 1, 1);
         Quaternion log_q = q.log();
