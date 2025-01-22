@@ -42,18 +42,25 @@ def process_form_data(params, timeout):
 
 
     def is_url_or_path(value):
-
-
         url_regex = re.compile(
-            r'^(?:http|ftp)s?://' # http:// or https://
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' # Domain
-            r'localhost|' # localhost
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|' # IP
-            r'\[?[A-F0-9]*:[A-F0-9:]+\]?)' # IPv6
-            r'(?::\d+)?' # port
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-
-        if re.match(url_regex, value):
+            r'^(?:http|ftp)s?://'  # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # Domain
+            r'localhost|'  # localhost
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'  # IPv4
+            r'?[A-F0-9]*:[A-F0-9:]+?)'  # IPv6
+            r'(?::\d+)?'  # port
+            r'(?:/?|[/?]\S+)$',  # path
+            re.IGNORECASE
+        )
+        
+        b64_regex = re.compile(
+            r'^data:image/([a-zA-Z]+);base64,[A-Za-z0-9+/]+={0,2}$',  # Base64 images
+            re.IGNORECASE
+        )
+        
+        if re.match(b64_regex, value):
+            return "b64"
+        elif re.match(url_regex, value):
             return "url"
         elif os.path.isfile(value):
             return "image path"
@@ -62,15 +69,44 @@ def process_form_data(params, timeout):
         
 
     def download_image(url):
+        import hashlib
         # Check if the value is a URL
-        if is_url_or_path(url) != "url":
+        url_type = is_url_or_path(url)
+        
+        if url_type != "url" and url_type != "b64":
             return url  # If not a URL, return the original value
+        elif url_type == "b64":
+            import base64
+            header, image_data = url.split(",")
+            header = header.split(";")[0].split(":")[1]
+            ext = header.split("/")[-1]  # Extract the extension (e.g., png, jpeg)
+            if ext not in ['png', 'jpg', 'jpeg']:
+                ext = 'png'  # Fallback to PNG if unsupported format
+            
+            # Decode the Base64 string to get image data
+            image_data = base64.b64decode(image_data)
+            
+            # Generate an MD5 hash for the image data
+            md5_hash = hashlib.md5(image_data).hexdigest()
+            
+            file_name = f"./palettes/{md5_hash}.{ext}"
+            
+            # Check if the file already exists
+            if os.path.isfile(file_name):
+                return file_name
+        
+            # Save the image
+            os.makedirs(os.path.dirname(file_name), exist_ok=True)
+            with open(file_name, 'wb') as f:
+                f.write(image_data)
+            
+            return file_name
         
         # Download the image
     
 
         import requests
-        import hashlib
+        
         
         response = requests.get(url)
         if response.status_code == 200:
@@ -200,6 +236,7 @@ def process_form_data(params, timeout):
 
     while True:
         if process.poll() is not None:
+            print("Took: ",time.time() - start_time,"seconds")
             break
     
         if timeout > 0 and (time.time() - start_time) > timeout:
@@ -210,12 +247,10 @@ def process_form_data(params, timeout):
             process.kill()  
             print("Generation stopped")
             return ["./failed_gen.png"]
-        else:
-            time.sleep(0.2)
-            continue
+        time.sleep(0.2)
     
 
-    print("Took: ",time.time() - start_time,"seconds")
+    
 
     stdout, stderr = process.communicate()
     
