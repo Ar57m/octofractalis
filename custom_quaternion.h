@@ -6,6 +6,8 @@
 #include <limits>
 #include <cstdint>
 #include <sstream>
+#include <random>
+
 
 class Quaternion {
 private:
@@ -394,6 +396,38 @@ public:
         return (real * other.real + imag * other.imag + j * other.j + k * other.k) / (normThis * normOther);
     }
     
+    
+    
+    double generateRandom(const Quaternion& max, const Quaternion& seed) const {
+        // Use the real part of the seed as the base for generating the random number
+        unsigned int finalSeed = static_cast<unsigned int>(seed.real);
+
+        // Validate and correct the magnitude range
+        double minMag = mag();       // Assumes `mag()` is a method of the current class
+        double maxMag = max.mag();   // Assumes `max.mag()` is valid for the `Quaternion` object
+        if (minMag > maxMag) {
+            std::swap(minMag, maxMag); // Ensure minMag <= maxMag
+        }
+
+        // Handle edge cases where the range is invalid or zero
+        if (minMag == maxMag) {
+            return minMag; // No range, return the only possible value
+        }
+
+        // Select random seed and initialize random number generator
+        std::mt19937 generator;
+        if (finalSeed < 1) {
+            std::random_device device;
+            generator.seed(device()); // Use a non-deterministic seed if `finalSeed` is invalid
+        } else {
+            generator.seed(finalSeed); // Use the provided seed
+        }
+
+        // Generate a random value in the range [minMag, maxMag)
+        std::uniform_real_distribution<double> distribution(minMag, maxMag);
+        return distribution(generator);
+    }
+
     
     void test_quaternion_math() {
         Quaternion q(1, 1, 1, 1);
