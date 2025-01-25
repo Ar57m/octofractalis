@@ -36,6 +36,27 @@ public:
     Quaternion evaluate() const override { return getter(); }
 };
 
+
+class ArrayAccessNode : public ASTNode {
+    double* array;
+    uint32_t size;
+    std::shared_ptr<ASTNode> indexNode;
+
+public:
+    ArrayAccessNode(double* array, uint32_t size, std::shared_ptr<ASTNode> indexNode)
+        : array(array), size(size), indexNode(indexNode) {}
+
+    Quaternion evaluate() const override {
+        uint32_t evaluatedIndex = static_cast<uint32_t>(std::abs(indexNode->evaluate().real));
+
+        if (evaluatedIndex >= size) {
+            return Quaternion(0);
+        }
+
+        return Quaternion(array[evaluatedIndex]);
+    }
+};
+
 // UnaryFunctionNode class
 class UnaryFunctionNode : public ASTNode {
     std::shared_ptr<ASTNode> operand;
@@ -127,8 +148,10 @@ static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNo
 
 class Parser {
 public:
-    Parser(const std::string& expr, const std::map<std::string, std::function<Quaternion()>>& vars)
-        : expr(expr), pos(0), variables(vars) {}
+    Parser(const std::string& expr, 
+           const std::map<std::string, std::function<Quaternion()>>& vars, 
+           const std::map<std::string, std::pair<double*, uint32_t>>& arrays)
+        : expr(expr), pos(0), variables(vars), arrayVariables(arrays) {}
 
     std::shared_ptr<ASTNode> parse() {
         return parseExpression();
@@ -137,7 +160,9 @@ public:
 private:
     std::string expr;
     size_t pos;
-    std::map<std::string, std::function<Quaternion()>> variables;
+    const std::map<std::string, std::function<Quaternion()>>& variables;
+    const std::map<std::string, std::pair<double*, uint32_t>>& arrayVariables;
+
 
 
    
@@ -280,26 +305,30 @@ private:
         }
         return error_zero;
     }
-
+    
     const std::shared_ptr<ASTNode> parseVariableOrFunction() {
         std::string name;
         while (pos < expr.size() && isalpha(expr[pos])) {
             name += expr[pos++];
         }
-        const bool parse_fun = pos < expr.size() && expr[pos] == '(';
-        switch ( parse_fun + 3*(variables.find(name) != variables.end()) ) {
-            case 0:
-                return error_zero;
-                break;
-            case 1:
+    
+        if (variables.find(name) != variables.end()) {
+            return std::make_shared<VariableNode>(variables.at(name));
+        }
+    
+        if (pos < expr.size()) {
+            if ( expr[pos] == '(') {
                 return parseFunction(name);
-                break;
-            case 3:
-                return std::make_shared<VariableNode>(variables.at(name));
-                break;
-            case 4:
-                return parseFunction(name);
-                break; 
+                
+            } else if ( arrayVariables.find(name) != arrayVariables.end() && expr[pos] == '[') {
+                ++pos; // '['
+                std::shared_ptr<ASTNode> idx = parseExpression();
+                if (pos < expr.size() && expr[pos] == ']') {
+                    ++pos; // ']'
+                    auto arrayInfo = arrayVariables.at(name);
+                    return std::make_shared<ArrayAccessNode>(arrayInfo.first, arrayInfo.second, idx);
+                }
+            }
         }
         return error_zero;
     }

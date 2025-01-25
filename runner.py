@@ -24,15 +24,15 @@ magnet = lib.magnet
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double]
+    c_double, c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, POINTER(c_double), c_uint32]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_int, c_int]
+    c_double, c_double, c_double, c_int, c_int, POINTER(c_double), c_uint32]
 
 newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double]
+    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double, POINTER(c_double), c_uint32]
 
 lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
     c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
@@ -40,7 +40,7 @@ lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
 
 magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_int]
+    c_double, c_double, c_double, c_int, POINTER(c_double), c_uint32]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -105,10 +105,10 @@ all_parameters = {
 
     'palette' : "./palettes/palette.png",  # Palette location
     'use_palette' : True,
-    'gradient' : 0,        # Amount of colors between the colors
+    'gradient' : 16,        # Amount of colors between the colors
 
     # How many top colors to use from the palette.png
-    'top_colors' : 12,
+    'top_colors' : 24,
     'shift_palette' : 0,   # This shift the palette, you can set negative and positive integers.
     'shift_palette_lake' : 0,
     
@@ -157,10 +157,10 @@ all_parameters = {
 
 
     # Here you can move around
-    'xmin': -2.5 * 2,
-    'xmax':  2.5 * 2,
-    'ymin': -2.5 * 2,
-    'ymax':  2.5 * 2,
+    'xmin': -2.5,
+    'xmax':  2.5,
+    'ymin': -2.5,
+    'ymax':  2.5,
 
     # For Lorenz
     'zmin': -1e30 * 1,
@@ -181,6 +181,8 @@ all_parameters = {
         [1, 2, 3],
         [2, 2, 3],
     ],
+
+    'array_size': 1, 
 
     'save_expressions': True,
 
@@ -203,7 +205,18 @@ use_palette = all_parameters["use_palette"]
 all_parameters['array_top_colors'] = tools.palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
                                                   all_parameters['lake_palette'], all_parameters['lake'], use_palette)
 
+def primes(n):
 
+    limit = int(n * np.log(n) * 1.2)
+
+    sieve = np.ones(limit, dtype=bool)
+    sieve[0:2] = False
+
+    for start in range(2, int(np.sqrt(limit)) + 1):
+        if sieve[start]:
+            sieve[start*start:limit:start] = False
+    primes = np.nonzero(sieve)[0]
+    return primes[:n].astype(np.float64) 
 
 
 
@@ -223,7 +236,7 @@ def generate(all_parameters):
     expression = expression.replace(" ", "") #re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
     
     #array_top_colors = all_parameters['array_top_colors']
-    
+    array = primes(all_parameters['array_size'])
 
     if all_parameters['zoom']:
         max_zoom = str(all_parameters['max_zoom'])
@@ -299,7 +312,7 @@ def generate(all_parameters):
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, escape_radius, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i
+                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             
             
@@ -311,7 +324,7 @@ def generate(all_parameters):
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1
+                (array_top_colors_lake.shape[0])-1, array.ctypes.data_as(POINTER(c_double)), array.size
             )
 
         # Newton Fractal   
@@ -322,7 +335,8 @@ def generate(all_parameters):
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon
+                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon,
+                array.ctypes.data_as(POINTER(c_double)), array.size
             )
 
 
@@ -344,7 +358,7 @@ def generate(all_parameters):
             magnet(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
-                velocity_r, velocity_i, escape_radius, quaternion_j, quaternion_k, n_points
+                velocity_r, velocity_i, escape_radius, quaternion_j, quaternion_k, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
             )
 
 
