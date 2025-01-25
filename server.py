@@ -206,6 +206,7 @@ def process_form_data(params, timeout):
     all_parameters["axis"] = int(params.get('axis', -1))
     all_parameters["max_point_size"] = int(params.get('max_point_size', 1))
     all_parameters["n_points"] = int(params.get('n_points',3))
+    all_parameters["array_size"] = int(params.get('array_size',1))
 
     #zoom = False
     #max_zoom = 20

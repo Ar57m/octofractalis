@@ -190,8 +190,15 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
         {"dy", [&]() { return (point.real * (rho - point.j) - point.imag) * dt; }},
         {"dz", [&]() { return (point.real * point.imag - beta * point.j) * dt; }}
     };
+    double myArray[] = {1.0, 2.0, 3.0, 4.0, 5.0};
+    uint32_t arraySize = 5;
+    
+    
+    std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+        {"array", {myArray, arraySize}}
+    };
 
-    Parser parser(expression, variables);
+    Parser parser(expression, variables, arrays);
     const auto ast = parser.parse();
 
     while (i < max_iter) {
@@ -232,7 +239,8 @@ extern "C" {
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag, double escape_radius,
                     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-                    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
+                    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, 
+                    double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -268,6 +276,10 @@ extern "C" {
 
         } else {
             
+            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+                    {"array", std::make_pair(input_array, array_size)}
+                };
+            
             
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
@@ -284,9 +296,12 @@ extern "C" {
                     {"y", [&]() { return Quaternion(y, 0.0); }},
                     {"x", [&]() { return Quaternion(x, 0.0); }}
                 };
+                
+                
+                
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
-                Parser parser( expression, variables);
+                Parser parser( expression, variables, arrays);
                 const auto ast = parser.parse();
     
     
@@ -316,7 +331,7 @@ extern "C" {
                 const double xmin, const double xmax, const double ymin,
                 const double ymax, const double v_real, const double v_imag,
                 double escape_radius, const double quaternion_j, const double quaternion_k,
-                int n_points) {
+                int n_points, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -383,7 +398,9 @@ extern "C" {
 
         } else {
             
-            
+            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+                {"array", std::make_pair(input_array, array_size)}
+            };
 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
@@ -404,9 +421,11 @@ extern "C" {
                     {"y", [&]() { return Quaternion(y, 0.0); }},
                     {"x", [&]() { return Quaternion(x, 0.0); }}
                 };
+                
+
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
-                Parser parser( expression, variables);
+                Parser parser( expression, variables, arrays);
                 const std::shared_ptr<ASTNode> ast = parser.parse();
 
                 const int num_attractors = attractors.size();    
@@ -510,7 +529,7 @@ extern "C" {
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, double complex_a, double complex_b,
                     const double quaternion_j, const double quaternion_k,
-                    const int top_colors_outside, const int top_colors_lake) {
+                    const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
         
@@ -552,7 +571,10 @@ extern "C" {
 
         } else {
 
-            
+            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+                {"array", std::make_pair(input_array, array_size)}
+            };
+
             #pragma omp parallel for schedule(dynamic)
             for (int i = 0; i < width; ++i) {
                 Quaternion l, v, temp;
@@ -569,9 +591,10 @@ extern "C" {
                     {"x", [&]() { return Quaternion(i); }},
                     {"y", [&]() { return Quaternion(j);   }},
                 };
+                
 
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
-                Parser parser( expression, variables);
+                Parser parser( expression, variables, arrays);
                 const auto ast = parser.parse();
                 while (j < height) {
                     const double x = xmin + i * dx;
@@ -611,7 +634,7 @@ extern "C" {
                     const double ymax, const double c_real, const double c_imag,
                     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
                     const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
-                    const double newton_epsilon) {
+                    const double newton_epsilon, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -657,7 +680,9 @@ extern "C" {
 
         } else {
             
-            
+            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+                {"array", std::make_pair(input_array, array_size)}
+            };
             // const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
@@ -674,9 +699,10 @@ extern "C" {
                     {"y", [&]() { return Quaternion(y, 0.0); }},
                     {"x", [&]() { return Quaternion(x, 0.0); }}
                 };
+                
     
                 //Parser parser(x % 2 < 1 ? expression : exp, variables);
-                Parser parser( expression, variables);
+                Parser parser( expression, variables, arrays);
                 const auto ast = parser.parse();
     
     
