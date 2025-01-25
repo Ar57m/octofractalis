@@ -403,8 +403,8 @@ public:
         unsigned int finalSeed = static_cast<unsigned int>(seed.real);
 
         // Validate and correct the magnitude range
-        double minMag = mag();       // Assumes `mag()` is a method of the current class
-        double maxMag = max.mag();   // Assumes `max.mag()` is valid for the `Quaternion` object
+        double minMag = mag();
+        double maxMag = max.mag();
         if (minMag > maxMag) {
             std::swap(minMag, maxMag); // Ensure minMag <= maxMag
         }
@@ -423,7 +423,6 @@ public:
             generator.seed(finalSeed); // Use the provided seed
         }
 
-        // Generate a random value in the range [minMag, maxMag)
         std::uniform_real_distribution<double> distribution(minMag, maxMag);
         return distribution(generator);
     }

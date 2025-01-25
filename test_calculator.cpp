@@ -28,6 +28,15 @@ int main() {
         {"y", [&]() { return Quaternion(y, 0.0); }},
         {"x", [&]() { return Quaternion(x, 0.0); }}
     };
+    double myArray[] = {1.0, 2.0, 3.0, 4.0, 5.0};
+    uint32_t arraySize = 5;
+    
+    
+    std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+        {"array", {myArray, arraySize}}
+    };
+    
+    
 
     std::string expression;
     while (true) {
@@ -40,7 +49,7 @@ int main() {
         try {
             if (expression.find("z=") == 0) {
                 expression.erase(0, 2);
-                Parser parser(expression, variables);
+                Parser parser(expression, variables, arrays);
                 const auto ast = parser.parse();
                 z = ast->evaluate();
                 std::cout << "\nValue assigned to z: " << z << "\n";
@@ -49,14 +58,14 @@ int main() {
 
             if (expression.find("c=") == 0) {
                 expression.erase(0, 2);
-                Parser parser(expression, variables);
+                Parser parser(expression, variables, arrays);
                 const auto ast = parser.parse();
                 c = ast->evaluate();
                 std::cout << "\nValue assigned to c: " << c << "\n";
                 continue;
             }
 
-            Parser parser(expression, variables);
+            Parser parser(expression, variables, arrays);
             const auto ast = parser.parse();
             Quaternion result = ast->evaluate();
             std::cout << "\nResult: " << result << "\n";
