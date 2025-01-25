@@ -24,7 +24,8 @@ magnet = lib.magnet
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, POINTER(c_double), c_uint32]
+    c_double, c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double,
+    c_double, POINTER(c_double), c_uint32]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -32,11 +33,13 @@ lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
 
 newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double, c_double, POINTER(c_double), c_uint32]
+    c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double, c_double,
+    c_double, POINTER(c_double), c_uint32]
 
 lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
     c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double, c_double, c_double]
+    c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double,
+    c_double, c_double, POINTER(c_double), c_uint32]
 
 magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
@@ -348,7 +351,8 @@ def generate(all_parameters):
                 rotation_angle,
                 c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
                 zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
-                axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i
+                axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i,
+                array.ctypes.data_as(POINTER(c_double)), array.size
             )
 
 
