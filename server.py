@@ -5,16 +5,13 @@ import argparse
 import re
 import os
 import sys
-
+import base64
 from http.server import SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn, TCPServer
 import threading as thr
 import signal
-
-import tools
-
-
-
+import shutil
+#import tools
 
 
 stop_gen_event = thr.Event()
@@ -25,7 +22,37 @@ all_parameters = {}
 
 received_params = {}
 
-python_exe = tools.get_python_executable()
+def get_python_executable():
+    python_exec = sys.executable
+    if python_exec and shutil.which(python_exec):
+        return python_exec
+
+    for python_cmd in ["python3", "python"]:
+        if shutil.which(python_cmd):
+            return python_cmd
+
+    raise RuntimeError("Python not found!")
+    
+def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
+    # Convert the first two columns to zero-based indexing
+    for i in range(len(list_c)):
+        list_c[i][0] -= 1  # Subtract 1 from the `col` value
+        list_c[i][1] -= 1  # Subtract 1 from the `line` value
+
+    for col, line, n_squares in list_c:
+        size_x = (xmax - xmin) / n_squares
+        size_y = (ymax - ymin) / n_squares
+        
+        new_xmin = xmin + col * size_x
+        new_xmax = xmin + (col + 1) * size_x
+        new_ymin = ymin + line * size_y
+        new_ymax = ymin + (line + 1) * size_y
+        xmin, xmax, ymin, ymax = new_xmin, new_xmax, new_ymin, new_ymax
+    
+    return xmin, xmax, ymin, ymax
+    
+python_exe = get_python_executable()
+
 
 current_client_id = 0
 
@@ -76,7 +103,7 @@ def process_form_data(params, timeout):
         if url_type != "url" and url_type != "b64":
             return url  # If not a URL, return the original value
         elif url_type == "b64":
-            import base64
+            
             header, image_data = url.split(",")
             header = header.split(";")[0].split(":")[1]
             ext = header.split("/")[-1]  # Extract the extension (e.g., png, jpeg)
@@ -184,7 +211,7 @@ def process_form_data(params, timeout):
     all_parameters['quaternion_k'] = float(params.get('quaternion_k', 0.0))
 
     if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
-        xmin, xmax, ymin, ymax = tools.divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
+        xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
         all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
     else:
         all_parameters['xmin'] = float(params.get('xmin', -2.7))
@@ -207,7 +234,10 @@ def process_form_data(params, timeout):
     all_parameters["max_point_size"] = int(params.get('max_point_size', 1))
     all_parameters["n_points"] = int(params.get('n_points',3))
     all_parameters["array_size"] = int(params.get('array_size',1))
-
+    fractalize_image = (params.get('fractalize_image', False))
+    fractalize_image = download_image(fractalize_image) if fractalize_image else False
+    
+    all_parameters['fractalize_image'] = fractalize_image
     #zoom = False
     #max_zoom = 20
 
@@ -417,6 +447,7 @@ def main():
 
     stdout = result.stdout
     # stderr = result.stderr
+    # print(stderr )
 
     parameters = json.loads(stdout)
 

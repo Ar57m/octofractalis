@@ -76,15 +76,15 @@
             width: 25px;
             height: 25px;
             margin-right: 5px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         fieldset {
             border-top: 2px solid #444;
             border: 1px solid #555;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            text-align: left;
+            /* padding: 10px; */
+            margin: 0.75%;
+            margin-bottom: 2%;
+            border-radius: 1%;
         }
         .form-section {
             display: flex;
@@ -93,7 +93,7 @@
             gap: 1vw;
             margin-bottom: 1vw;
             row-gap: 10px;
-            
+            text-align: center;
         }
 
         .form-section label {
@@ -105,7 +105,9 @@
         input[type="text"],
         input[type="number"] {
             width: 35%;
+            margin: 5px;
             box-sizing: border-box;
+
         }
 
 
@@ -121,8 +123,9 @@
         label {
             display: inline-block;
             width: 150px;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
+            text-align: center;
+            /* margin-bottom: 10px;
+            padding-bottom: 10px; */
         }
 
 
@@ -172,6 +175,20 @@
             font-size: 30px;
             z-index: 10;
         }
+        #expression {
+            width: 60%;
+            max-width: 75%;
+            min-width: 75%;
+            margin: 0 auto;
+            margin-bottom: 1%;
+            margin-top: 2%;
+            box-sizing: border-box;
+        }
+        #exp {
+            margin-top: 3%;
+        }
+
+
 
     </style>
 </head>
@@ -211,11 +228,15 @@
 
 
             <div class="form-section">
-                
+
+
+                <br>
+                <label id="exp" for="expression">Expression or Equation:</label>
+                <input type="text" id="expression" name="expression" value="z*z+c"><br>
+                <br>
+
                 <fieldset>
                     <legend>Main Parameters</legend>
-                    <label id="exp" for="expression">Expression or Equation:</label>
-                    <input type="text" id="expression" name="expression" value="z*z+c"><br>
 
                     <label for="gradient">Gradient:</label>
                     <input type="number" id="gradient" name="gradient" min="0" max="256" value="24" required class="small-input"><br>
@@ -254,7 +275,12 @@
                     <input type="number" id="array_size" name="array_size" min="1" max="16777216" value="1" required class="small-input"><br>
 
                 </fieldset><br>
-
+                    
+                <fieldset>
+                    <label for="fractalize_image">Fractalize Image:</label>
+                    <input type="file" id="fractalize_image" accept="image/*">
+                </fieldset><br>
+                    
                 <fieldset>
                     <legend>Sandpile Parameter</legend>
                     <label for="max_grains">Max Grains:</label>
@@ -407,31 +433,81 @@
       sessionStorage.setItem('tabId', tabId);
     }
     
-    
     function resizeImage(imagePath, maxPixels, callback) {
         const img = new Image();
         img.src = imagePath;
 
-        img.onload = function() {
+        img.onload = function () {
             const originalPixels = img.width * img.height;
 
-
             if (originalPixels > maxPixels) {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
+                const { canvas, ctx } = createCanvas();
                 const scale = Math.sqrt(maxPixels / originalPixels);
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
 
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resizeAndDrawImage(img, scale, canvas, ctx);
                 callback(canvas.toDataURL());
             } else {
-
                 callback(imagePath);
             }
         };
     }
+
+    // Shared helper function to create a canvas
+    function createCanvas() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        return { canvas, ctx };
+    }
+
+    // Shared helper function to resize and draw the image
+    function resizeAndDrawImage(img, scale, canvas, ctx) {
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+
+    const maxDimension = 2048; // Maximum width or height
+    var fractalizeImageBlob = false;
+
+    document.getElementById('fractalize_image').addEventListener('change', async function (event) {
+        const file = event.target.files[0];
+        if (!file) {
+            console.log("No file selected.");
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            const img = new Image();
+
+            img.onload = function () {
+                let width = img.width;
+                let height = img.height;
+
+                // Scale the image if it exceeds the maxDimension
+                let scale = 1;
+                if (width > maxDimension || height > maxDimension) {
+                    scale = Math.min(maxDimension / width, maxDimension / height);
+                }
+
+                const { canvas, ctx } = createCanvas();
+                resizeAndDrawImage(img, scale, canvas, ctx);
+
+                // Convert to Base64
+                const base64Image = canvas.toDataURL('image/png');
+
+                // Store in a variable
+                fractalizeImageBlob = base64Image;
+                console.log("Image Loaded");
+            };
+
+            img.src = e.target.result;
+        };
+
+        reader.readAsDataURL(file);
+    });
+
 
     function drawGridOnImage(imageSrc, n, callback) {
         const canvas = document.createElement('canvas');
@@ -470,6 +546,7 @@
             callback(canvas.toDataURL());
         };
     }
+    
 
     document.getElementById('fractalForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -477,6 +554,8 @@
         const maxPixels = 1048576; // 1MP
 
         const url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+        
+        
 
         fetch(url, {
             method: 'POST',
@@ -532,6 +611,7 @@
                 max_point_size: formData.get('max_point_size'),
                 n_points: formData.get('n_points'),
                 array_size: formData.get('array_size'),
+                fractalize_image: fractalizeImageBlob,
                 tab_id: tabId,
                 
                 // zoom: formData.get('zoom') === 'on',
