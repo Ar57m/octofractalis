@@ -285,7 +285,7 @@ extern "C" {
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
                 uint16_t iteration = 0;
-                int y;
+                int y = 0;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
@@ -305,7 +305,7 @@ extern "C" {
                 const auto ast = parser.parse();
     
     
-                for (int y = 0; y < height; ++y) {
+                while (y < height) {
                     setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
@@ -320,6 +320,7 @@ extern "C" {
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
                         iteration, x, y, escape_radius, top_colors_outside, top_colors_lake, lake, false);
+                    ++y;
                 }
             }
        } 
