@@ -173,15 +173,14 @@ void generate_attractors(Quaternion* attractors, int n) {
 
 
 std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
-                        const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i, const double quaternion_j, const double quaternion_k) {
-
+                        const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i,
+                        const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
     std::vector<Quaternion> trajectory(max_iter);
     int i = 0;
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
     const std::map<std::string, std::function<Quaternion()>> variables = {
         {"z", [&point]() { return point; }},
-        {"z_k", [&point]() { return point.k; }},
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
         {"e", [&]() { return e; }},
@@ -190,12 +189,10 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
         {"dy", [&]() { return (point.real * (rho - point.j) - point.imag) * dt; }},
         {"dz", [&]() { return (point.real * point.imag - beta * point.j) * dt; }}
     };
-    double myArray[] = {1.0, 2.0, 3.0, 4.0, 5.0};
-    uint32_t arraySize = 5;
     
     
     std::map<std::string, std::pair<double*, uint32_t>> arrays = {
-        {"array", {myArray, arraySize}}
+        {"array", std::make_pair(input_array, array_size)}
     };
 
     Parser parser(expression, variables, arrays);
@@ -285,7 +282,7 @@ extern "C" {
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
                 uint16_t iteration = 0;
-                int y;
+                int y = 0;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
@@ -305,7 +302,7 @@ extern "C" {
                 const auto ast = parser.parse();
     
     
-                for (int y = 0; y < height; ++y) {
+                while (y < height) {
                     setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
@@ -320,6 +317,7 @@ extern "C" {
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
                         iteration, x, y, escape_radius, top_colors_outside, top_colors_lake, lake, false);
+                    ++y;
                 }
             }
        } 
@@ -407,7 +405,7 @@ extern "C" {
                 Quaternion z,velocity, force, diff;
                 const double damping = 0.1;
                 uint16_t iteration = 0;
-                int y;
+                int y = 0;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"v", [&velocity]() { return velocity; }},
@@ -430,7 +428,8 @@ extern "C" {
 
                 const int num_attractors = attractors.size();    
                 const double r0 = 0.1;
-                for (int y = 0; y < height; ++y) {
+                
+                while ( y < height ) {
                     z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
                     velocity = Quaternion(v_real, v_imag);
 
@@ -464,6 +463,7 @@ extern "C" {
                     }
             
                     update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
+                    ++y;
                 }
             }
        } 
@@ -472,13 +472,12 @@ extern "C" {
 
     
     void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
-                const char* exp,
-                const uint16_t width, const uint16_t height, const int max_iter,
+                const char* exp, const uint16_t width, const uint16_t height, const int max_iter,
                 const double xmin, const double xmax, const double ymin, const double ymax,
                 const double zmin, const double zmax, const double sigma, const double rho, const double beta,
                 const double dt, const int top_colors_outside, const int axis, const int point_size,
-                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i) {
-    
+                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                double* input_array, const uint32_t array_size) {
         std::signal(SIGINT, signal_handler);
     
 
@@ -493,7 +492,7 @@ extern "C" {
         }
     
         const std::vector<Quaternion> trajectory = generate_lorenz_trajectory(sigma, rho, beta, dt, max_iter,
-                                                expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                        expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size);
 
         const double camera_position_z = zmin;
     
@@ -688,7 +687,7 @@ extern "C" {
             for (int x = 0; x < width; ++x) {
                 Quaternion z,c;
                 uint16_t iteration = 0;
-                int y;
+                int y = 0;
                 const std::map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
@@ -705,8 +704,8 @@ extern "C" {
                 Parser parser( expression, variables, arrays);
                 const auto ast = parser.parse();
     
-    
-                for (int y = 0; y < height; ++y) {
+
+                while ( y < height ) {
                     setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
                     
@@ -733,6 +732,7 @@ extern "C" {
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
                         iteration, x, y, 0.0, top_colors_outside, top_colors_lake, false, false);
+                    ++y;
                 }
             }
        } 

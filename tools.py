@@ -1,34 +1,56 @@
 import cv2
 import numpy as np
-import sys
-import shutil
 
 
 
 
 
+def primes(n):
 
+    limit = int(n * np.log(n) * 1.2)
 
+    sieve = np.ones(limit, dtype=bool)
+    sieve[0:2] = False
 
-
-
-
-def image_to_array(image_path, min=0, max=2**24-1):
-        img = cv2.imread(image_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
-        array_image = np.array(img).astype(np.int32)
+    for start in range(2, int(np.sqrt(limit)) + 1):
+        if sieve[start]:
+            sieve[start*start:limit:start] = False
+    primes = np.nonzero(sieve)[0]
+    return primes[:n].astype(np.float64) 
     
-        if array_image.ndim != 3:
-            array_image = np.array(img.convert("RGBA"))
-            
-        if array_image.ndim == 3:
-              if array_image.shape[2] == 4:
-                      array_image = array_image[:, :, :-1]
-                      
-              if array_image.shape[2] == 3:
-                      array_image = (array_image[:, :, 0]*(256**2)+array_image[:, :, 1]*(256)+array_image[:, :, 2])
-            
-        return array_image
+
+def bw_image(path, width, height):
+    array = cv2.imread(path)
+    if (array.shape[1] != width or array.shape[0] != height):
+        array = cv2.resize(array, (width, height), interpolation=cv2.INTER_AREA) 
+    array = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
+
+    return np.array(array).reshape(-1).astype(np.float64)
+
+
+
+def image_to_array(image_path):
+
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Image Not Found: {image_path}")
+    
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+    array_image = np.array(img).astype(np.int32)
+    
+    if array_image.shape[-1] == 4:
+        array_image = array_image[:, :, :-1]
+    
+
+    if array_image.shape[-1] == 3:
+        array_image = (
+            array_image[:, :, 0] * (256**2) +
+            array_image[:, :, 1] * 256 +
+            array_image[:, :, 2]
+        )
+    
+    return array_image
 
 def generate_gradient(arr, n_grad):
     n_grad = n_grad + 2
@@ -125,13 +147,4 @@ def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
   
  
 
-def get_python_executable():
-    python_exec = sys.executable
-    if python_exec and shutil.which(python_exec):
-        return python_exec
 
-    for python_cmd in ["python3", "python"]:
-        if shutil.which(python_cmd):
-            return python_cmd
-
-    raise RuntimeError("Python not found!")

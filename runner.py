@@ -185,7 +185,10 @@ all_parameters = {
         [2, 2, 3],
     ],
 
-    'array_size': 1, 
+    'array_size': 1,
+    
+    'fractalize_image_path': False,
+    
 
     'save_expressions': True,
 
@@ -208,20 +211,6 @@ use_palette = all_parameters["use_palette"]
 all_parameters['array_top_colors'] = tools.palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
                                                   all_parameters['lake_palette'], all_parameters['lake'], use_palette)
 
-def primes(n):
-
-    limit = int(n * np.log(n) * 1.2)
-
-    sieve = np.ones(limit, dtype=bool)
-    sieve[0:2] = False
-
-    for start in range(2, int(np.sqrt(limit)) + 1):
-        if sieve[start]:
-            sieve[start*start:limit:start] = False
-    primes = np.nonzero(sieve)[0]
-    return primes[:n].astype(np.float64) 
-
-
 
 def generate(all_parameters):
     
@@ -239,7 +228,7 @@ def generate(all_parameters):
     expression = expression.replace(" ", "") #re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
     
     #array_top_colors = all_parameters['array_top_colors']
-    array = primes(all_parameters['array_size'])
+    
 
     if all_parameters['zoom']:
         max_zoom = str(all_parameters['max_zoom'])
@@ -293,6 +282,8 @@ def generate(all_parameters):
     rotation_angle = all_parameters["rotation_angle"]
     axis = all_parameters["axis"]
     max_point_size = all_parameters["max_point_size"]
+    
+    array = tools.primes(all_parameters['array_size']) if not all_parameters['fractalize_image'] else tools.bw_image(all_parameters['fractalize_image'], width, height)
 
     array_top_colors = (
     np.roll(np.array(array_top_colors[0], dtype =np.int32), shift_palette),
@@ -509,5 +500,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-   
    
