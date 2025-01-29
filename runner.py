@@ -215,7 +215,7 @@ all_parameters['array_top_colors'] = tools.palette_load(all_parameters['palette'
 def generate(all_parameters):
     
     xmin, xmax, ymin, ymax = all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax']
-    #print("\nYour coordinates: ", xmin, xmax, ymin, ymax, "\n")
+    
 
     lake = all_parameters['lake']
     use_palette = all_parameters["use_palette"]
@@ -224,10 +224,9 @@ def generate(all_parameters):
 
     expression = all_parameters['expression']
     input_expression = expression
-    #print(expression.replace(" ", ""))
-    expression = expression.replace(" ", "") #re.sub(r'\bc\b', 'rw', re.sub(r'\bz\b', 'rt', expression)).replace(" ", "")
+
+    expression = expression.replace(" ", "")
     
-    #array_top_colors = all_parameters['array_top_colors']
     
 
     if all_parameters['zoom']:
@@ -290,8 +289,16 @@ def generate(all_parameters):
     np.roll(np.array(array_top_colors[1], dtype =np.int32 ), shift_palette_lake)
     )
     array_top_colors_outside = array_top_colors[0]
-    array_top_colors_lake = array_top_colors[1]   
+    array_top_colors_lake = array_top_colors[1]
+    
+    expression = c_char_p(expression.encode('utf-8'))
+    gen_array = False
 
+    def save_img():
+        localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+        img_name = "./images/"+ all_parameters['imgfromvidfolder'] + prefix + "0" + localtime + "_colorful_"+key
+        tools.create_image(gen_array, img_name)
+        img_names.append(img_name+".png")
 
     for key, value in fractals.items():
         gen_array = np.zeros((height, width, 3), dtype=np.uint8)
@@ -300,14 +307,14 @@ def generate(all_parameters):
         # Mandelbrot Set/Julia Set
         if ((key == "juliaset") or (key == "mandelbrot")) and (value):
             
-            #start_time = time.perf_counter()
             fractal(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
-                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, escape_radius, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, array.ctypes.data_as(POINTER(c_double)), array.size
             )
+            save_img()
             
             
         # Lyapunov Set
@@ -316,10 +323,11 @@ def generate(all_parameters):
             lyapunov(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
-                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, array.ctypes.data_as(POINTER(c_double)), array.size
             )
+            save_img()
 
         # Newton Fractal   
         if ((key == "newton") or (key == "newton_juliaset")) and (value):
@@ -327,11 +335,12 @@ def generate(all_parameters):
             newton(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
-                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon,
                 array.ctypes.data_as(POINTER(c_double)), array.size
             )
+            save_img()
 
 
         # Lorenz Attractor / Lorenz system
@@ -340,11 +349,12 @@ def generate(all_parameters):
             lorenz(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 rotation_angle,
-                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
                 axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i,
                 array.ctypes.data_as(POINTER(c_double)), array.size
             )
+            save_img()
 
 
         # Magnet Pendulum Attractor
@@ -352,9 +362,10 @@ def generate(all_parameters):
             
             magnet(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                c_char_p(expression.encode('utf-8')), width, height, max_iter, xmin, xmax, ymin, ymax,
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 velocity_r, velocity_i, escape_radius, quaternion_j, quaternion_k, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
             )
+            save_img()
 
 
         # Abelian Sandpile Fractal
@@ -362,15 +373,8 @@ def generate(all_parameters):
             
             sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)),array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
+            save_img()
 
-            
-        if value:
-            imgfromvidfolder = all_parameters['imgfromvidfolder']
-            localtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-            tools.create_image((gen_array), "./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key)
-            img_names.append("./images/"+ imgfromvidfolder + prefix + "0" + localtime + "_colorful_"+key+".png")
-
-            del gen_array
     write_to_file("last_expressions.txt" , input_expression + ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
     return img_names
 
