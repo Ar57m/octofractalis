@@ -73,7 +73,7 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
                 const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
                 const double escape_radius, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
 
-    int index = (y * width + x) * 3;
+    const int index = (y * width + x) * 3;
     int it;
     
     if (temp < escape_radius && lake) {
@@ -130,16 +130,13 @@ void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
                     const double z_initial_r, const double z_initial_i,
                     const double quaternion_j = 0.0, const double quaternion_k = 0.0) {
 
-        switch (static_cast<int>(juliaset)) {
-            case 1:
-                c = Quaternion(c_real, c_imag);
-                z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
-                break;
-            case 0:
-                c = Quaternion(r_part, i_part);
-                z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-                break;
-        }
+    if (juliaset) {
+        c = Quaternion(c_real, c_imag);
+        z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
+    } else {
+        c = Quaternion(r_part, i_part);
+        z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    }
 }
 
 void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
@@ -157,16 +154,15 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 void generate_attractors(Quaternion* attractors, int n) {
     if (n <= 0) return;
 
-    Quaternion start_point(1.5, 0.0, 0.0, 0.0);
     double angle_step = 2 * pi / n;
 
     for (int i = 0; i < n; ++i) {
         double angle_in_radians = angle_step * i;
 
-        double new_r = start_point.real * std::cos(angle_in_radians) - start_point.imag * std::sin(angle_in_radians);
-        double new_i = start_point.real * std::sin(angle_in_radians) + start_point.imag * std::cos(angle_in_radians);
+        double new_r = 1.5 * std::cos(angle_in_radians);
+        double new_i = 1.5 * std::sin(angle_in_radians);
         
-        attractors[i] =  Quaternion(new_r, new_i, start_point.j, start_point.k);
+        attractors[i] =  Quaternion(new_r, new_i);
     }
 }
 
@@ -340,7 +336,7 @@ extern "C" {
 
         const std::string expression = std::string(exp);
 
-        n_points = n_points > 0 ? n_points : 2;
+        n_points = n_points > 1 ? n_points : 2;
         std::vector<Quaternion> attractors(n_points);
     
         // Generate attractors
