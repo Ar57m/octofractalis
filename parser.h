@@ -137,6 +137,7 @@ static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNo
     {"rotation", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.rotation(b,c); }); }},
     {"rotate", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.rotate_in_circle(b,c); }); }},
     {"rand", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return a.generateRandom(b,c); }); }},
+    {"If", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode> arg3) { return std::make_shared<TernaryFunctionNode>(arg1, arg2, arg3, [](const Quaternion& a, const Quaternion& b, const Quaternion& c) { return std::abs(a.real) > 1e-9 ? b : c; }); }},
     {"circle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.circle(b); }); }},
     {"square", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.square(b); }); }},
     {"triangle", [](std::shared_ptr<ASTNode> arg1, std::shared_ptr<ASTNode> arg2, std::shared_ptr<ASTNode>) { return std::make_shared<BinaryFunctionNode>(arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.triangle(b); }); }},
@@ -167,13 +168,23 @@ private:
 
    
 
-    bool isTwoArgFunction(const std::string& func) {
+    static bool isImaginaryChar(char c) {
+        return (c > 'h' && c < 'l');
+    }
+
+    static bool isTwoArgFunction(const std::string& func) {
         static const std::unordered_set<std::string> validFunctions = {
             "logn", "pow", "root", "max", "min", "square", "triangle", "circle"
         };
         return validFunctions.find(func) != validFunctions.end();
     }
-    
+
+    static bool isTreeArgFunction(const std::string& func) {
+        static const std::unordered_set<std::string> validFunctions = {
+            "ellipsoid", "rotation", "rotate", "rand","If"
+        };
+        return validFunctions.find(func) != validFunctions.end();
+    }
 
 
     std::string replaceChar(std::string input, const char char_find, const std::string& replacement) {
@@ -260,7 +271,7 @@ private:
                     ++pos;
                     node = std::make_shared<BinaryFunctionNode>(
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a.mseScore(b); });
+                        [](const Quaternion& a, const Quaternion& b) { return a == b; });
                     break;
                     
                 case '&':
@@ -268,6 +279,20 @@ private:
                     node = std::make_shared<BinaryFunctionNode>(
                         node, parseFactor(),
                         [](const Quaternion& a, const Quaternion& b) { return a.cosSim(b); });
+                    break;
+                    
+                case '>':
+                    ++pos;
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a > b; });
+                    break;
+                    
+                case '<':
+                    ++pos;
+                    node = std::make_shared<BinaryFunctionNode>(
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a < b; });
                     break;
                 
                 default:
@@ -292,9 +317,9 @@ private:
         }
         
         const char exprpos = expr[pos];
-        if ( isalpha(exprpos) && !(exprpos > 'h' && exprpos < 'l') ) {
+        if ( isalpha(exprpos) && !isImaginaryChar(exprpos) ) {
             return parseVariableOrFunction();
-        } else if (isdigit(exprpos) || exprpos == '.' ||  (exprpos > 'h' && exprpos < 'l') ) {
+        } else if (isdigit(exprpos) || exprpos == '.' ||  isImaginaryChar(exprpos) ) {
             return parseNumber();
         } else if (exprpos == '(') {
             ++pos;
@@ -338,7 +363,7 @@ private:
         double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
         char identifier = '\0';
         char exprpos = expr[pos];
-        bool imag = (exprpos > 'h' && exprpos < 'l'); // i, j, k
+        bool imag = isImaginaryChar(exprpos); // i, j, k
 
         while (pos < expr.size() && (isdigit(exprpos) || exprpos == '.' || imag)) {
             if (imag) {
@@ -348,7 +373,7 @@ private:
                 number += expr[pos++];
             }
             exprpos = expr[pos];
-            imag = (exprpos > 'h' && exprpos < 'l');
+            imag = isImaginaryChar(exprpos);
         }
 
         if (number.empty()) number = "0.0";
@@ -408,7 +433,7 @@ private:
         std::shared_ptr<ASTNode> arg3 = nullptr; // Optional third argument
     
         // Parsing functions with two or three arguments
-        const bool treeArgs = func == "ellipsoid" || func == "rotation" || func == "rotate" || func == "rand";
+        const bool treeArgs = isTreeArgFunction(func);
         if (isTwoArgFunction(func) || treeArgs) {
             if (expr[pos] == ',') {
                 ++pos; // Skip ','
