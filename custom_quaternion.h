@@ -164,6 +164,20 @@ public:
         );
     }
 
+
+    inline bool operator==(const Quaternion& other) const {
+        return this->mseScore(other) < 1e-9;
+    }
+
+    inline bool operator<(const Quaternion& other) const {
+        return this->mag() < other.mag();
+    }
+
+    inline bool operator>(const Quaternion& other) const {
+        return this->mag() > other.mag();
+    }
+
+
     inline double fmod(const double a, const double b) const {
         double abs_b = std::abs(b);
         double abs_a = std::abs(a);
