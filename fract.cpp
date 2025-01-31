@@ -523,13 +523,15 @@ extern "C" {
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, double complex_a, double complex_b,
-                    const double quaternion_j, const double quaternion_k,
+                    const double quaternion_j, const double quaternion_k, double escape_radius, 
                     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
         
         const double dx = (xmax - xmin) / width;
         const double dy = (ymax - ymin) / height;
+        
+        escape_radius = escape_radius == 0.0 ? 600.0 : escape_radius;
         
 
         const std::string expression = std::string(exp);
@@ -548,6 +550,7 @@ extern "C" {
                     
 
                     int k = 0;
+                    double lmag = 0;
                     while (k < max_iter) {
                         if (k % 12 < 6) {
                             v = (b * v * (1.0 - v));
@@ -556,10 +559,12 @@ extern "C" {
                             v = (a * v * (1.0 - v));
                             l += (((a * (1.0 - 2.0 * v)).c_mag()).log());
                         }
+                        lmag = l.mag();
+                        if (lmag > escape_radius) break;
                         ++k;
                     }
 
-                    update_output( output, array_top_colors_outside, array_top_colors_lake, l.mag(), width,
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, lmag, width,
                         0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
                 }
             }
@@ -600,6 +605,7 @@ extern "C" {
                     v = Quaternion(0.5, 0.0);
 
                     k = 0;
+                    double lmag = 0;
                     while (k < max_iter) {
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
@@ -610,10 +616,11 @@ extern "C" {
                             temp = a;
                             l += (ast->evaluate());
                         }
+                        lmag = l.mag();
+                        if (lmag > escape_radius) break;
                         ++k;
                     }
-                    const double labs = l.mag();
-                    update_output( output, array_top_colors_outside, array_top_colors_lake, labs, width,
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, lmag, width,
                         0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
                     
                     ++j;
