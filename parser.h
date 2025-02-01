@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <string>
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
@@ -25,7 +24,7 @@ class ConstantNode : public ASTNode {
     Quaternion value;
 public:
     ConstantNode(const Quaternion& val) : value(val) {}
-    Quaternion evaluate() const override { return value; }
+    inline Quaternion evaluate() const override { return value; }
 };
 
 // VariableNode class
@@ -33,7 +32,7 @@ class VariableNode : public ASTNode {
     std::function<Quaternion()> getter;
 public:
     VariableNode(const std::function<Quaternion()>& getter) : getter(getter) {}
-    Quaternion evaluate() const override { return getter(); }
+    inline Quaternion evaluate() const override { return getter(); }
 };
 
 
@@ -65,7 +64,7 @@ public:
     UnaryFunctionNode(const std::shared_ptr<ASTNode>& operand, std::function<Quaternion(const Quaternion&)> func)
         : operand(operand), func(func) {}
 
-    Quaternion evaluate() const override {
+    inline Quaternion evaluate() const override {
         return func(operand->evaluate());
     }
 };
@@ -79,7 +78,7 @@ public:
                        std::function<Quaternion(const Quaternion&, const Quaternion&)> func)
         : operand1(operand1), operand2(operand2), func(func) {}
 
-    Quaternion evaluate() const override {
+    inline Quaternion evaluate() const override {
         return func(operand1->evaluate(), operand2->evaluate());
     }
 };
@@ -96,7 +95,7 @@ public:
                         std::function<Quaternion(const Quaternion&, const Quaternion&, const Quaternion&)> func)
         : operand1(operand1), operand2(operand2), operand3(operand3), func(func) {}
 
-    Quaternion evaluate() const override {
+    inline Quaternion evaluate() const override {
         return func(operand1->evaluate(), operand2->evaluate(), operand3->evaluate());
     }
 };
@@ -150,8 +149,8 @@ static const std::unordered_map<std::string, std::function<std::shared_ptr<ASTNo
 class Parser {
 public:
     Parser(const std::string& expr, 
-           const std::map<std::string, std::function<Quaternion()>>& vars, 
-           const std::map<std::string, std::pair<double*, uint32_t>>& arrays)
+           const std::unordered_map<std::string, std::function<Quaternion()>>& vars, 
+           const std::unordered_map<std::string, std::pair<double*, uint32_t>>& arrays)
         : expr(expr), pos(0), variables(vars), arrayVariables(arrays) {}
 
     std::shared_ptr<ASTNode> parse() {
@@ -161,8 +160,8 @@ public:
 private:
     std::string expr;
     size_t pos;
-    const std::map<std::string, std::function<Quaternion()>>& variables;
-    const std::map<std::string, std::pair<double*, uint32_t>>& arrayVariables;
+    const std::unordered_map<std::string, std::function<Quaternion()>>& variables;
+    const std::unordered_map<std::string, std::pair<double*, uint32_t>>& arrayVariables;
 
 
 
@@ -211,7 +210,7 @@ private:
     
     
 
-    const std::shared_ptr<ASTNode> parseExpression() {
+    std::shared_ptr<ASTNode> parseExpression() {
         std::shared_ptr<ASTNode> node = parseTerm();
         while (pos < expr.size()) {
             switch (expr[pos]) {
@@ -234,7 +233,7 @@ private:
         return node;
     }
 
-    const std::shared_ptr<ASTNode> parseTerm() {
+    std::shared_ptr<ASTNode> parseTerm() {
         std::shared_ptr<ASTNode> node = parseFactor();
     
         while (pos < expr.size()) {
@@ -302,7 +301,7 @@ private:
         return node;
     }
 
-    const std::shared_ptr<ASTNode> parseFactor() {
+    std::shared_ptr<ASTNode> parseFactor() {
         switch (expr[pos]) {
                 case '+':
                     ++pos;
@@ -331,7 +330,7 @@ private:
         return error_zero;
     }
     
-    const std::shared_ptr<ASTNode> parseVariableOrFunction() {
+    std::shared_ptr<ASTNode> parseVariableOrFunction() {
         std::string name;
         while (pos < expr.size() && isalpha(expr[pos])) {
             name += expr[pos++];
@@ -358,7 +357,7 @@ private:
         return error_zero;
     }
 
-    const std::shared_ptr<ASTNode> parseNumber() {
+    std::shared_ptr<ASTNode> parseNumber() {
         std::string number;
         double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
         char identifier = '\0';

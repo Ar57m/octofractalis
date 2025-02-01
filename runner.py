@@ -24,7 +24,7 @@ magnet = lib.magnet
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double,
+    c_double, c_double, c_bool, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double,
     c_double, POINTER(c_double), c_uint32]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
@@ -43,7 +43,7 @@ lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
 
 magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_int, POINTER(c_double), c_uint32]
+    c_double, c_double, c_double, c_bool, c_int, POINTER(c_double), c_uint32]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -185,9 +185,11 @@ all_parameters = {
         [2, 2, 3],
     ],
 
-    'array_size': 1,
+    'array_size': 1, # Prime numbers array
     
     'fractalize_image_path': False,
+
+    'fast_mode': True,
     
 
     'save_expressions': True,
@@ -284,6 +286,8 @@ def generate(all_parameters):
     
     array = tools.primes(all_parameters['array_size']) if not all_parameters['fractalize_image'] else tools.bw_image(all_parameters['fractalize_image'], width, height)
 
+    fast_mode = all_parameters["fast_mode"]
+
     array_top_colors = (
     np.roll(np.array(array_top_colors[0], dtype =np.int32), shift_palette),
     np.roll(np.array(array_top_colors[1], dtype =np.int32 ), shift_palette_lake)
@@ -312,7 +316,7 @@ def generate(all_parameters):
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                juliaset_c_real, juliaset_c_imag, escape_radius, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
+                juliaset_c_real, juliaset_c_imag, escape_radius, fast_mode, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
@@ -363,8 +367,8 @@ def generate(all_parameters):
             
             magnet(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                velocity_r, velocity_i, escape_radius, quaternion_j, quaternion_k, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax, velocity_r, velocity_i, escape_radius,
+                quaternion_j, quaternion_k, fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
 

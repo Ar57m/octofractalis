@@ -11,12 +11,13 @@ from socketserver import ThreadingMixIn, TCPServer
 import threading as thr
 import signal
 import shutil
+import numpy as np
 #import tools
 
 
 stop_gen_event = thr.Event()
 generating = thr.Event()
-
+failed_img = ["./failed_gen.png"]
 
 all_parameters = {}
 
@@ -34,21 +35,13 @@ def get_python_executable():
     raise RuntimeError("Python not found!")
     
 def divide_in_squares(list_c, xmin, xmax, ymin, ymax):
-    # Convert the first two columns to zero-based indexing
-    for i in range(len(list_c)):
-        list_c[i][0] -= 1  # Subtract 1 from the `col` value
-        list_c[i][1] -= 1  # Subtract 1 from the `line` value
-
+    """Recalculate boundaries based on grid divisions."""
+    list_c = np.array(list_c) - [1, 1, 0]
     for col, line, n_squares in list_c:
         size_x = (xmax - xmin) / n_squares
         size_y = (ymax - ymin) / n_squares
-        
-        new_xmin = xmin + col * size_x
-        new_xmax = xmin + (col + 1) * size_x
-        new_ymin = ymin + line * size_y
-        new_ymax = ymin + (line + 1) * size_y
-        xmin, xmax, ymin, ymax = new_xmin, new_xmax, new_ymin, new_ymax
-    
+        xmin, xmax = xmin + col * size_x, xmin + (col + 1) * size_x
+        ymin, ymax = ymin + line * size_y, ymin + (line + 1) * size_y
     return xmin, xmax, ymin, ymax
     
 python_exe = get_python_executable()
@@ -236,18 +229,19 @@ def process_form_data(params, timeout):
     all_parameters["array_size"] = int(params.get('array_size',1))
     fractalize_image = (params.get('fractalize_image', False))
     fractalize_image = download_image(fractalize_image) if fractalize_image else False
-    
     all_parameters['fractalize_image'] = fractalize_image
+    all_parameters['fast_mode'] = bool(params.get('fast_mode', True))
+
     #zoom = False
     #max_zoom = 20
 
     
     if all_parameters['use_palette'] and not os.path.exists(palette):
         print(f"Palette file does not exist: {palette}")
-        return ["./failed_gen.png"] 
+        return failed_img
     if all_parameters['lake'] and not os.path.exists(lake_palette):
         print(f"Lake palette file does not exist: {lake_palette}")
-        return ["./failed_gen.png"] 
+        return failed_img
 
 
     
@@ -273,11 +267,11 @@ def process_form_data(params, timeout):
         if timeout > 0 and (time.time() - start_time) > timeout:
             process.kill()  
             print("Timeout")
-            return ["./failed_gen.png"]
+            return failed_img
         elif stop_gen_event.is_set():
             process.kill()  
             print("Generation stopped")
-            return ["./failed_gen.png"]
+            return failed_img
         time.sleep(0.2)
     
 
@@ -296,11 +290,11 @@ def process_form_data(params, timeout):
     if stdout:
         try:
             return json.loads(stdout.strip())
-        except json.JSONDecodeError:
-            print("Error in JSON.")
-            return ["./failed_gen.png"] 
+        except Exception as e:
+            print(f"An Error Occurred: {e}")
+            return failed_img
     
-    return ["./failed_gen.png"] 
+    return failed_img
 
 
 
@@ -354,7 +348,11 @@ def server(port, timeout):
                 generating.set()
                 stop_gen_event.clear()
                 set_current_gen(str(received_params.get('tab_id', 0)))
-                fractal_result = ",".join(process_form_data(received_params, timeout))
+                try:
+                    fractal_result = ",".join(process_form_data(received_params, timeout))
+                except Exception as e:
+                    print(f"An Error Occurred: {e}")
+                    fractal_result = ",".join(failed_img)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.end_headers()
@@ -368,7 +366,11 @@ def server(port, timeout):
                     generating.set()
                     stop_gen_event.clear()
                     set_current_gen(str(received_params.get('tab_id', 0)))
-                    fractal_result = ",".join(process_form_data(received_params, timeout))
+                    try:
+                        fractal_result = ",".join(process_form_data(received_params, timeout))
+                    except Exception as e:
+                        print(f"An Error Occurred: {e}")
+                        fractal_result = ",".join(failed_img)
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json; charset=utf-8')
                     self.end_headers()
