@@ -612,7 +612,7 @@ public:
         return sum;
     }
 
-    // probably broken, will have to fix/rewrite
+    // Broken, will have to fix/rewrite someday *thinking*
     Quaternion airy() const {
         const Quaternion z = *this;
         const int steps = 1000;

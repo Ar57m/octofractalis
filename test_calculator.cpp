@@ -1,5 +1,5 @@
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <functional>
 #include <string>
 #include <algorithm>
@@ -19,7 +19,7 @@ int main() {
     
     //sstd::cout << z.pow(2) << z.pow(Quaternion(2.0)) <<c.pow(2) << c.pow(Quaternion(2.0))<<"\n";
 
-    const std::map<std::string, std::function<Quaternion()>> variables = {
+    const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
         {"z", [&z]() { return z; }},
         {"c", [&c]() { return c; }},
         {"phi", [&]() { return phi; }},
@@ -32,7 +32,7 @@ int main() {
     uint32_t arraySize = 5;
     
     
-    std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+    const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
         {"array", {myArray, arraySize}}
     };
     
