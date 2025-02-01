@@ -120,7 +120,7 @@
 
 
             legend {
-                font-size: 20px;
+                font-size: 25px;
                 font-weight: bold;
                 color: #fff;
                 padding: 0 10px;
@@ -285,7 +285,7 @@
 
 
                     <br>
-                    <label id="exp" for="expression">Expression or Equation:</label>
+                    <label id="exp" for="expression">Expression or Equation</label>
                     <input type="text" id="expression" name="expression" value="z*z+c"><br>    
                     <br>
 
@@ -306,6 +306,10 @@
 
                         <label for="n_points">Number of Magnets:</label>
                         <input type="number" id="n_points" name="n_points" min="2" max="10000" value="3" required class="small-input"><br>
+
+                        <label for="fast_mode">Fast Mode:</label>
+                        <input type="checkbox" id="fast_mode" name="fast_mode" checked class="small-input"><br>
+
                     </fieldset><br>
 
                     <fieldset>
@@ -703,6 +707,7 @@
                     n_points: formData.get('n_points'),
                     array_size: formData.get('array_size'),
                     fractalize_image: fractalizeImageBlob,
+                    fast_mode: formData.get('fast_mode') === 'on',
                     tab_id: tabId,
                     
                     // zoom: formData.get('zoom') === 'on',

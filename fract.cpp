@@ -71,12 +71,12 @@ static constexpr double e =  2.7182818284590452353602874713526624977572470937000
 
 void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const double temp,
                 const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
-                const double escape_radius, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
+                const bool not_escaped, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
 
     const int index = (y * width + x) * 3;
     int it;
     
-    if (temp < escape_radius && lake) {
+    if (not_escaped && lake) {
         it = array_top_colors_lake[static_cast<int>(std::round((temp / (temp + 1.0)) * top_colors_lake))];
     } else if (lya) {
         it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
@@ -175,7 +175,7 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
     int i = 0;
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-    const std::map<std::string, std::function<Quaternion()>> variables = {
+    const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
         {"z", [&point]() { return point; }},
         {"phi", [&]() { return phi; }},
         {"pi", [&]() { return pi; }},
@@ -187,7 +187,7 @@ std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const dou
     };
     
     
-    std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+    const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
         {"array", std::make_pair(input_array, array_size)}
     };
 
@@ -230,7 +230,7 @@ extern "C" {
     void fractal(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
-                    const double ymax, const double c_real, const double c_imag, double escape_radius,
+                    const double ymax, const double c_real, const double c_imag, double escape_radius, const bool fast_mode,
                     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
                     const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, 
                     double* input_array, const uint32_t array_size) {
@@ -248,38 +248,42 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 for (int y = 0; y < height; ++y) {
-                    Quaternion c, z;
+                    Quaternion c, z, last_it_z;
                     
                     setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                         ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                     uint16_t iteration = 0;
                     double temp = z.mag();
+                    bool not_escaped = true;
                     
     
-                    while ( temp < escape_radius && iteration < max_iter) {
-                        z = z*z+c;
+                    while ( not_escaped && iteration < max_iter) {
+                        last_it_z = z*z+c;
+                        if (last_it_z == z && fast_mode) break;
+                        z = last_it_z;
                         temp = z.mag();
                         ++iteration;
+                        not_escaped = temp < escape_radius;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
-                        iteration, x, y, escape_radius, top_colors_outside, top_colors_lake, lake, false);
+                        iteration, x, y, not_escaped, top_colors_outside, top_colors_lake, lake, false);
                 }
             }
 
         } else {
             
-            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+            const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
                     {"array", std::make_pair(input_array, array_size)}
-                };
+            };
             
             
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion z,c;
+                Quaternion z , c, last_it_z;
                 uint16_t iteration = 0;
                 int y = 0;
-                const std::map<std::string, std::function<Quaternion()>> variables = {
+                const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
@@ -304,15 +308,19 @@ extern "C" {
 
                     iteration = 0;
                     double temp = z.mag();
-
+                    bool not_escaped = true;
+                    
     
-                    while (temp < escape_radius && iteration < max_iter) {
-                        z = (ast->evaluate());
+                    while ( not_escaped && iteration < max_iter) {
+                        last_it_z = (ast->evaluate());
+                        if (last_it_z == z && fast_mode) break;
+                        z = last_it_z;
                         temp = z.mag();
                         ++iteration;
+                        not_escaped = temp < escape_radius;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, temp, width,
-                        iteration, x, y, escape_radius, top_colors_outside, top_colors_lake, lake, false);
+                        iteration, x, y, not_escaped, top_colors_outside, top_colors_lake, lake, false);
                     ++y;
                 }
             }
@@ -325,7 +333,7 @@ extern "C" {
                 const double xmin, const double xmax, const double ymin,
                 const double ymax, const double v_real, const double v_imag,
                 double escape_radius, const double quaternion_j, const double quaternion_k,
-                int n_points, double* input_array, const uint32_t array_size) {
+                const bool fast_mode, int n_points, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
 
@@ -348,7 +356,7 @@ extern "C" {
                 for (int y = 0; y < height; ++y) {
 
                     Quaternion z(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
-                    Quaternion velocity(v_real, v_imag);
+                    Quaternion velocity(v_real, v_imag),last_it_z(0);
             
                     const double damping = 0.1;
                     const double r0 = 0.1;
@@ -360,7 +368,7 @@ extern "C" {
                     int closest_attractor_index = -1;
                     double min_distance = std::numeric_limits<double>::max();
             
-                    while (iteration < max_iter) {
+                    while ((iteration < max_iter) && (temp < escape_radius)) {
                         Quaternion force(0);
             
                         for (int i = 0; i < num_attractors; ++i) {
@@ -376,11 +384,12 @@ extern "C" {
 
                         force -= velocity * damping;
                         velocity += force;
-                        z += velocity;
+                        last_it_z = z + velocity;
+                        if (last_it_z == z && fast_mode) break;
+                        z = last_it_z;
             
 
                         temp = z.magSquared();
-                        if (temp > escape_radius) break;
                         ++iteration;
                     }
             
@@ -392,17 +401,17 @@ extern "C" {
 
         } else {
             
-            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+            const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
                 {"array", std::make_pair(input_array, array_size)}
             };
 
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion z,velocity, force, diff;
+                Quaternion z, velocity, force, diff;
                 const double damping = 0.1;
                 uint16_t iteration = 0;
                 int y = 0;
-                const std::map<std::string, std::function<Quaternion()>> variables = {
+                const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"v", [&velocity]() { return velocity; }},
                     {"f", [&force]() { return force; }},
@@ -426,6 +435,7 @@ extern "C" {
                 const double r0 = 0.1;
                 
                 while ( y < height ) {
+                    Quaternion last_it_z;
                     z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
                     velocity = Quaternion(v_real, v_imag);
 
@@ -450,7 +460,9 @@ extern "C" {
 
                         force -= velocity * damping;
                         velocity += force;
-                        z = ast->evaluate();
+                        last_it_z = ast->evaluate();
+                        if (last_it_z == z && fast_mode) break;
+                        z = last_it_z;
             
 
                         temp = z.magSquared();
@@ -565,13 +577,13 @@ extern "C" {
                     }
 
                     update_output( output, array_top_colors_outside, array_top_colors_lake, lmag, width,
-                        0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
+                        0, i, j, false, top_colors_outside, top_colors_lake, false, true);
                 }
             }
 
         } else {
 
-            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+            const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
                 {"array", std::make_pair(input_array, array_size)}
             };
 
@@ -580,7 +592,7 @@ extern "C" {
                 Quaternion l, v, temp;
                 int k = 0;
                 int j = 0;
-                const std::map<std::string, std::function<Quaternion()>> variables = {
+                const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
                     {"v", [&v]() { return v; }},
                     {"l", [&l]() { return l; }},
                     {"c", [&temp]() { return temp; }},
@@ -621,7 +633,7 @@ extern "C" {
                         ++k;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, lmag, width,
-                        0, i, j, 0.0, top_colors_outside, top_colors_lake, false, true);
+                        0, i, j, false, top_colors_outside, top_colors_lake, false, true);
                     
                     ++j;
                 }
@@ -669,20 +681,20 @@ extern "C" {
                         z = (z*z*z-1+c);
                         temp = z.mag();
                         
-                        if ( temp < 1e-13 || temp > 1e300 ) break;
+                        if ( temp < 1e-13) break;
                         z = ( last_z - ( z/znew ));
                         
                         ++iteration;
                     }
 
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-                        iteration, x, y, 0.0, top_colors_outside, top_colors_lake, false, false);
+                        iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
                 }
             }
 
         } else {
             
-            std::map<std::string, std::pair<double*, uint32_t>> arrays = {
+            const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
                 {"array", std::make_pair(input_array, array_size)}
             };
             // const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
@@ -691,7 +703,7 @@ extern "C" {
                 Quaternion z,c;
                 uint16_t iteration = 0;
                 int y = 0;
-                const std::map<std::string, std::function<Quaternion()>> variables = {
+                const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
                     {"z", [&z]() { return z; }},
                     {"c", [&c]() { return c; }},
                     {"phi", [&]() { return phi; }},
@@ -727,14 +739,14 @@ extern "C" {
                         
                         temp = z.mag();
                         
-                        if ( temp < 1e-13 || temp > 1e300 ) break;
+                        if ( temp < 1e-13 ) break;
                         const Quaternion znew = ( next_z - z )/(h); 
                         z = last_z - ( z/znew );
                         
                         ++iteration;
                     }
                     update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-                        iteration, x, y, 0.0, top_colors_outside, top_colors_lake, false, false);
+                        iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
                     ++y;
                 }
             }
