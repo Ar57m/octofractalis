@@ -304,7 +304,6 @@ def generate(all_parameters):
         tools.create_image(gen_array, img_name)
         img_names.append(img_name+".png")
 
-    ini = time.time()
 
     for key, value in fractals.items():
         gen_array = np.zeros((height, width, 3), dtype=np.uint8)
@@ -381,7 +380,7 @@ def generate(all_parameters):
                 width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
             save_img()
 
-    write_to_file("last_expressions.txt" , input_expression +str(time.time()-ini)+ ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
+    write_to_file("last_expressions.txt" , input_expression + ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
     return img_names
 
 
