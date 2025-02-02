@@ -623,7 +623,7 @@
                 event.preventDefault(); // Prevent default form submission
                 document.getElementById('generateFractal').click(); // Simulate Generate button click
             }
-            if (event.key === 'End') { // Spacebar detection
+            if (event.key === 'End' && document.activeElement.tagName !== 'INPUT') { // Spacebar detection
                 event.preventDefault(); // Prevent scrolling when Space is pressed
                 document.getElementById('stop_button').click(); // Simulate Stop button click
             }
