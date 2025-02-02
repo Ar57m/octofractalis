@@ -581,17 +581,7 @@
         tabId = generateUUID();
         sessionStorage.setItem('tabId', tabId);
         }
-        
 
-        // Verify if parenthese/brackets match
-        document.getElementById("expression").addEventListener("input", function () {
-            const expr = this.value;
-            if (!isBalanced(expr)) {
-                this.setCustomValidity("Mismatched parentheses or brackets.");
-            } else {
-                this.setCustomValidity("");
-            }
-        });
 
         function toggleCollapse(legend) {
             const fieldset = legend.parentElement;
@@ -601,6 +591,8 @@
             content.style.display = isActive ? 'grid' : 'none';
         }
 
+
+        // Verify if parenthese/brackets match
         function isBalanced(str) {
             let stack = [];
             for (let char of str) {
@@ -613,8 +605,42 @@
             }
             return stack.length === 0;
         }
+
+        document.getElementById("expression").addEventListener("input", function () {
+            const expr = this.value;
+            if (!isBalanced(expr)) {
+                this.setCustomValidity("Mismatched parentheses or brackets.");
+            } else {
+                this.setCustomValidity("");
+            }
+        });
+
         
-        
+        const expressionInput = document.getElementById("expression");
+        // Trigger actions for Enter and Spacebar
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent default form submission
+                document.getElementById('generateFractal').click(); // Simulate Generate button click
+            }
+            if (event.key === 'End') { // Spacebar detection
+                event.preventDefault(); // Prevent scrolling when Space is pressed
+                document.getElementById('stop_button').click(); // Simulate Stop button click
+            }
+        });
+
+        // Trigger button click on Enter key press
+        // expressionInput.addEventListener("keydown", function (event) {
+            
+        //     const generateButton = document.getElementById("generateFractal");
+        //     const form = document.getElementById("fractalForm");
+        //     if (event.key === "Enter") {
+        //         event.preventDefault();  // Prevent form submission if inside a form
+        //         generateButton.click();  // Simulate button click
+        //     }
+        // });
+
+
         // For the random palette generator
         const elements = {
           colorCount: document.getElementById('colorCount'),
@@ -794,9 +820,16 @@
         // Sending the form data to the python side
         document.getElementById('generateFractal').addEventListener('click', function() {
             const form = document.getElementById('fractalForm');
+            
+
+            // Check if the form is valid
+            if (!form.checkValidity()) {
+                expressionInput.reportValidity();
+                return
+            }
+
             const formData = new FormData(form);
             const maxPixels = 1048576; // 1MP
-
             const url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
             
             
