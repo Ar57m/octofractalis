@@ -666,7 +666,7 @@ public:
         return eta / factor;
     } 
 
-    // Seems to be to working *thinking* deepseek fixed it *thinking* deepseek
+    // Seems to be working *thinking* deepseek fixed it *thinking* deepseek
     Quaternion airy() const {
         const int maxTerms = 100;
         Quaternion sum(0.0, 0.0, 0.0, 0.0);
