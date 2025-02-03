@@ -387,6 +387,10 @@ public:
         return j == 0 && k == 0;
     }
 
+    inline bool isReal() const {
+        return (imag == 0 && j == 0 && k == 0);
+    }
+
 
     double mseScore(const Quaternion& other) const {
         // Calculate Mean Squared Error (MSE) of the components
@@ -597,40 +601,111 @@ public:
         return (Quaternion(2.0 * pi, 0.0).sqrt()) * t.pow(z + 0.5) * Quaternion(e, 0.0).pow(-t) * x;
     }
 
-
     Quaternion zeta() const {
-        Quaternion sum(0.0, 0.0);
-        const int N = 120;
-        const double threshold = 1e-9;
-        
-        for (int n = 1; n <= N; ++n) {
-            Quaternion term = Quaternion(n, 0.0).pow(-(*this));
-            sum = sum + term;
-
-            if (std::abs(term.real) < threshold && std::abs(term.imag) < threshold) break;
+    // Handle special cases for real numbers
+        const Quaternion this_num = *this;
+        const Quaternion one_this = 1.0 - this_num;
+        if (isReal()) {
+            const double s = real;
+            
+            // Zero at negative even integers and at s = 1
+            if ((s < 0 && std::abs(std::fmod(s, 2.0)) < 1e-12) || std::abs(s - 1.0) < 1e-12) {
+                return Quaternion(0.0, 0.0, 0.0, 0.0);
+            }
+            
+            // Special value at s = 0
+            if (std::abs(s) < 1e-12) {
+                return Quaternion(-0.5, 0.0, 0.0, 0.0);
+            }
         }
+    
+        // Functional equation for Re(s) < 0
+        if (real < 0.0) {
+            const Quaternion pi(3.14159265358979323846);
+            const Quaternion two(2.0);
+            
+            
+            // Compute Γ(1 - s)
+            const Quaternion gamma_reflected = (one_this).gamma();
+            
+            // Compute sin(πs/2)
+            const Quaternion sin_factor = two.pow(this_num) * pi.pow(this_num - 1.0) * (pi * (this_num / 2.0)).sin();
+            
+            // Compute 2^s and π^(s - 1)
+            
+            // Compute reflected ζ(1 - s)
+            const Quaternion reflected = (one_this).zeta();
+            
+            // Apply the functional equation
+            return sin_factor * gamma_reflected * reflected;
+        }
+    
+        // Main series computation for Re(s) ≥ 0
+        const int max_iter = 150;
+        const double threshold = 1e-12;
+        Quaternion eta(0.0);
+        bool alt_sign = true;  // Alternating series for η
+    
+        for (int n = 1; n <= max_iter; ++n) {
+            Quaternion term = Quaternion(n).pow(-this_num);
+            if (!alt_sign) term = term * -1.0;
+            eta = eta + term;
+            
+            if (term.mag() < threshold) break;
+            alt_sign = !alt_sign;
+        }
+    
+        // Conversion factor for η → ζ
+        const Quaternion factor = (1.0 - Quaternion(2.0).pow(one_this));
+    
+        // Handle near-singular points
+        if (factor.mag() < 1e-12) {
+            return Quaternion(0);
+        }
+    
+        return eta / factor;
+    } 
+
+    // Seems to be to working *thinking* deepseek fixed it *thinking* deepseek
+    Quaternion airy() const {
+        const int maxTerms = 100;
+        Quaternion sum(0.0, 0.0, 0.0, 0.0);
+        
+        Quaternion Q = *this;
+        Quaternion Q3 = Q.pow(3);
+
+        // Corrected constants
+        const double A0 = 1.0 / std::pow(3.0, 1.0/3.0); // Approximately 0.693361
+        const double r = 1.0 / 9.0;                      // Approximately 0.111111
+        const double B0 = A0;                            // Same as A0, ~0.693361
+
+        double gamma13 = std::tgamma(1.0/3.0);
+        double gamma23 = std::tgamma(2.0/3.0);
+        
+        for (int k = 0; k < maxTerms; ++k) {
+            double fact = std::tgamma(k + 1.0);
+            
+            double poch23 = std::tgamma(2.0/3.0 + k) / std::tgamma(2.0/3.0);
+            double poch43 = std::tgamma(4.0/3.0 + k) / std::tgamma(4.0/3.0);
+            
+            Quaternion bracket = (Q * gamma23 * poch23) - (B0 * gamma13 * poch43);
+            
+            double r_k = std::pow(r, k);
+            
+            Quaternion Q3_k = Q3.pow(k);
+            
+            Quaternion term = -(A0 * r_k) * Q3_k * bracket;
+            double denom = fact * gamma13 * gamma23 * poch23 * poch43;
+            term = term / denom;
+            
+            sum = sum + term;
+            
+            if (term.mag() < 1e-12) break;
+        }
+        
         return sum;
     }
 
-    // Broken, will have to fix/rewrite someday *thinking*
-    Quaternion airy() const {
-        const Quaternion z = *this;
-        const int steps = 1000;
-        const double upper_limit = 100.0;
-        Quaternion sum(0.0, 0.0);
-        const double h = upper_limit / steps;
-
-        for (int i = 0; i < steps; ++i) {
-            const double t1 = i * h;
-            const double t2 = (i + 1) * h;
-
-            const Quaternion f1 = Quaternion(std::pow(t1, 3) / 3.0 + z.real * t1, z.imag * t1).cos();
-            const Quaternion f2 = Quaternion(std::pow(t2, 3) / 3.0 + z.real * t2, z.imag * t2).cos();
-
-            sum = sum + 0.5 * (f1 + f2) * h;
-        }
-        return sum / pi;
-    }
     
     std::string to_string() const {
         std::ostringstream os;
