@@ -454,6 +454,9 @@
                         <label for="shift_palette_lake">Shift Lake Colors:</label>
                         <input type="number" id="shift_palette_lake" name="shift_palette_lake" min="-1024" max="1024" value="0" required class="small-input">
                         <br>
+                        <label for="quant_level">Quant Level:</label>
+                        <input type="number" id="quant_level" name="quant_level" min="2" max="256" value="16" required class="small-input">
+                        <br>
                             
                         <fieldset>
                             <legend>Random Palette</legend>
@@ -814,7 +817,7 @@
 
             // Check if the form is valid
             if (!form.checkValidity()) {
-                expressionInput.reportValidity();
+                form.reportValidity();
                 return
             }
 
@@ -860,6 +863,7 @@
                     lake: formData.get('lake') === 'on',
                     shift_palette: formData.get('shift_palette'),
                     shift_palette_lake: formData.get('shift_palette_lake'),
+                    levels: formData.get('quant_level'),
                     column_aim: formData.get('column_aim'),
                     row_aim: formData.get('row_aim'),
                     grid_length: formData.get('grid_length'),

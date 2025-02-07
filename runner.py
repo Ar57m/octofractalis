@@ -112,8 +112,14 @@ all_parameters = {
 
     # How many top colors to use from the palette.png
     'top_colors' : 24,
+    'levels' : 16,      # Level of quantization of the palette to be processed
     'shift_palette' : 0,   # This shift the palette, you can set negative and positive integers.
     'shift_palette_lake' : 0,
+    
+    # Makes the part that converges visible
+    'lake' : True,
+    # Palette path to another palette image
+    'lake_palette' : "./palettes/lake_palette.png",
     
     # Initial z for newton-based fractals and mandelbrot-based
     'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0, for lorenz 0.0, 1.0 and the quaternion_j 1.05
@@ -150,12 +156,6 @@ all_parameters = {
     'velocity_r' : 0.0,
     'velocity_i' : 0.0,
 
-    # Makes the part that converges visible
-    'lake' : True,
-    # Palette path to another palette image
-    'lake_palette' : "./palettes/lake_palette.png",
-    # # Here it's loading the palette before the generation and conversion
-    # 'array_top_colors' : palette_load(palette, gradient, top_colors, lake_palette, lake),
 
 
 
@@ -211,7 +211,7 @@ if n_coordinates>0:
 
 use_palette = all_parameters["use_palette"]
 all_parameters['array_top_colors'] = tools.palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
-                                                  all_parameters['lake_palette'], all_parameters['lake'], use_palette)
+                                                  all_parameters['lake_palette'], all_parameters['lake'], use_palette, all_parameters['levels'])
 
 
 def generate(all_parameters):
@@ -239,7 +239,7 @@ def generate(all_parameters):
         prefix = n_iter+"-"
     else:
         array_top_colors = tools.palette_load(all_parameters['palette'], all_parameters['gradient'], all_parameters['top_colors'],
-                                        all_parameters['lake_palette'], lake, use_palette)
+                                        all_parameters['lake_palette'], lake, use_palette, all_parameters['levels'])
 
     
  
@@ -303,6 +303,7 @@ def generate(all_parameters):
         img_name = "./images/"+ all_parameters['imgfromvidfolder'] + prefix + "0" + localtime + "_colorful_"+key
         tools.create_image(gen_array, img_name)
         img_names.append(img_name+".png")
+
 
 
     for key, value in fractals.items():

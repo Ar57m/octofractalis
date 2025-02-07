@@ -184,6 +184,7 @@ def process_form_data(params, timeout):
     lake_palette = params.get('lake_palette', './palettes/lake_palette.png')
     lake_palette = download_image(lake_palette)
     all_parameters['lake_palette'] = lake_palette
+    all_parameters['levels'] = int(params.get('levels', 16))
     
     all_parameters['shift_palette'] = int(params.get('shift_palette', 0))
     all_parameters['shift_palette_lake'] = int(params.get('shift_palette_lake',0))
