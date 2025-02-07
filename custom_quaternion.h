@@ -38,7 +38,7 @@ public:
         k = noNan(k_);
     }
 
-    static constexpr double e = 2.7182818284590452353602874713526624977572470937000;
+    static constexpr double  e = 2.7182818284590452353602874713526624977572470937000;
     static constexpr double pi = 3.1415926535897932384626433832795028841971693993751;
 
 
@@ -197,7 +197,7 @@ public:
     }
 
     Quaternion& operator=(const double& value) {
-        real = std::abs(value) < 1e300 ? value : 0.0;
+        real = noNan(value);
         imag = 0;
         j = 0;
         k = 0;
@@ -209,6 +209,8 @@ public:
         return Quaternion(real, -imag, -j, -k);
     }
     
+
+
     Quaternion rotate_in_circle(Quaternion angle, Quaternion axis) const {
         double angle_in_radians = angle.mag(); // Magnitude as angle in radians
         double sin_angle = std::sin(angle_in_radians);
@@ -249,7 +251,6 @@ public:
 
         return Quaternion(new_r, new_i, new_j, new_k);
     }
-
     
     Quaternion rotation(const Quaternion angle, const Quaternion& axis) const {
         Quaternion normalized_axis = axis / axis.mag();
@@ -267,6 +268,7 @@ public:
         return rotation_quaternion * (*this) * rotation_quaternion.conj();
     }
     
+
 
     // abs / remove the sign
     inline Quaternion abs() const {
@@ -379,6 +381,8 @@ public:
         return this->pow(1.0/n1);
     }
 
+
+
     inline bool isZero() const {
         return real == 0 && imag == 0 && j == 0 && k == 0;
     }
@@ -390,6 +394,7 @@ public:
     inline bool isReal() const {
         return (imag == 0 && j == 0 && k == 0);
     }
+
 
 
     double mseScore(const Quaternion& other) const {
@@ -413,7 +418,6 @@ public:
         }
         return (real * other.real + imag * other.imag + j * other.j + k * other.k) / (normThis * normOther);
     }
-    
     
     
     double generateRandom(const Quaternion& max, const Quaternion& seed) const {
@@ -445,6 +449,7 @@ public:
         return distribution(generator);
     }
 
+
     
     void test_quaternion_math() {
         Quaternion q(1, 1, 1, 1);
@@ -457,6 +462,7 @@ public:
         Quaternion transformed_log = Quaternion(0, 1, 0, 0) * log_q * Quaternion(0, -1, 0, 0);
         std::cout  << ((log_rotated - transformed_log).mag()) << "\n"; // ln(xyx^-1) ≈ x ln(y) x^-1
     }
+
 
 
     // Sin
@@ -533,6 +539,8 @@ public:
         return this->log() / base.log();
     }
 
+
+
     inline Quaternion maximum(const Quaternion& arg2) const {
         return this->mag() < arg2.mag() ? arg2 : *this;
     }
@@ -544,6 +552,9 @@ public:
     Quaternion round() const {
         return Quaternion(std::round(real), std::round(imag), std::round(j), std::round(k));
     }
+
+
+
 
     Quaternion circle(const Quaternion radius) const {
         double angle = std::atan2(imag, real);
@@ -587,7 +598,6 @@ public:
         1.5056327351493116e-7
     };
 
-
     Quaternion gamma() const {
         const Quaternion z = *this - 1.0;
 
@@ -600,6 +610,7 @@ public:
 
         return (Quaternion(2.0 * pi, 0.0).sqrt()) * t.pow(z + 0.5) * Quaternion(e, 0.0).pow(-t) * x;
     }
+
 
     Quaternion zeta() const {
     // Handle special cases for real numbers
@@ -621,7 +632,7 @@ public:
     
         // Functional equation for Re(s) < 0
         if (real < 0.0) {
-            const Quaternion pi(3.14159265358979323846);
+            const Quaternion q_pi(pi);
             const Quaternion two(2.0);
             
             
@@ -629,7 +640,7 @@ public:
             const Quaternion gamma_reflected = (one_this).gamma();
             
             // Compute sin(πs/2)
-            const Quaternion sin_factor = two.pow(this_num) * pi.pow(this_num - 1.0) * (pi * (this_num / 2.0)).sin();
+            const Quaternion sin_factor = two.pow(this_num) * q_pi.pow(this_num - 1.0) * (pi * (this_num / 2.0)).sin();
             
             // Compute 2^s and π^(s - 1)
             
@@ -666,46 +677,59 @@ public:
         return eta / factor;
     } 
 
-    // Seems to be working *thinking* deepseek fixed it *thinking* deepseek
+    // Seems to be working *thinking* deepseek fixed it
     Quaternion airy() const {
         const int maxTerms = 100;
         Quaternion sum(0.0, 0.0, 0.0, 0.0);
         
-        Quaternion Q = *this;
-        Quaternion Q3 = Q.pow(3);
-
-        // Corrected constants
-        const double A0 = 1.0 / std::pow(3.0, 1.0/3.0); // Approximately 0.693361
-        const double r = 1.0 / 9.0;                      // Approximately 0.111111
-        const double B0 = A0;                            // Same as A0, ~0.693361
-
-        double gamma13 = std::tgamma(1.0/3.0);
-        double gamma23 = std::tgamma(2.0/3.0);
+        
+        
+        // Constants
+        const double A0 = 1.0 / std::pow(3.0, 1.0/3.0);  // ~0.693361
+        const double r  = 1.0 / 9.0;                       // ~0.111111
+        //const double B0 = A0;                              // Same as A0
+        
+        // Gamma constants
+        const double gamma13 = std::tgamma(1.0/3.0);
+        const double gamma23 = std::tgamma(2.0/3.0);
+        const Quaternion Q = *this * gamma23;
+        Quaternion Q3 = this->pow(3);
+        const double mul_gammas = gamma13 * gamma23;
+        
+        // Initialize iterative variables:
+        double fact = 1.0;      // k! for k = 0
+        double poch23 = 1.0;    // (2/3)_0 = gamma(2/3)/gamma(2/3)
+        double poch43 = 1.0;    // (4/3)_0 = gamma(4/3)/gamma(4/3)
+        double r_k = 1.0;       // r^0
+        Quaternion Q3_k(1.0, 0.0, 0.0, 0.0);  // Q3^0 (the multiplicative identity)
         
         for (int k = 0; k < maxTerms; ++k) {
-            double fact = std::tgamma(k + 1.0);
+            // Compute the bracket part of the term //B0
+            Quaternion bracket = (Q * poch23) - (A0 * gamma13 * poch43);
             
-            double poch23 = std::tgamma(2.0/3.0 + k) / std::tgamma(2.0/3.0);
-            double poch43 = std::tgamma(4.0/3.0 + k) / std::tgamma(4.0/3.0);
-            
-            Quaternion bracket = (Q * gamma23 * poch23) - (B0 * gamma13 * poch43);
-            
-            double r_k = std::pow(r, k);
-            
-            Quaternion Q3_k = Q3.pow(k);
-            
+            // Compute term: -(A0 * r^k) * (Q3^k) * bracket / (k! * gamma13 * gamma23 * poch23 * poch43)
             Quaternion term = -(A0 * r_k) * Q3_k * bracket;
-            double denom = fact * gamma13 * gamma23 * poch23 * poch43;
+            double denom = fact * mul_gammas * poch23 * poch43;
             term = term / denom;
             
             sum = sum + term;
             
-            if (term.mag() < 1e-12) break;
+            // Early termination if the term is sufficiently small
+            if (term.mag() < 1e-12)
+                break;
+            
+            // Update iterative variables for next iteration:
+            fact *= (k + 1);                   // factorial: (k+1)! = k! * (k+1)
+            poch23 *= (2.0/3.0 + k);             // (2/3)_{k+1} = (2/3)_k * (2/3 + k)
+            poch43 *= (4.0/3.0 + k);             // (4/3)_{k+1} = (4/3)_k * (4/3 + k)
+            r_k *= r;                          // r^(k+1)
+            Q3_k = Q3_k * Q3;                  // Q3^(k+1)
         }
         
         return sum;
     }
 
+    
     
     std::string to_string() const {
         std::ostringstream os;
