@@ -142,7 +142,7 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     // --- GPU Implementation ---
     // Allocate device memory and copy inputs
 
-    cudaDeviceSetLimit(cudaLimitStackSize, 16384*4);
+    cudaDeviceSetLimit(cudaLimitStackSize, 16384*3);
 
     uint8_t* d_output = nullptr;
     cudaMalloc((void**)&d_output, width * height * 3 * sizeof(uint8_t)); // Ensure correct size
