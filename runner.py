@@ -15,7 +15,7 @@ lib = cdll.LoadLibrary('./libfract.so')
 
 
 fractal = lib.fractal
-# lyapunov = lib.lyapunov
+lyapunov = lib.lyapunov
 # newton = lib.newton
 # lorenz = lib.lorenz
 # sandpile = lib.sandpile
@@ -27,9 +27,9 @@ fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_double, c_double, c_bool, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double,
     c_double, POINTER(c_double), c_uint32]
 fractal.restype = None
-# lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
-#     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
-#     c_double, c_double, c_double, c_double, c_int, c_int, POINTER(c_double), c_uint32]
+lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
+    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_double, c_double, c_int, c_int, POINTER(c_double), c_uint32]
 
 # newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
 #     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -324,16 +324,16 @@ def generate(all_parameters):
             
             
         # Lyapunov Set
-        # if (key == "lyapunov") and (value):
+        if (key == "lyapunov") and (value):
 
-        #     lyapunov(
-        #         gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-        #         array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
-        #         expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-        #         lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, escape_radius, (array_top_colors_outside.shape[0])-1, 
-        #         (array_top_colors_lake.shape[0])-1, array.ctypes.data_as(POINTER(c_double)), array.size
-        #     )
-        #     save_img()
+            lyapunov(
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
+                lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, escape_radius, (array_top_colors_outside.shape[0])-1, 
+                (array_top_colors_lake.shape[0])-1, array.ctypes.data_as(POINTER(c_double)), array.size
+            )
+            save_img()
 
         # # Newton Fractal   
         # if ((key == "newton") or (key == "newton_juliaset")) and (value):

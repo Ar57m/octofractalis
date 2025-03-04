@@ -32,9 +32,7 @@ void signal_handler(int signal) {
 }
 
 
-static const Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-static const Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-static const Quaternion e(2.7182818284590452353602874713526624977572470937000);
+
 
 
 
@@ -162,7 +160,7 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 void generate_attractors(Quaternion* attractors, int n) {
     if (n <= 0) return;
 
-    double angle_step = 2 * pi.real / n;
+    double angle_step = 2 * 3.141592653589793238462643383 / n;
 
     for (int i = 0; i < n; ++i) {
         double angle_in_radians = angle_step * i;
@@ -236,6 +234,16 @@ extern "C" void fractal_kernel_call(uint8_t* output,
     const double z_initial_i,
     double* input_array,
     const uint32_t array_size);
+
+extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const double xmin, const double xmax, const double ymin,
+    const double ymax, double complex_a, double complex_b,
+    const double quaternion_j, const double quaternion_k, double escape_radius, 
+    const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size);
+
+
+
 
 extern "C" {
 
@@ -556,115 +564,98 @@ extern "C" {
     // }
 
 
-    // void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
-    //                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
-    //                 const double xmin, const double xmax, const double ymin,
-    //                 const double ymax, double complex_a, double complex_b,
-    //                 const double quaternion_j, const double quaternion_k, double escape_radius, 
-    //                 const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
+    EXPORT void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, double complex_a, double complex_b,
+                    const double quaternion_j, const double quaternion_k, double escape_radius, 
+                    const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
-    //     std::signal(SIGINT, signal_handler);
+        std::signal(SIGINT, signal_handler);
         
-    //     const double dx = (xmax - xmin) / width;
-    //     const double dy = (ymax - ymin) / height;
         
-    //     escape_radius = escape_radius == 0.0 ? 600.0 : escape_radius;
+        escape_radius = escape_radius == 0.0 ? 600.0 : escape_radius;
         
-
-    //     const std::string expression = std::string(exp);
-
-    //     if ( expression == "z*z+c" ) {
-
-    //         #pragma omp parallel for schedule(dynamic)
-    //         for (int i = 0; i < width; ++i) {
-    //             for (int j = 0; j < height; ++j) {
-    //                 const double x = xmin + i * dx;
-    //                 const double y = ymin + j * dy;
-    //                 const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-    //                 const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-    //                 Quaternion l(0.0, 0.0);
-    //                 Quaternion v(0.5, 0.0);
-                    
-
-    //                 int k = 0;
-    //                 double lmag = 0;
-    //                 while (k < max_iter) {
-    //                     if (k % 12 < 6) {
-    //                         v = (b * v * (1.0 - v));
-    //                         l += (((b * (1.0 - 2.0 * v)).c_mag()).log());
-    //                     } else {
-    //                         v = (a * v * (1.0 - v));
-    //                         l += (((a * (1.0 - 2.0 * v)).c_mag()).log());
-    //                     }
-    //                     lmag = l.mag();
-    //                     if (lmag > escape_radius) break;
-    //                     ++k;
-    //                 }
-
-    //                 update_output( output, array_top_colors_outside, array_top_colors_lake, lmag, width,
-    //                     0, i, j, false, top_colors_outside, top_colors_lake, false, true);
-    //             }
-    //         }
-
-    //     } else {
-
-    //         const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
-    //             {"array", std::make_pair(input_array, array_size)}
-    //         };
-
-    //         #pragma omp parallel for schedule(dynamic)
-    //         for (int i = 0; i < width; ++i) {
-    //             Quaternion l, v, temp;
-    //             int k = 0;
-    //             int j = 0;
-    //             const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
-    //                 {"v", [&v]() { return v; }},
-    //                 {"l", [&l]() { return l; }},
-    //                 {"c", [&temp]() { return temp; }},
-    //                 {"It", [&k]() { return Quaternion(k);   }},
-    //                 {"phi", [&]() { return phi; }},
-    //                 {"pi", [&]() { return pi; }},
-    //                 {"e", [&]() { return e;   }},
-    //                 {"x", [&]() { return Quaternion(i); }},
-    //                 {"y", [&]() { return Quaternion(j);   }},
-    //             };
+        size_t exp_size = strlen(exp);
+        #ifdef USE_CUDA
+            // --- GPU Implementation ---
+            lyapunov_kernel_call(output, array_top_colors_outside, array_top_colors_lake,
+                exp, exp_size,width, height, max_iter,
+                xmin, xmax, ymin,
+                ymax, complex_a, complex_b,
+                quaternion_j, quaternion_k, escape_radius, 
+                top_colors_outside, top_colors_lake, input_array, array_size);
+        #else
+            // --- CPU Implementation using OpenMP ---
+            const double dx = (xmax - xmin) / width;
+            const double dy = (ymax - ymin) / height;
+    
+            ArrayEntry arrEntries[1] = {
+                {"array", input_array, array_size}
+            };
+            const size_t numArrays = 1;
+    
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Quaternion v, l, temp;
+                Quaternion it_quat(0.0);
+                Quaternion x_quat(static_cast<double>(x));
+                Quaternion y_quat(0.0);
+                Quaternion k_q = 0.0;
+                int y = 0;
+                int k = 0;
                 
+    
+                VariableEntry varEntries[9] = {
+                    {"v", &v},
+                    {"l", &l},
+                    {"c", &temp},
+                    {"phi", const_cast<Quaternion*>(&phi)},
+                    {"pi", const_cast<Quaternion*>(&pi)},
+                    {"e", const_cast<Quaternion*>(&e)},
+                    {"It", &k_q},
+                    {"y", &y_quat},
+                    {"x", &x_quat}
+                };
 
-    //             //Parser parser(x % 2 < 1 ? expression : exp, variables);
-    //             Parser parser( expression, variables, arrays);
-    //             const auto ast = parser.parse();
-    //             while (j < height) {
-    //                 const double x = xmin + i * dx;
-    //                 const double y = ymin + j * dy;
-    //                 const Quaternion a(0.5 + x * 0.5, complex_a, quaternion_j, quaternion_k);
-    //                 const Quaternion b(0.5 + y * 0.5, complex_b, quaternion_j, quaternion_k);
-    //                 l = Quaternion(0.0, 0.0);
-    //                 v = Quaternion(0.5, 0.0);
+                const size_t numVars = 9;
+                Parser parser(exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+                const ASTNode* ast = parser.parse();
+    
+                while (y < height) {
+                    const Quaternion a(0.5 + (xmin + x * dx) * 0.5, complex_a, quaternion_j, quaternion_k);
+                    const Quaternion b(0.5 + (ymin + y * dy) * 0.5, complex_b, quaternion_j, quaternion_k);
+                    l = Quaternion(0.0, 0.0);
+                    v = Quaternion(0.5, 0.0);
 
-    //                 k = 0;
-    //                 double lmag = 0;
-    //                 while (k < max_iter) {
-    //                     if (k % 12 < 6) {
-    //                         v = b * v * (1.0 - v);
-    //                         temp = b;
-    //                         l += (ast->evaluate());
-    //                     } else {
-    //                         v = a * v * (1.0 - v);
-    //                         temp = a;
-    //                         l += (ast->evaluate());
-    //                     }
-    //                     lmag = l.mag();
-    //                     if (lmag > escape_radius) break;
-    //                     ++k;
-    //                 }
-    //                 update_output( output, array_top_colors_outside, array_top_colors_lake, lmag, width,
-    //                     0, i, j, false, top_colors_outside, top_colors_lake, false, true);
-                    
-    //                 ++j;
-    //             }
-    //         }
-    //     }
-    // }
+                    k = 0;
+                    y_quat = (static_cast<double>(y));
+
+
+                    double l_mag = 0.0;
+
+                    while (k < max_iter) {
+                        it_quat = Quaternion(static_cast<double>(k));
+                        if (k % 12 < 6) {
+                            v = b * v * (1.0 - v);
+                            temp = b;
+                            l += (ast->evaluate());
+                        } else { //     log(mag(c*(1-2*v)))
+                            v = a * v * (1.0 - v);
+                            temp = a;
+                            l += (ast->evaluate());
+                        }
+                        l_mag = l.mag();
+                        if (l_mag > escape_radius) break;
+                        ++k;
+                    }
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, l_mag, width,
+                        0, x, y, false, top_colors_outside, top_colors_lake, false, true);
+                    ++y;
+                }
+            }
+        #endif
+    }
 
 
     // void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,

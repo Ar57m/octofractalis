@@ -5,6 +5,7 @@
 
 
 
+
 __device__ inline void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
     const double c_real, const double c_imag,
     const double r_part, const double i_part,
@@ -72,11 +73,14 @@ __global__ void fractal_kernel(uint8_t* d_output,
 
     double point_x = xmin + x * dx;
     double point_y = ymin + y * dy;
+    
+    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
+    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
+    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+
     Quaternion z , c, last_it_z;
     uint16_t iteration = 0;
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion pi(3.141592653589793238462643383279502884197169399375);
+
 
     Quaternion it_quat(0.0);
     Quaternion x_quat(static_cast<double>(x), 0.0, 0.0, 0.0);
@@ -200,4 +204,163 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     cudaFree(d_output);
     cudaFree(d_array_top_colors_outside);
     cudaFree(d_array_top_colors_lake);
+}
+
+
+
+
+__global__ void lyapunov_kernel(uint8_t* d_output,
+                    const int* d_array_top_colors_outside,
+                    const int* d_array_top_colors_lake,
+                    const char* d_exp, const size_t exp_size, 
+                    const uint16_t width,
+                    const uint16_t height,
+                    const uint16_t max_iter,
+                    const double xmin, const double xmax,
+                    const double ymin, const double ymax,
+                    const double dx, const double dy,
+                    const double complex_a, const double complex_b,
+                    double escape_radius,
+                    const int top_colors_outside,
+                    const int top_colors_lake,
+                    const double quaternion_j,
+                    const double quaternion_k,
+                    double* input_array,
+                    const uint32_t array_size)
+{
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    double point_x = xmin + x * dx;
+    double point_y = ymin + y * dy;
+
+    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
+    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
+    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+
+    Quaternion v, l, temp;
+    Quaternion it_quat(0.0);
+    Quaternion x_quat(static_cast<double>(x));
+    Quaternion y_quat(0.0);
+    Quaternion k_q = 0.0;
+    int k = 0;
+
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+    VariableEntry varEntries[9] = {
+        {"v", &v},
+        {"l", &l},
+        {"c", &temp},
+        {"phi", const_cast<Quaternion*>(&phi)},
+        {"pi", const_cast<Quaternion*>(&pi)},
+        {"e", const_cast<Quaternion*>(&e)},
+        {"It", &k_q},
+        {"y", &y_quat},
+        {"x", &x_quat}
+    };
+
+    const size_t numVars = 9;
+    Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse();
+    const Quaternion a(0.5 + point_x * 0.5, complex_a, quaternion_j, quaternion_k);
+    const Quaternion b(0.5 + point_y * 0.5, complex_b, quaternion_j, quaternion_k);
+    l = Quaternion(0.0, 0.0);
+    v = Quaternion(0.5, 0.0);
+
+    k = 0;
+    y_quat = (static_cast<double>(y));
+
+
+    double l_mag = 0.0;
+
+    while (k < max_iter) {
+        it_quat = Quaternion(static_cast<double>(k));
+        if (k % 12 < 6) {
+            v = b * v * (1.0 - v);
+            temp = b;
+            l += (ast->evaluate());
+        } else { //     log(mag(c*(1-2*v)))
+            v = a * v * (1.0 - v);
+            temp = a;
+            l += (ast->evaluate());
+        }
+        l_mag = l.mag();
+        if (l_mag > escape_radius) break;
+        ++k;
+    }
+    update_output( d_output, d_array_top_colors_outside, d_array_top_colors_lake, l_mag, width,
+        0, x, y, false, top_colors_outside, top_colors_lake, false, true);
+
+}
+
+
+extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const double xmin, const double xmax, const double ymin,
+    const double ymax, double complex_a, double complex_b,
+    const double quaternion_j, const double quaternion_k, double escape_radius, 
+    const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
+
+
+cudaDeviceSetLimit(cudaLimitStackSize, 16384*3);
+
+uint8_t* d_output = nullptr;
+cudaMalloc((void**)&d_output, width * height * 3 * sizeof(uint8_t));
+
+double* d_input_array = nullptr;
+cudaMalloc((void**)&d_input_array, array_size * sizeof(double));
+cudaMemcpy(d_input_array, input_array, array_size * sizeof(double), cudaMemcpyHostToDevice);
+
+// Allocate and copy color arrays to device
+int* d_array_top_colors_outside = nullptr;
+int* d_array_top_colors_lake = nullptr;
+cudaMalloc((void**)&d_array_top_colors_outside, top_colors_outside * sizeof(int));
+cudaMalloc((void**)&d_array_top_colors_lake, top_colors_lake * sizeof(int));
+cudaMemcpy(d_array_top_colors_outside, array_top_colors_outside, top_colors_outside * sizeof(int), cudaMemcpyHostToDevice);
+cudaMemcpy(d_array_top_colors_lake, array_top_colors_lake, top_colors_lake * sizeof(int), cudaMemcpyHostToDevice);
+
+char* d_exp = nullptr;
+size_t exp_len = exp_size + 1; // +1 for null terminator
+cudaMalloc((void**)&d_exp, exp_len * sizeof(char));
+cudaMemcpy(d_exp, exp, exp_len * sizeof(char), cudaMemcpyHostToDevice);
+// Define grid and block dimensions
+dim3 blockDim(16, 16);
+dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+(height + blockDim.y - 1) / blockDim.y);
+
+// Launch the CUDA kernel with device pointers
+lyapunov_kernel<<<gridDim, blockDim>>>(d_output,
+                        d_array_top_colors_outside,
+                        d_array_top_colors_lake,
+                        d_exp, exp_len,
+                        width, height, max_iter,
+                        xmin, xmax, ymin, ymax,
+                        (xmax - xmin) / width,
+                        (ymax - ymin) / height,
+                        complex_a, complex_b,
+                        escape_radius,
+                        top_colors_outside,
+                        top_colors_lake,
+                        quaternion_j,
+                        quaternion_k,
+                        d_input_array, array_size);
+cudaError_t err = cudaGetLastError();
+if (err != cudaSuccess) {
+std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+}
+
+// Copy result back and clean up
+cudaDeviceSynchronize();
+cudaMemcpy(output, d_output, width * height * 3 * sizeof(uint8_t), cudaMemcpyDeviceToHost);
+
+// Free device memory
+cudaFree(d_exp);
+cudaFree(d_output);
+cudaFree(d_array_top_colors_outside);
+cudaFree(d_array_top_colors_lake);
 }
