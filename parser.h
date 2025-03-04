@@ -2,14 +2,13 @@
 #define AST_PARSER_H
 
 
-
-
-
 #include <cstdio>
 #include <functional>
 #include <memory>
 #include <algorithm>
 #include "custom_quaternion.h"
+
+
 
 
 
@@ -100,6 +99,7 @@ HOST_DEVICE Quaternion evaluateTernaryFunctionNode(const ASTNode* node) {
     return data->func(data->operand1->evaluate(), data->operand2->evaluate(), data->operand3->evaluate());
 }
 
+
 // ------------------- Fixed-Size Stack Allocator Template -------------------
 template <typename T, size_t BufferSize>
 struct StackAllocator {
@@ -123,6 +123,8 @@ struct StackAllocator {
     }
 };
 
+
+
 // Define buffer sizes for each allocator
 constexpr size_t AST_NODE_BUFFER_SIZE                   = 16384;
 constexpr size_t CONSTANT_NODE_DATA_BUFFER_SIZE         = 4096;
@@ -133,6 +135,8 @@ constexpr size_t BINARY_FUNCTION_NODE_DATA_BUFFER_SIZE  = 4096;
 constexpr size_t TERNARY_FUNCTION_NODE_DATA_BUFFER_SIZE = 4096;
 
 constexpr int MAX_EXPR_SIZE = 512;
+
+
 
 // ------------------- Node Creation Functions -------------------
 HOST_DEVICE ASTNode* createConstantNode(
@@ -265,7 +269,6 @@ HOST_DEVICE const ArrayEntry* findArray(const char* name, const ArrayEntry* arrE
 
 
 
-// constexpr int MAX_EXPR_SIZE = 512;
 
 
 class Parser {
@@ -461,28 +464,6 @@ private:
     
     
     
-    
-    // Returns a pointer to the VariableEntry if found, or nullptr if not.
-    // HOST_DEVICE VariableEntry* findVariable(char* name) {
-    //     for (size_t i = 0; i < numVars; ++i) {
-    //         if (my_strcmp(varEntries[i].name, name) == 0) {
-    //             return &varEntries[i];
-    //         }
-    //     }
-    //     return nullptr;
-    // }
-    
-    // // Returns a pointer to the ArrayEntry if found, or nullptr if not.
-    // HOST_DEVICE ArrayEntry* findArray(char* name) {
-    //     for (size_t i = 0; i < numArrays; ++i) {
-    //         if (my_strcmp(arrEntries[i].name, name) == 0) {
-    //             return &arrEntries[i];
-    //         }
-    //     }
-    //     return nullptr;
-    // }
-    
-    
     HOST_DEVICE void replaceTokens(const char* tokens[], int numTokens) {
         for (int t = 0; t < numTokens; t++) {
             const char* token = tokens[t];
@@ -575,7 +556,200 @@ private:
         }
         return node;
     }
+    HOST_DEVICE ASTNode* parseTerm() {
+        ASTNode* node = parseFactor();
     
+        while (pos < expr_size) {
+            switch (expr[pos]) {
+                case '*':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a * b; });
+                    break;
+    
+                case '/':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a / b; });
+                    break;
+    
+                case '%':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a % b; });
+                    break;
+    
+                case '^':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
+                    break;
+
+                case '=':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a == b); });
+                    break;
+                    
+                case '&':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a.cosSim(b)); });
+                    break;
+                    
+                case '>':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a > b); });
+                    break;
+                    
+                case '<':
+                    ++pos;
+                    node = createBinaryFunctionNode(
+                        nodeAllocator, binaryDataAllocator,
+                        node, parseFactor(),
+                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a < b); });
+                    break;
+                
+                default:
+                    return node;
+            }
+        }
+        return node;
+    }
+
+    HOST_DEVICE ASTNode* parseFactor() {
+        switch (expr[pos]) {
+            case '+':
+                ++pos;
+                return parseFactor();
+                break;
+            case '-':
+                ++pos;
+                return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, parseFactor(), 
+                [](const Quaternion& a) { return -a; });
+                break;
+        }
+        
+        const char exprpos = expr[pos];
+        if ( isIdentifierChar(exprpos) && !isImaginaryChar(exprpos) ) {
+            return parseVariableOrFunction();
+        } else if (my_isdigit(exprpos) || exprpos == '.' ||  isImaginaryChar(exprpos) ) {
+            return parseNumber();
+        } else if (exprpos == '(') {
+            ++pos;
+            ASTNode* node = parseExpression();
+            if (expr[pos] != ')') return error_zero;
+            ++pos;
+            return node;
+        }
+        return error_zero;
+    }
+
+    
+    HOST_DEVICE ASTNode* parseNumber() {
+        char number[256];
+        int num_index = 0;
+        double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
+        char identifier = '\0';
+        char exprpos = expr[pos];
+        bool imag = isImaginaryChar(exprpos);
+    
+        while (pos < expr_size && (my_isdigit(exprpos) || exprpos == '.' || imag)) {
+            if (imag) {
+                identifier = expr[pos++];
+                break;
+            } else {
+                number[num_index++] = expr[pos++];
+            }
+            exprpos = expr[pos];
+            imag = isImaginaryChar(exprpos);
+        }
+        number[num_index] = '\0';
+    
+        // If no number was found, replace with "0.0" using a simple loop.
+        if (num_index == 0) {
+            const char* defaultStr = "0.0";
+            int i = 0;
+            while (defaultStr[i] != '\0' && i < (int)sizeof(number) - 1) {
+                number[i] = defaultStr[i];
+                i++;
+            }
+            number[i] = '\0';
+        }
+        
+        const double parsedValue = (identifier != '\0' && my_strcmp(number, "0.0") == 0) ? 1.0 : my_atof(number);
+        
+        switch (identifier) {
+            case 'i':
+                imagPart = parsedValue;
+                break;
+            case 'j':
+                jPart = parsedValue;
+                break;
+            case 'k':
+                kPart = parsedValue;
+                break;
+            default:
+                realPart = parsedValue;
+                break;
+        }
+        
+        return createConstantNode(nodeAllocator, constantDataAllocator, Quaternion(realPart, imagPart, jPart, kPart));
+    }
+
+    HOST_DEVICE ASTNode* parseVariableOrFunction() {
+        char name[128] = {};
+        size_t nameIndex = 0;
+    
+        // Collect alphabetic characters to form the identifier.
+        while (pos < expr_size && isIdentifierChar(expr[pos]) && nameIndex < sizeof(name) - 1) {
+            name[nameIndex++] = expr[pos++];
+        }
+        name[nameIndex] = '\0'; // Null terminate the identifier
+    
+        // First try to find a variable with the given name.
+        const VariableEntry* varEntry = findVariable(name,varEntries,numVars);
+        if (varEntry != nullptr) {
+            return createVariableNode(nodeAllocator, variableDataAllocator, varEntry->value);
+        }
+        
+        // If not a plain variable, check if it might be a function or an array.
+        if (pos < expr_size) {
+            if (expr[pos] == '(') {
+                // It’s a function call, so parse as such.
+                return parseFunction(name);
+            } else if (expr[pos] == '[') {
+                // Check if it is a defined array.
+                const ArrayEntry* arrEntry = findArray(name,arrEntries,numArrays);
+                if (arrEntry != nullptr) {
+                    ++pos; // Skip the '[' character.
+                    ASTNode* idx = parseExpression();
+                    if (pos < expr_size && expr[pos] == ']') {
+                        ++pos; // Skip the ']' character.
+                        return createArrayAccessNode(nodeAllocator, arrayDataAllocator, arrEntry->array, arrEntry->size, idx);
+                    }
+                }
+            }
+        }
+        return error_zero;
+    }
+
+
     // Helper for unary functions:
     HOST_DEVICE ASTNode* parseUnaryFunction(unsigned int hash, ASTNode* arg, const size_t old_pos) {
         switch (hash) {
@@ -797,240 +971,6 @@ private:
     }
     
 
-
-
-
-    HOST_DEVICE ASTNode* parseTerm() {
-        ASTNode* node = parseFactor();
-    
-        while (pos < expr_size) {
-            switch (expr[pos]) {
-                case '*':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a * b; });
-                    break;
-    
-                case '/':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a / b; });
-                    break;
-    
-                case '%':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a % b; });
-                    break;
-    
-                case '^':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
-                    break;
-
-                case '=':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a == b); });
-                    break;
-                    
-                case '&':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a.cosSim(b)); });
-                    break;
-                    
-                case '>':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a > b); });
-                    break;
-                    
-                case '<':
-                    ++pos;
-                    node = createBinaryFunctionNode(
-                        nodeAllocator, binaryDataAllocator,
-                        node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a < b); });
-                    break;
-                
-                default:
-                    return node;
-            }
-        }
-        return node;
-    }
-
-    HOST_DEVICE ASTNode* parseFactor() {
-        switch (expr[pos]) {
-            case '+':
-                ++pos;
-                return parseFactor();
-                break;
-            case '-':
-                ++pos;
-                return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, parseFactor(), 
-                [](const Quaternion& a) { return -a; });
-                break;
-        }
-        
-        const char exprpos = expr[pos];
-        if ( isIdentifierChar(exprpos) && !isImaginaryChar(exprpos) ) {
-            return parseVariableOrFunction();
-        } else if (my_isdigit(exprpos) || exprpos == '.' ||  isImaginaryChar(exprpos) ) {
-            return parseNumber();
-        } else if (exprpos == '(') {
-            ++pos;
-            ASTNode* node = parseExpression();
-            if (expr[pos] != ')') return error_zero;
-            ++pos;
-            return node;
-        }
-        return error_zero;
-    }
-
-    // HOST_DEVICE ASTNode* parseVariableOrFunction() {
-    //     char name[128] = {0};
-    //     size_t nameIndex = 0;
-        
-    //     // Collect alphabetic characters to form the identifier.
-    //     while (pos < expr_size && isIdentifierChar(expr[pos]) && nameIndex < sizeof(name) - 1) {
-    //         name[nameIndex++] = expr[pos++];
-    //     }
-    //     name[nameIndex] = '\0'; // Null-terminate
-    
-    //     const VariableEntry* varEntry = findVariable(name);
-    //     if (varEntry != nullptr) {
-    //         return *(varEntry->value);
-    //     }
-        
-    //     if (pos < expr_size) {
-    //         if (expr[pos] == '(') {
-
-    //             return parseFunction(name);
-    //         } else if (expr[pos] == '[') {
-    //             const ArrayEntry* arrEntry = findArray(name);
-    //             if (arrEntry != nullptr) {
-    //                 ++pos; // Skip the '[' character.
-
-    //                 unsigned int idx = static_cast<unsigned int>(my_abs(my_max(0.0, parseExpression().real)));
-                    
-    //                 if ( (idx) >= arrEntry->size) {
-    //                     return error_zero;
-    //                 }
-                    
-    //                 if (pos < expr_size && expr[pos] == ']') {
-    //                     ++pos; // Skip the ']' character.
-    //                     return Quaternion(arrEntry->array[idx]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     // If none of the above apply, return an error.
-    //     return error_zero;
-    // }
-    HOST_DEVICE ASTNode* parseVariableOrFunction() {
-        char name[128] = {};
-        size_t nameIndex = 0;
-    
-        // Collect alphabetic characters to form the identifier.
-        while (pos < expr_size && isIdentifierChar(expr[pos]) && nameIndex < sizeof(name) - 1) {
-            name[nameIndex++] = expr[pos++];
-        }
-        name[nameIndex] = '\0'; // Null terminate the identifier
-    
-        // First try to find a variable with the given name.
-        const VariableEntry* varEntry = findVariable(name,varEntries,numVars);
-        if (varEntry != nullptr) {
-            return createVariableNode(nodeAllocator, variableDataAllocator, varEntry->value);
-        }
-        
-        // If not a plain variable, check if it might be a function or an array.
-        if (pos < expr_size) {
-            if (expr[pos] == '(') {
-                // It’s a function call, so parse as such.
-                return parseFunction(name);
-            } else if (expr[pos] == '[') {
-                // Check if it is a defined array.
-                const ArrayEntry* arrEntry = findArray(name,arrEntries,numArrays);
-                if (arrEntry != nullptr) {
-                    ++pos; // Skip the '[' character.
-                    ASTNode* idx = parseExpression();
-                    if (pos < expr_size && expr[pos] == ']') {
-                        ++pos; // Skip the ']' character.
-                        return createArrayAccessNode(nodeAllocator, arrayDataAllocator, arrEntry->array, arrEntry->size, idx);
-                    }
-                }
-            }
-        }
-        return error_zero;
-    }
-
-    HOST_DEVICE ASTNode* parseNumber() {
-        char number[256];
-        int num_index = 0;
-        double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
-        char identifier = '\0';
-        char exprpos = expr[pos];
-        bool imag = isImaginaryChar(exprpos);
-    
-        while (pos < expr_size && (my_isdigit(exprpos) || exprpos == '.' || imag)) {
-            if (imag) {
-                identifier = expr[pos++];
-                break;
-            } else {
-                number[num_index++] = expr[pos++];
-            }
-            exprpos = expr[pos];
-            imag = isImaginaryChar(exprpos);
-        }
-        number[num_index] = '\0';
-    
-        // If no number was found, replace with "0.0" using a simple loop.
-        if (num_index == 0) {
-            const char* defaultStr = "0.0";
-            int i = 0;
-            while (defaultStr[i] != '\0' && i < (int)sizeof(number) - 1) {
-                number[i] = defaultStr[i];
-                i++;
-            }
-            number[i] = '\0';
-        }
-        
-        const double parsedValue = (identifier != '\0' && my_strcmp(number, "0.0") == 0) ? 1.0 : my_atof(number);
-        
-        switch (identifier) {
-            case 'i':
-                imagPart = parsedValue;
-                break;
-            case 'j':
-                jPart = parsedValue;
-                break;
-            case 'k':
-                kPart = parsedValue;
-                break;
-            default:
-                realPart = parsedValue;
-                break;
-        }
-        
-        return createConstantNode(nodeAllocator, constantDataAllocator, Quaternion(realPart, imagPart, jPart, kPart));
-    }
     
 };
 

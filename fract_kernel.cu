@@ -50,6 +50,7 @@ __global__ void fractal_kernel(uint8_t* d_output,
                     const uint16_t max_iter,
                     const double xmin, const double xmax,
                     const double ymin, const double ymax,
+                    const double dx, const double dy,
                     const double c_real, const double c_imag,
                     double escape_radius,
                     const bool fast_mode,
@@ -69,8 +70,6 @@ __global__ void fractal_kernel(uint8_t* d_output,
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= width || y >= height) return;
 
-    const double dx = (xmax - xmin) / width;
-    const double dy = (ymax - ymin) / height;
     double point_x = xmin + x * dx;
     double point_y = ymin + y * dy;
     Quaternion z , c, last_it_z;
@@ -173,6 +172,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
                                         d_exp, exp_len,
                                         width, height, max_iter,
                                         xmin, xmax, ymin, ymax,
+                                        (xmax - xmin) / width,
+                                        (ymax - ymin) / height,
                                         c_real, c_imag,
                                         escape_radius,
                                         fast_mode,
