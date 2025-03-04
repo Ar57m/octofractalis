@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <chrono>
-
+#include <cstring>
 #include "custom_quaternion.h"
 
 #ifndef USE_CUDA
@@ -286,11 +286,10 @@ extern "C" {
     {
     std::signal(SIGINT, signal_handler);
     if (escape_radius == 0.0) escape_radius = 2.0;
-
+    size_t exp_size = strlen(exp);
     #ifdef USE_CUDA
         // --- GPU Implementation ---
-        // Allocate device memory and copy inputs
-        size_t exp_size = std::strlen(exp);
+
         fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, xmax, ymin, ymax, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, input_array, array_size);
     #else
         // --- CPU Implementation using OpenMP ---
@@ -309,6 +308,7 @@ extern "C" {
             Quaternion x_quat(static_cast<double>(x));
             Quaternion y_quat(0.0);
             int y = 0;
+
             VariableEntry varEntries[8] = {
                 {"z", &z},
                 {"c", &c},
@@ -320,29 +320,8 @@ extern "C" {
                 {"x", &x_quat}
             };
             const size_t numVars = 8;
-        
-
-
-            
-            StackAllocator<ASTNode, AST_NODE_BUFFER_SIZE> nodeAllocator;
-            StackAllocator<ConstantNodeData, CONSTANT_NODE_DATA_BUFFER_SIZE> constantAllocator;
-            StackAllocator<VariableNodeData, VARIABLE_NODE_DATA_BUFFER_SIZE> variableAllocator;
-            StackAllocator<ArrayAccessNodeData, ARRAY_ACCESS_NODE_DATA_BUFFER_SIZE> arrayAllocator;
-            StackAllocator<UnaryFunctionNodeData, UNARY_FUNCTION_NODE_DATA_BUFFER_SIZE> unaryAllocator;
-            StackAllocator<BinaryFunctionNodeData, BINARY_FUNCTION_NODE_DATA_BUFFER_SIZE> binaryAllocator;
-            StackAllocator<TernaryFunctionNodeData, TERNARY_FUNCTION_NODE_DATA_BUFFER_SIZE> ternaryAllocator;
-
-            //Parser parser(x % 2 < 1 ? expression : exp, variables);
-            Parser parser(exp, strlen(exp), varEntries, numVars, arrEntries, numArrays,
-                nodeAllocator,
-                constantAllocator,
-                variableAllocator,
-                arrayAllocator,
-                unaryAllocator,
-                binaryAllocator,
-                ternaryAllocator);
-            auto ast = parser.parse();
-
+            Parser parser(exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+            const ASTNode* ast = parser.parse();
 
             while (y < height) {
                 y_quat = (static_cast<double>(y));

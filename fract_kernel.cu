@@ -60,7 +60,9 @@ __global__ void fractal_kernel(uint8_t* d_output,
                     const double quaternion_j,
                     const double quaternion_k,
                     const double z_initial_r,
-                    const double z_initial_i)
+                    const double z_initial_i,
+                    double* input_array,
+                    const uint32_t array_size)
 {
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -81,13 +83,9 @@ __global__ void fractal_kernel(uint8_t* d_output,
     Quaternion x_quat(static_cast<double>(x), 0.0, 0.0, 0.0);
     Quaternion y_quat(static_cast<double>(y), 0.0, 0.0, 0.0);
 
-
-    double myArray[] = {1.0, 2.0, 3.0, 4.0, 5.0};
-    uint32_t arraySize = 5;
-    
     
     ArrayEntry arrEntries[1] = {
-        {"array", myArray, arraySize}
+        {"array", input_array, array_size}
     };
     const size_t numArrays = 1;
 
@@ -104,7 +102,9 @@ __global__ void fractal_kernel(uint8_t* d_output,
     };
     const size_t numVars = 8;
     Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
-    auto ast = parser.parse();
+    const ASTNode* ast = parser.parse();
+
+
 
     setQuaternionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
                             z_initial_r, z_initial_i, quaternion_j, quaternion_k);
@@ -139,13 +139,15 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, 
     double* input_array, const uint32_t array_size) {
 
-    // --- GPU Implementation ---
-    // Allocate device memory and copy inputs
 
     cudaDeviceSetLimit(cudaLimitStackSize, 16384*3);
 
     uint8_t* d_output = nullptr;
-    cudaMalloc((void**)&d_output, width * height * 3 * sizeof(uint8_t)); // Ensure correct size
+    cudaMalloc((void**)&d_output, width * height * 3 * sizeof(uint8_t));
+
+    double* d_input_array = nullptr;
+    cudaMalloc((void**)&d_input_array, array_size * sizeof(double));
+    cudaMemcpy(d_input_array, input_array, array_size * sizeof(double), cudaMemcpyHostToDevice);
 
     // Allocate and copy color arrays to device
     int* d_array_top_colors_outside = nullptr;
@@ -168,7 +170,7 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     fractal_kernel<<<gridDim, blockDim>>>(d_output,
                                         d_array_top_colors_outside,
                                         d_array_top_colors_lake,
-                                        d_exp, exp_len, // Note: 'exp' is not used but should be handled if needed
+                                        d_exp, exp_len,
                                         width, height, max_iter,
                                         xmin, xmax, ymin, ymax,
                                         c_real, c_imag,
@@ -181,7 +183,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
                                         quaternion_j,
                                         quaternion_k,
                                         z_initial_r,
-                                        z_initial_i);
+                                        z_initial_i,
+                                        d_input_array, array_size);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
