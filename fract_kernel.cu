@@ -73,7 +73,7 @@ __global__ void fractal_kernel(uint8_t* d_output,
 
     double point_x = xmin + x * dx;
     double point_y = ymin + y * dy;
-    
+
     Quaternion pi(3.1415926535897932384626433832795028841971693993751);
     Quaternion phi(1.6180339887498948482045868343656381177203091798057);
     Quaternion e(2.7182818284590452353602874713526624977572470937000);
@@ -202,6 +202,7 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     // Free device memory
     cudaFree(d_exp);
     cudaFree(d_output);
+    cudaFree(d_input_array);
     cudaFree(d_array_top_colors_outside);
     cudaFree(d_array_top_colors_lake);
 }
@@ -361,6 +362,7 @@ cudaMemcpy(output, d_output, width * height * 3 * sizeof(uint8_t), cudaMemcpyDev
 // Free device memory
 cudaFree(d_exp);
 cudaFree(d_output);
+cudaFree(d_input_array);
 cudaFree(d_array_top_colors_outside);
 cudaFree(d_array_top_colors_lake);
 }
