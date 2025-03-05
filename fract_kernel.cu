@@ -1,5 +1,8 @@
 // fract_kernel.cu
+
+#include <stdexcept>
 #include <cuda_runtime.h>
+
 #include "custom_quaternion.h" 
 #include "parser.h"
 
@@ -134,79 +137,6 @@ __global__ void fractal_kernel(uint8_t* d_output,
 }
 
 
-extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
-    const uint16_t width, const uint16_t height, const uint16_t max_iter,
-    const double xmin, const double xmax, const double ymin,
-    const double ymax, const double c_real, const double c_imag, double escape_radius, const bool fast_mode,
-    const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, 
-    double* input_array, const uint32_t array_size) {
-
-
-    cudaDeviceSetLimit(cudaLimitStackSize, 16384*3);
-
-    uint8_t* d_output = nullptr;
-    cudaMalloc((void**)&d_output, width * height * 3 * sizeof(uint8_t));
-
-    double* d_input_array = nullptr;
-    cudaMalloc((void**)&d_input_array, array_size * sizeof(double));
-    cudaMemcpy(d_input_array, input_array, array_size * sizeof(double), cudaMemcpyHostToDevice);
-
-    // Allocate and copy color arrays to device
-    int* d_array_top_colors_outside = nullptr;
-    int* d_array_top_colors_lake = nullptr;
-    cudaMalloc((void**)&d_array_top_colors_outside, top_colors_outside * sizeof(int));
-    cudaMalloc((void**)&d_array_top_colors_lake, top_colors_lake * sizeof(int));
-    cudaMemcpy(d_array_top_colors_outside, array_top_colors_outside, top_colors_outside * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_array_top_colors_lake, array_top_colors_lake, top_colors_lake * sizeof(int), cudaMemcpyHostToDevice);
-
-    char* d_exp = nullptr;
-    size_t exp_len = exp_size + 1; // +1 for null terminator
-    cudaMalloc((void**)&d_exp, exp_len * sizeof(char));
-    cudaMemcpy(d_exp, exp, exp_len * sizeof(char), cudaMemcpyHostToDevice);
-    // Define grid and block dimensions
-    dim3 blockDim(16, 16);
-    dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
-                (height + blockDim.y - 1) / blockDim.y);
-
-    // Launch the CUDA kernel with device pointers
-    fractal_kernel<<<gridDim, blockDim>>>(d_output,
-                                        d_array_top_colors_outside,
-                                        d_array_top_colors_lake,
-                                        d_exp, exp_len,
-                                        width, height, max_iter,
-                                        xmin, xmax, ymin, ymax,
-                                        (xmax - xmin) / width,
-                                        (ymax - ymin) / height,
-                                        c_real, c_imag,
-                                        escape_radius,
-                                        fast_mode,
-                                        juliaset,
-                                        lake,
-                                        top_colors_outside,
-                                        top_colors_lake,
-                                        quaternion_j,
-                                        quaternion_k,
-                                        z_initial_r,
-                                        z_initial_i,
-                                        d_input_array, array_size);
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
-    }
-
-    // Copy result back and clean up
-    cudaDeviceSynchronize();
-    cudaMemcpy(output, d_output, width * height * 3 * sizeof(uint8_t), cudaMemcpyDeviceToHost);
-
-    // Free device memory
-    cudaFree(d_exp);
-    cudaFree(d_output);
-    cudaFree(d_input_array);
-    cudaFree(d_array_top_colors_outside);
-    cudaFree(d_array_top_colors_lake);
-}
-
 
 
 
@@ -300,6 +230,125 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
 }
 
 
+
+
+
+
+
+
+
+
+// Error checking function
+inline void checkCudaError(cudaError_t err, const char* msg) {
+    if (err != cudaSuccess) {
+        throw std::runtime_error(std::string(msg) + ": " + cudaGetErrorString(err));
+    }
+}
+
+// RAII wrapper for CUDA device memory
+template <typename T>
+class CudaMemory {
+public:
+    // count is the number of elements of type T.
+    CudaMemory(size_t count) : count_(count) {
+        checkCudaError(cudaMalloc((void**)&ptr_, count_ * sizeof(T)), "Failed to allocate device memory");
+    }
+    ~CudaMemory() {
+        if (ptr_) {
+            cudaFree(ptr_);
+        }
+    }
+    T* get() const { return ptr_; }
+    // Disable copy semantics
+    CudaMemory(const CudaMemory&) = delete;
+    CudaMemory& operator=(const CudaMemory&) = delete;
+private:
+    T* ptr_ = nullptr;
+    size_t count_;
+};
+
+// Generalized copy function
+template <typename T>
+void copyMemory(T* destination, const T* source, size_t count, cudaMemcpyKind direction) {
+    const char* errorMsg = (direction == cudaMemcpyHostToDevice) ? "Failed to copy to device"
+                               : (direction == cudaMemcpyDeviceToHost) ? "Failed to copy to host"
+                               : "Memory copy failed";
+    checkCudaError(cudaMemcpy(destination, source, count * sizeof(T), direction), errorMsg);
+}
+
+
+
+
+
+extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const double xmin, const double xmax, const double ymin,
+    const double ymax, const double c_real, const double c_imag, double escape_radius, const bool fast_mode,
+    const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
+    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i, 
+    double* input_array, const uint32_t array_size) {
+
+
+        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+        // Allocate device memory using the RAII wrapper.
+        // Note: The count here is the number of elements.
+        CudaMemory<uint8_t> d_output(width * height * 3);
+        CudaMemory<double> d_input_array(array_size);
+        CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
+        CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
+        
+        size_t exp_len = exp_size + 1; // +1 for null terminator
+        CudaMemory<char> d_exp(exp_len);
+    
+        // Copy host data to device
+        copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
+        copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+    
+        // Define grid and block dimensions
+        dim3 blockDim(16, 16);
+        dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+                     (height + blockDim.y - 1) / blockDim.y);
+    
+        // Launch the CUDA kernel using the device pointers from the RAII wrappers
+        fractal_kernel<<<gridDim, blockDim>>>(d_output.get(),
+                                              d_array_top_colors_outside.get(),
+                                              d_array_top_colors_lake.get(),
+                                              d_exp.get(), exp_len,
+                                              width, height, max_iter,
+                                              xmin, xmax, ymin, ymax,
+                                              (xmax - xmin) / width,
+                                              (ymax - ymin) / height,
+                                              c_real, c_imag,
+                                              escape_radius,
+                                              fast_mode,
+                                              juliaset,
+                                              lake,
+                                              top_colors_outside,
+                                              top_colors_lake,
+                                              quaternion_j,
+                                              quaternion_k,
+                                              z_initial_r,
+                                              z_initial_i,
+                                              d_input_array.get(), array_size);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+        }
+    
+        // Synchronize the device to ensure kernel completion
+        cudaDeviceSynchronize();
+    
+        // Copy the result from device to host
+        copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
+    
+}
+
+
+
+
 extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const double xmin, const double xmax, const double ymin,
@@ -307,62 +356,54 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
     const double quaternion_j, const double quaternion_k, double escape_radius, 
     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
+    // Increase the device stack size if needed.
+    cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
 
-cudaDeviceSetLimit(cudaLimitStackSize, 16384*3);
+    // Allocate device memory using our RAII wrapper.
+    CudaMemory<uint8_t> d_output(width * height * 3);
+    CudaMemory<double> d_input_array(array_size);
+    CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
+    CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
+    size_t exp_len = exp_size + 1; // +1 for null terminator
+    CudaMemory<char> d_exp(exp_len);
 
-uint8_t* d_output = nullptr;
-cudaMalloc((void**)&d_output, width * height * 3 * sizeof(uint8_t));
+    // Copy host data to device.
+    copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+    copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
+    copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
+    copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
 
-double* d_input_array = nullptr;
-cudaMalloc((void**)&d_input_array, array_size * sizeof(double));
-cudaMemcpy(d_input_array, input_array, array_size * sizeof(double), cudaMemcpyHostToDevice);
+    // Define grid and block dimensions.
+    dim3 blockDim(16, 16);
+    dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+                 (height + blockDim.y - 1) / blockDim.y);
 
-// Allocate and copy color arrays to device
-int* d_array_top_colors_outside = nullptr;
-int* d_array_top_colors_lake = nullptr;
-cudaMalloc((void**)&d_array_top_colors_outside, top_colors_outside * sizeof(int));
-cudaMalloc((void**)&d_array_top_colors_lake, top_colors_lake * sizeof(int));
-cudaMemcpy(d_array_top_colors_outside, array_top_colors_outside, top_colors_outside * sizeof(int), cudaMemcpyHostToDevice);
-cudaMemcpy(d_array_top_colors_lake, array_top_colors_lake, top_colors_lake * sizeof(int), cudaMemcpyHostToDevice);
+    // Launch the CUDA kernel with device pointers from the RAII wrappers.
+    lyapunov_kernel<<<gridDim, blockDim>>>(d_output.get(),
+                                           d_array_top_colors_outside.get(),
+                                           d_array_top_colors_lake.get(),
+                                           d_exp.get(), exp_len,
+                                           width, height, max_iter,
+                                           xmin, xmax, ymin, ymax,
+                                           (xmax - xmin) / width,
+                                           (ymax - ymin) / height,
+                                           complex_a, complex_b,
+                                           escape_radius,
+                                           top_colors_outside,
+                                           top_colors_lake,
+                                           quaternion_j,
+                                           quaternion_k,
+                                           d_input_array.get(), array_size);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+    }
 
-char* d_exp = nullptr;
-size_t exp_len = exp_size + 1; // +1 for null terminator
-cudaMalloc((void**)&d_exp, exp_len * sizeof(char));
-cudaMemcpy(d_exp, exp, exp_len * sizeof(char), cudaMemcpyHostToDevice);
-// Define grid and block dimensions
-dim3 blockDim(16, 16);
-dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
-(height + blockDim.y - 1) / blockDim.y);
+    // Synchronize to ensure kernel completion.
+    cudaDeviceSynchronize();
 
-// Launch the CUDA kernel with device pointers
-lyapunov_kernel<<<gridDim, blockDim>>>(d_output,
-                        d_array_top_colors_outside,
-                        d_array_top_colors_lake,
-                        d_exp, exp_len,
-                        width, height, max_iter,
-                        xmin, xmax, ymin, ymax,
-                        (xmax - xmin) / width,
-                        (ymax - ymin) / height,
-                        complex_a, complex_b,
-                        escape_radius,
-                        top_colors_outside,
-                        top_colors_lake,
-                        quaternion_j,
-                        quaternion_k,
-                        d_input_array, array_size);
-cudaError_t err = cudaGetLastError();
-if (err != cudaSuccess) {
-std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
-}
+    // Copy the result back from device to host.
+    copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
 
-// Copy result back and clean up
-cudaDeviceSynchronize();
-cudaMemcpy(output, d_output, width * height * 3 * sizeof(uint8_t), cudaMemcpyDeviceToHost);
 
-// Free device memory
-cudaFree(d_exp);
-cudaFree(d_output);
-cudaFree(d_input_array);
-cudaFree(d_array_top_colors_outside);
-cudaFree(d_array_top_colors_lake);
 }
