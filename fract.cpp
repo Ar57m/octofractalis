@@ -84,7 +84,7 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
                 const bool not_escaped, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
 
     const int index = (y * width + x) * 3;
-    int it;
+    int it = 0;
     
     if (not_escaped && lake) {
         it = array_top_colors_lake[static_cast<int>(std::round((temp / (temp + 1.0)) * top_colors_lake))];
@@ -213,40 +213,31 @@ void generate_attractors(Quaternion* attractors, int n) {
 //     return trajectory;
 // }
 
-extern "C" void fractal_kernel_call(uint8_t* output,
-    const int* array_top_colors_outside,
-    const int* array_top_colors_lake,
-    const char* exp, const size_t exp_size,
-    const uint16_t width,
-    const uint16_t height,
-    const uint16_t max_iter,
-    const double xmin,
-    const double xmax,
-    const double ymin,
-    const double ymax,
-    const double c_real,
-    const double c_imag,
-    double escape_radius,
-    const bool fast_mode,
-    const bool juliaset,
-    const bool lake,
-    const int top_colors_outside,
-    const int top_colors_lake,
-    const double quaternion_j,
-    const double quaternion_k,
-    const double z_initial_r,
-    const double z_initial_i,
-    double* input_array,
-    const uint32_t array_size);
+extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside,
+    const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const double xmin, const double xmax, const double ymin, const double ymax,
+    const double c_real, const double c_imag, double escape_radius,
+    const bool fast_mode, const bool juliaset, const bool lake,
+    const int top_colors_outside, const int top_colors_lake, const double quaternion_j,
+    const double quaternion_k, const double z_initial_r,
+    const double z_initial_i, double* input_array, const uint32_t array_size);
 
-extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside,
+    const int* array_top_colors_lake, const char* exp, const size_t exp_size,
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const double xmin, const double xmax, const double ymin,
     const double ymax, double complex_a, double complex_b,
     const double quaternion_j, const double quaternion_k, double escape_radius, 
     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size);
 
-
+extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
+    const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const double xmin, const double xmax, const double ymin,
+    const double ymax, const double c_real, const double c_imag,
+    const bool juliaset, const int top_colors_outside, const int top_colors_lake,
+    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+    const double newton_epsilon, double* input_array, const uint32_t array_size);
 
 
 extern "C" {
@@ -270,31 +261,15 @@ extern "C" {
     // }
 
 
-    EXPORT void fractal(uint8_t* output,
-            const int* array_top_colors_outside,
-            const int* array_top_colors_lake,
-            const char* exp,
-            const uint16_t width,
-            const uint16_t height,
-            const uint16_t max_iter,
-            const double xmin,
-            const double xmax,
-            const double ymin,
-            const double ymax,
-            const double c_real,
-            const double c_imag,
-            double escape_radius,
-            const bool fast_mode,
-            const bool juliaset,
-            const bool lake,
-            const int top_colors_outside,
-            const int top_colors_lake,
-            const double quaternion_j,
-            const double quaternion_k,
-            const double z_initial_r,
-            const double z_initial_i,
-            double* input_array,
-            const uint32_t array_size)
+    EXPORT void fractal(uint8_t* output, const int* array_top_colors_outside,
+        const int* array_top_colors_lake, const char* exp,
+        const uint16_t width, const uint16_t height, const uint16_t max_iter,
+        const double xmin, const double xmax, const double ymin, const double ymax,
+        const double c_real, const double c_imag, double escape_radius,
+        const bool fast_mode, const bool juliaset, const bool lake,
+        const int top_colors_outside, const int top_colors_lake, const double quaternion_j,
+        const double quaternion_k, const double z_initial_r,
+        const double z_initial_i, double* input_array, const uint32_t array_size)
     {
     std::signal(SIGINT, signal_handler);
     if (escape_radius == 0.0) escape_radius = 2.0;
@@ -662,116 +637,89 @@ extern "C" {
     }
 
 
-    // void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
-    //                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
-    //                 const double xmin, const double xmax, const double ymin,
-    //                 const double ymax, const double c_real, const double c_imag,
-    //                 const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-    //                 const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
-    //                 const double newton_epsilon, double* input_array, const uint32_t array_size) {
+    EXPORT void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
+                    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+                    const double xmin, const double xmax, const double ymin,
+                    const double ymax, const double c_real, const double c_imag,
+                    const bool juliaset, const int top_colors_outside, const int top_colors_lake,
+                    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                    const double newton_epsilon, double* input_array, const uint32_t array_size) {
 
-    //     std::signal(SIGINT, signal_handler);
+        std::signal(SIGINT, signal_handler);
 
-    //     bool l = lake;
-    //     l = !l;
 
-    //     const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
-        
-
-    //     const std::string expression = std::string(exp);
-
-    //     if ( (expression == "z*z*z-1+c" || expression == "pow(z,3)-1+c") ) {
-    //         #pragma omp parallel for schedule(dynamic)
-    //         for (int x = 0; x < width; ++x) {
-
-    //             for (int y = 0; y < height; ++y) {
-                    
-    //                 Quaternion c, z;
-    //                 setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-    //                     ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-
-    //                 uint16_t iteration = 0;
-    //                 double temp = z.mag();
-                    
-    //                 while (iteration < max_iter) {
-                        
-
-    //                     const Quaternion last_z = z;
-    //                     const Quaternion znew = 3.0*z*z;
-    //                     z = (z*z*z-1+c);
-    //                     temp = z.mag();
-                        
-    //                     if ( temp < 1e-13) break;
-    //                     z = ( last_z - ( z/znew ));
-                        
-    //                     ++iteration;
-    //                 }
-
-    //                 update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-    //                     iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
-    //             }
-    //         }
-
-    //     } else {
-            
-    //         const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
-    //             {"array", std::make_pair(input_array, array_size)}
-    //         };
-    //         // const double q_epsilon = (quaternion_j != 0.0 || quaternion_k != 0.0) ? newton_epsilon : 0.0; 
-    //         #pragma omp parallel for schedule(dynamic)
-    //         for (int x = 0; x < width; ++x) {
-    //             Quaternion z,c;
-    //             uint16_t iteration = 0;
-    //             int y = 0;
-    //             const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
-    //                 {"z", [&z]() { return z; }},
-    //                 {"c", [&c]() { return c; }},
-    //                 {"phi", [&]() { return phi; }},
-    //                 {"pi", [&]() { return pi; }},
-    //                 {"e", [&]() { return e;   }},
-    //                 {"It", [&]() { return Quaternion(iteration);   }},
-    //                 {"y", [&]() { return Quaternion(y, 0.0); }},
-    //                 {"x", [&]() { return Quaternion(x, 0.0); }}
-    //             };
-                
+        size_t exp_size = strlen(exp);
+        #ifdef USE_CUDA
+            // --- GPU Implementation ---
+            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, xmax, ymin, ymax, c_real, c_imag, juliaset, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon, input_array, array_size);
+        #else
+            // --- CPU Implementation using OpenMP ---
+            const double dx = (xmax - xmin) / width;
+            const double dy = (ymax - ymin) / height;
     
-    //             //Parser parser(x % 2 < 1 ? expression : exp, variables);
-    //             Parser parser( expression, variables, arrays);
-    //             const auto ast = parser.parse();
+            ArrayEntry arrEntries[1] = {
+                {"array", input_array, array_size}
+            };
+            const size_t numArrays = 1;
     
-
-    //             while ( y < height ) {
-    //                 setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-    //                     ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Quaternion z , c;
+                Quaternion it_quat(0.0);
+                Quaternion x_quat(static_cast<double>(x));
+                Quaternion y_quat(0.0);
+                int y = 0;
+    
+                VariableEntry varEntries[8] = {
+                    {"z", &z},
+                    {"c", &c},
+                    {"phi", const_cast<Quaternion*>(&phi)},
+                    {"pi", const_cast<Quaternion*>(&pi)},
+                    {"e", const_cast<Quaternion*>(&e)},
+                    {"It", &it_quat},
+                    {"y", &y_quat},
+                    {"x", &x_quat}
+                };
+                const size_t numVars = 8;
+                Parser parser(exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+                const ASTNode* ast = parser.parse();
+    
+                while (y < height) {
+                    y_quat = (static_cast<double>(y));
+                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    
+                    uint16_t iteration = 0;
+                    double temp = 0.0;
                     
-    //                 iteration = 0;
-    //                 double temp = z.mag();
-                    
-    //                 while (iteration < max_iter) {
+    
+                    while (iteration < max_iter) {
+                        it_quat = Quaternion(static_cast<double>(iteration));
 
-    //                     const Quaternion last_z = z;
-    //                     const double h(newton_epsilon);
+                        const Quaternion last_z = z;
+                        const double h(newton_epsilon);
                         
-    //                     z += h;
-    //                     const Quaternion next_z = ast->evaluate();
-    //                     z = last_z;
-    //                     z = ast->evaluate();
+                        z += h;
+                        const Quaternion next_z = ast->evaluate();
+                        z = last_z;
+                        z = ast->evaluate();
                         
-    //                     temp = z.mag();
+                        temp = z.mag();
                         
-    //                     if ( temp < 1e-13 ) break;
-    //                     const Quaternion znew = ( next_z - z )/(h); 
-    //                     z = last_z - ( z/znew );
-                        
-    //                     ++iteration;
-    //                 }
-    //                 update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
-    //                     iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
-    //                 ++y;
-    //             }
-    //         }
-    //    } 
-    // }
+                        if ( temp < 1e-13 ) break;
+                        const Quaternion znew = ( next_z - z )/(h); 
+                        z = last_z - ( z/znew );
+                        ++iteration;
+
+                    }
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, 3.0, width,
+                        iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
+                    
+                    ++y;
+                }
+            }
+        #endif
+    }
 
     // void sandpile(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
     //             const uint16_t height, const uint32_t n_grains, const int top_colors_outside,const uint16_t max_grains=3) {
