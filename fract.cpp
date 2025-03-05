@@ -2,7 +2,7 @@
 #include <omp.h>
 #include <cmath>
 #include <cstdint>
-#include <vector>
+// #include <vector>
 #include <iostream>
 #include <csignal>
 #include <cstdlib>
@@ -10,13 +10,17 @@
 #include <memory>
 #include <functional>
 #include <stdexcept>
-#include <sstream>
-#include <chrono>
+// #include <sstream>
+// #include <chrono>
 #include <cstring>
+
 #include "custom_quaternion.h"
 
 #ifndef USE_CUDA
 #include "parser.h"
+Quaternion pi(3.1415926535897932384626433832795028841971693993751);
+Quaternion phi(1.6180339887498948482045868343656381177203091798057);
+Quaternion e(2.7182818284590452353602874713526624977572470937000);
 #endif
 
 #ifdef _WIN32
