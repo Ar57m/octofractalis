@@ -274,20 +274,20 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 
     ArrayEntry arrEntries[1] = {
-    {"array", input_array, array_size}
+        {"array", input_array, array_size}
     };
     const size_t numArrays = 1;
 
 
     VariableEntry varEntries[8] = {
-    {"z", &z},
-    {"c", &c},
-    {"phi", const_cast<Quaternion*>(&phi)},
-    {"pi", const_cast<Quaternion*>(&pi)},
-    {"e", const_cast<Quaternion*>(&e)},
-    {"It", &it_quat},
-    {"y", &y_quat},
-    {"x", &x_quat}
+        {"z", &z},
+        {"c", &c},
+        {"phi", const_cast<Quaternion*>(&phi)},
+        {"pi", const_cast<Quaternion*>(&pi)},
+        {"e", const_cast<Quaternion*>(&e)},
+        {"It", &it_quat},
+        {"y", &y_quat},
+        {"x", &x_quat}
     };
     const size_t numVars = 8;
     Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
@@ -325,6 +325,8 @@ __global__ void newton_kernel(uint8_t* d_output,
     update_output( d_output, d_array_top_colors_outside, d_array_top_colors_lake, 3.0, width,
         iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
 }
+
+
 
 
 
@@ -567,3 +569,11 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
         copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
     
 }
+
+
+
+
+
+
+
+

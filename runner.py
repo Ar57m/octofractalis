@@ -17,10 +17,9 @@ lib = cdll.LoadLibrary('./libfract.so')
 fractal = lib.fractal
 lyapunov = lib.lyapunov
 newton = lib.newton
+magnet = lib.magnet
 # lorenz = lib.lorenz
-# sandpile = lib.sandpile
-# magnet = lib.magnet
-
+sandpile = lib.sandpile
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -36,16 +35,16 @@ newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_double, c_bool, c_int, c_int, c_double, c_double, c_double, c_double,
     c_double, POINTER(c_double), c_uint32]
 
+magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
+    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_double, c_bool, c_int, POINTER(c_double), c_uint32]
+
 # lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
 #     c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
 #     c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double,
 #     c_double, c_double, POINTER(c_double), c_uint32]
 
-# magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
-#     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
-#     c_double, c_double, c_double, c_bool, c_int, POINTER(c_double), c_uint32]
-
-# sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
+sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
 
 
@@ -363,23 +362,23 @@ def generate(all_parameters):
         #     save_img()
 
 
-        # # Magnet Pendulum Attractor
-        # if (key == "magnet") and (value):
+        # Magnet Pendulum Attractor
+        if (key == "magnet") and (value):
             
-        #     magnet(
-        #         gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-        #         expression, width, height, max_iter, xmin, xmax, ymin, ymax, velocity_r, velocity_i, escape_radius,
-        #         quaternion_j, quaternion_k, fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
-        #     )
-        #     save_img()
+            magnet(
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax, velocity_r, velocity_i, escape_radius,
+                quaternion_j, quaternion_k, fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
+            )
+            save_img()
 
 
-        # # Abelian Sandpile Fractal
-        # if (key == "sandpile") and (value):
-            
-        #     sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)),array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-        #         width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
-        #     save_img()
+        # Abelian Sandpile Fractal
+        if (key == "sandpile") and (value):
+
+            sandpile(gen_array.ctypes.data_as(POINTER(c_uint8)),array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
+            save_img()
 
     write_to_file("last_expressions.txt" , input_expression +str(time.time()-ini)+ ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
     return img_names

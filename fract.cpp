@@ -338,7 +338,7 @@ extern "C" {
     }
     
     
-    void magnet(uint8_t* output, const int* array_top_colors_outside, const char* exp,
+    EXPORT void magnet(uint8_t* output, const int* array_top_colors_outside, const char* exp,
                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
                 const double xmin, const double xmax, const double ymin,
                 const double ymax, const double v_real, const double v_imag,
@@ -349,149 +349,103 @@ extern "C" {
 
         escape_radius = escape_radius == 0.0 ? 9.0 : escape_radius;
 
-        const double dx = (xmax - xmin) / width, dy = (ymax - ymin) / height;
 
-
-        const std::string expression = std::string(exp);
-
-        // n_points = n_points > 1 ? n_points : 2;
-        // std::vector<Quaternion> attractors(n_points);
+        n_points = n_points > 1 ? n_points : 2;
+        std::vector<Quaternion> attractors(n_points);
     
-        // // Generate attractors
-        // generate_attractors(attractors.data(), n_points);
-        
-        if (expression == "z*z+c") {
-            // #pragma omp parallel for schedule(dynamic)
-            // for (int x = 0; x < width; ++x) {
-            //     for (int y = 0; y < height; ++y) {
-
-            //         Quaternion z(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
-            //         Quaternion velocity(v_real, v_imag),last_it_z(0);
-            
-            //         const double damping = 0.1;
-            //         const double r0 = 0.1;
-
-            //         const int num_attractors = attractors.size();
-            
-            //         uint16_t iteration = 0;
-            //         double temp = 0;
-            //         int closest_attractor_index = -1;
-            //         double min_distance = std::numeric_limits<double>::max();
-            
-            //         while ((iteration < max_iter) && (temp < escape_radius)) {
-            //             Quaternion force(0);
-            
-            //             for (int i = 0; i < num_attractors; ++i) {
-            //                 Quaternion diff = attractors[i] - z;
-            //                 double distance2 = diff.magSquared() + r0 * r0;
-            //                 force += diff / distance2;
-
-            //                 if (distance2 < min_distance) {
-            //                     min_distance = distance2;
-            //                     closest_attractor_index = i;
-            //                 }
-            //             }
-
-            //             force -= velocity * damping;
-            //             velocity += force;
-            //             last_it_z = z + velocity;
-            //             if (last_it_z == z && fast_mode) break;
-            //             z = last_it_z;
-            
-
-            //             temp = z.magSquared();
-            //             ++iteration;
-            //         }
-            
-            //         update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
-            //     }
-            // }
-            escape_radius= dx;
-
-
-
-        } else {
-            n_points=1;
-            
-            // const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
-            //     {"array", std::make_pair(input_array, array_size)}
-            // };
-
-            // #pragma omp parallel for schedule(dynamic)
-            // for (int x = 0; x < width; ++x) {
-            //     Quaternion z, velocity, force, diff;
-            //     const double damping = 0.1;
-            //     uint16_t iteration = 0;
-            //     int y = 0;
-            //     const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
-            //         {"z", [&z]() { return z; }},
-            //         {"v", [&velocity]() { return velocity; }},
-            //         {"f", [&force]() { return force; }},
-            //         {"diff", [&diff]() { return diff; }},
-            //         {"d", [&]() { return Quaternion(damping); }},
-            //         {"phi", [&]() { return phi; }},
-            //         {"pi", [&]() { return pi; }},
-            //         {"e", [&]() { return e;   }},
-            //         {"It", [&]() { return Quaternion(iteration);   }},
-            //         {"y", [&]() { return Quaternion(y, 0.0); }},
-            //         {"x", [&]() { return Quaternion(x, 0.0); }}
-            //     };
-                
-
+        // Generate attractors
+        generate_attractors(attractors.data(), n_points);
+        size_t exp_size = strlen(exp);
+        #ifdef USE_CUDA
+            // --- GPU Implementation ---
     
-            //     //Parser parser(x % 2 < 1 ? expression : exp, variables);
-            //     Parser parser( expression, variables, arrays);
-            //     const std::shared_ptr<ASTNode> ast = parser.parse();
+            // fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, xmax, ymin, ymax, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, input_array, array_size);
+        #else
+            // --- CPU Implementation using OpenMP ---
+            const double dx = (xmax - xmin) / width;
+            const double dy = (ymax - ymin) / height;
+    
+            ArrayEntry arrEntries[1] = {
+                {"array", input_array, array_size}
+            };
+            const size_t numArrays = 1;
+    
+            #pragma omp parallel for schedule(dynamic)
+            for (int x = 0; x < width; ++x) {
+                Quaternion z, velocity, force, diff;
+                const double damping = 0.1;
+                Quaternion it_quat(0.0);
+                Quaternion x_quat(static_cast<double>(x));
+                Quaternion y_quat(0.0);
+                int y = 0;
+    
+                VariableEntry varEntries[10] = {
+                    {"z", &z},
+                    {"v", &velocity},
+                    {"f", &force},
+                    {"diff", &diff},
+                    {"phi", const_cast<Quaternion*>(&phi)},
+                    {"pi", const_cast<Quaternion*>(&pi)},
+                    {"e", const_cast<Quaternion*>(&e)},
+                    {"It", &it_quat},
+                    {"y", &y_quat},
+                    {"x", &x_quat}
+                };
 
-            //     const int num_attractors = attractors.size();    
-            //     const double r0 = 0.1;
-                
-            //     while ( y < height ) {
-            //         Quaternion last_it_z;
-            //         z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
-            //         velocity = Quaternion(v_real, v_imag);
+                const size_t numVars = 10;
+                Parser parser(exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+                const ASTNode* ast = parser.parse();
+                const int num_attractors = attractors.size();    
+                const double r0 = 0.1;
+    
+                while (y < height) {
+                    y_quat = (static_cast<double>(y));
+                    Quaternion last_it_z;
+                    z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
+                    velocity = Quaternion(v_real, v_imag);
 
-            //         iteration = 0;
-            //         double temp = 0;
-            //         int closest_attractor_index = -1;
-            //         double min_distance = std::numeric_limits<double>::max();
+                    uint16_t iteration = 0;
+                    double temp = 0;
+                    int closest_attractor_index = -1;
+                    double min_distance = std::numeric_limits<double>::max();
+                    
+    
+                    while (iteration < max_iter) {
+                        it_quat = Quaternion(static_cast<double>(iteration));
+                        force = Quaternion(0);
             
-            //         while (iteration < max_iter) {
-            //             force = Quaternion(0);
-            
-            //             for (int i = 0; i < num_attractors; ++i) {
-            //                 diff = attractors[i] - z;
-            //                 double distance2 = diff.magSquared() + r0 * r0;
-            //                 force += diff / distance2;
+                        for (int i = 0; i < num_attractors; ++i) {
+                            diff = attractors[i] - z;
+                            double distance2 = diff.magSquared() + r0 * r0;
+                            force += diff / distance2;
 
-            //                 if (distance2 < min_distance) {
-            //                     min_distance = distance2;
-            //                     closest_attractor_index = i;
-            //                 }
-            //             }
+                            if (distance2 < min_distance) {
+                                min_distance = distance2;
+                                closest_attractor_index = i;
+                            }
+                        }
 
-            //             force -= velocity * damping;
-            //             velocity += force;
-            //             last_it_z = ast->evaluate();
-            //             if (last_it_z == z && fast_mode) break;
-            //             z = last_it_z;
+                        force -= velocity * damping;
+                        velocity += force;
+                        last_it_z = ast->evaluate();
+                        if (last_it_z == z && fast_mode) break;
+                        z = last_it_z;
             
 
-            //             temp = z.magSquared();
-            //             if (temp > escape_radius) break;
-            //             ++iteration;
-            //         }
-            
-            //         update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
-            //         ++y;
-            //     }
-            // }
-       } 
+                        temp = z.magSquared();
+                        if (temp > escape_radius) break;
+                        ++iteration;
+                    }
+                    update_pendulum_output(output, array_top_colors_outside, width, x, y, closest_attractor_index, num_attractors);
+                    ++y;
+                }
+            }
+        #endif
     }
 
 
     
-    // void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
+    // EXPORT void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
     //             const char* exp, const uint16_t width, const uint16_t height, const int max_iter,
     //             const double xmin, const double xmax, const double ymin, const double ymax,
     //             const double zmin, const double zmax, const double sigma, const double rho, const double beta,
@@ -721,56 +675,66 @@ extern "C" {
         #endif
     }
 
-    // void sandpile(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
-    //             const uint16_t height, const uint32_t n_grains, const int top_colors_outside,const uint16_t max_grains=3) {
-                    
-    //     std::signal(SIGINT, signal_handler);
-    //     std::vector<std::vector<uint32_t>> sandpile(height, std::vector<uint32_t>(width, 0));
-        
-    //     // Add grains to the center of the sandpile
-    //     int half_height = height / 2;
-    //     int half_width = width / 2;
-    //     if (height % 2 == 0 && width % 2 == 0) {
-    //         sandpile[half_height][half_width] = n_grains / 4;
-    //         sandpile[half_height - 1][half_width] = n_grains / 4;
-    //         sandpile[half_height][half_width - 1] = n_grains / 4;
-    //         sandpile[half_height - 1][half_width - 1] = n_grains / 4;
-    //     } else {
-    //         sandpile[half_height][half_width] = n_grains;
-    //     }
+    
+    EXPORT void sandpile(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
+        const uint16_t height, const uint32_t n_grains, const int top_colors_outside, const uint16_t max_grains = 3) {
 
+        std::signal(SIGINT, signal_handler);
 
-        
-    //         bool unstable = true;
-    //         while (unstable) {
-    //             unstable = false;
-        
-    //             // Process each cell in the sandpile
-    //             for (int y = 0; y < height; ++y) {
-    //                 for (int x = 0; x < width; ++x) {
-    //                     // Distribute grains if the number of grains in the cell is greater than max_grains
-    //                     uint32_t grains_to_distribute = sandpile[y][x]; 
-    //                     if (grains_to_distribute > max_grains &&  grains_to_distribute > 3) {
-    //                         grains_to_distribute /= 4;
-    //                         // Distribute grains to neighboring cells
-    //                         if (y > 0) sandpile[y-1][x] += grains_to_distribute;
-    //                         if (y < height-1) sandpile[y+1][x] += grains_to_distribute;
-    //                         if (x > 0) sandpile[y][x-1] += grains_to_distribute;
-    //                         if (x < width-1) sandpile[y][x+1] += grains_to_distribute;
-        
-    //                         // Remove grains from current cell
-    //                         sandpile[y][x] %= 4;
-    //                         unstable = true;
-    //                     }
-    //                     int index = (y * width + x) * 3;
-    //                     int it = array_top_colors_outside[sandpile[y][x] % top_colors_outside];
-    //                     output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
-    //                     output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
-    //                     output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
-    //                 }
-    //             }
-    //         }
-    // }
+        std::vector<uint32_t> sandpile(width*height,0);
+
+        // Add grains to the center of the sandpile
+        int half_height = height / 2;
+        int half_width = width / 2;
+        if (height % 2 == 0 && width % 2 == 0) {
+            sandpile[half_height * width + half_width] = n_grains / 4;
+            sandpile[(half_height - 1) * width + half_width] = n_grains / 4;
+            sandpile[half_height * width + (half_width - 1)] = n_grains / 4;
+            sandpile[(half_height - 1) * width + (half_width - 1)] = n_grains / 4;
+        } else {
+            sandpile[half_height * width + half_width] = n_grains;
+        }
+
+        bool unstable = true;
+        while (unstable) {
+            unstable = false;
+
+            // Process each cell in the sandpile
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int idx = y * width + x;
+                    // Distribute grains if the number of grains in the cell is greater than max_grains
+                    uint32_t grains_to_distribute = sandpile[idx];
+                    if (grains_to_distribute > max_grains && grains_to_distribute > 3) {
+                        uint32_t distribute = grains_to_distribute / 4;
+                        // Distribute grains to neighboring cells
+                        if (y > 0) {
+                            sandpile[(y - 1) * width + x] += distribute;
+                        }
+                        if (y < height - 1) {
+                            sandpile[(y + 1) * width + x] += distribute;
+                        }
+                        if (x > 0) {
+                            sandpile[y * width + (x - 1)] += distribute;
+                        }
+                        if (x < width - 1) {
+                            sandpile[y * width + (x + 1)] += distribute;
+                        }
+                        // Remove grains from the current cell
+                        sandpile[idx] %= 4;
+                        unstable = true;
+                    }
+
+                    // Compute the index for output (each cell corresponds to three bytes for RGB)
+                    int out_index = idx * 3;
+                    int it = array_top_colors_outside[sandpile[idx] % top_colors_outside];
+                    output[out_index]     = static_cast<uint8_t>((it >> 16) & 0xFF); // R
+                    output[out_index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);  // G
+                    output[out_index + 2] = static_cast<uint8_t>(it & 0xFF);         // B
+                }
+            }
+        }
+    }
 
 
 
