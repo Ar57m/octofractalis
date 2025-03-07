@@ -318,7 +318,8 @@ private:
         return (c > 'h' && c < 'l');
     }
 
-    const char* tokens[3] = {"z", "c", "It"};
+    const char* tokens[7] = {"z", "c", "It", "v", "l", "f", "dif"};
+    
     ASTNode* error_zero = createConstantNode(nodeAllocator, constantDataAllocator, Quaternion(0.0));
 
     HOST_DEVICE int my_strlen(const char* s) {
@@ -660,7 +661,7 @@ private:
         return error_zero;
     }
 
-    
+
     HOST_DEVICE ASTNode* parseNumber() {
         char number[256];
         int num_index = 0;

@@ -2,7 +2,7 @@
 #include <omp.h>
 #include <cmath>
 #include <cstdint>
-// #include <vector>
+#include <vector>
 #include <iostream>
 #include <csignal>
 #include <cstdlib>
@@ -213,52 +213,47 @@ void generate_attractors(Quaternion* attractors, int n) {
 //     return trajectory;
 // }
 
-extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside,
-    const int* array_top_colors_lake, const char* exp, const size_t exp_size,
-    const uint16_t width, const uint16_t height, const uint16_t max_iter,
-    const double xmin, const double xmax, const double ymin, const double ymax,
-    const double c_real, const double c_imag, double escape_radius,
-    const bool fast_mode, const bool juliaset, const bool lake,
-    const int top_colors_outside, const int top_colors_lake, const double quaternion_j,
-    const double quaternion_k, const double z_initial_r,
-    const double z_initial_i, double* input_array, const uint32_t array_size);
 
-extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside,
-    const int* array_top_colors_lake, const char* exp, const size_t exp_size,
-    const uint16_t width, const uint16_t height, const uint16_t max_iter,
-    const double xmin, const double xmax, const double ymin,
-    const double ymax, double complex_a, double complex_b,
-    const double quaternion_j, const double quaternion_k, double escape_radius, 
-    const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size);
 
-extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
-    const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
-    const double xmin, const double xmax, const double ymin,
-    const double ymax, const double c_real, const double c_imag,
-    const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
-    const double newton_epsilon, double* input_array, const uint32_t array_size);
 
 
 extern "C" {
 
-    // void scale(const float* input_tensor, float* scaled_tensor, const int input_size,
-    //                 const float new_min, const float new_max) {
-    //     std::signal(SIGINT, signal_handler);
-    //     float current_min = *std::min_element(input_tensor, input_tensor + input_size);
-    //     const float current_max = *std::max_element(input_tensor, input_tensor + input_size);
+    void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside,
+        const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+        const uint16_t width, const uint16_t height, const uint16_t max_iter,
+        const double xmin, const double ymin, const double dx, const double dy,
+        const double c_real, const double c_imag, double escape_radius,
+        const bool fast_mode, const bool juliaset, const bool lake,
+        const int top_colors_outside, const int top_colors_lake, const double quaternion_j,
+        const double quaternion_k, const double z_initial_r,
+        const double z_initial_i, double* input_array, const uint32_t array_size);
+    
+    void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside,
+        const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+        const uint16_t width, const uint16_t height, const uint16_t max_iter,
+        const double xmin, const double ymin, const double dx, const double dy, double complex_a, double complex_b,
+        const double quaternion_j, const double quaternion_k, double escape_radius, 
+        const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size);
+    
+    void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
+        const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
+        const double xmin, const double ymin, const double dx, const double dy, const double c_real, const double c_imag,
+        const bool juliaset, const int top_colors_outside, const int top_colors_lake,
+        const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+        const double newton_epsilon, double* input_array, const uint32_t array_size);
 
-    //     if (current_min == current_max){
-    //         current_min -= 1;
-    //     } 
+    void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const Quaternion* attractors, const char* exp,
+        const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
+        const double xmin, const double ymin, const double dx, const double dy,
+        const double v_real, const double v_imag,
+        double escape_radius, const double quaternion_j, const double quaternion_k,
+        const bool fast_mode, int n_points, double* input_array, const uint32_t array_size);
 
-    //     const float scale_factor = (new_max - new_min) / (current_max - current_min);
-        
-    //     for (int i = 0; i < input_size; ++i) {
-    //         scaled_tensor[i] = (input_tensor[i] - current_min) * scale_factor + new_min;
-    //     }
 
-    // }
+
+
+
 
 
     EXPORT void fractal(uint8_t* output, const int* array_top_colors_outside,
@@ -271,17 +266,21 @@ extern "C" {
         const double quaternion_k, const double z_initial_r,
         const double z_initial_i, double* input_array, const uint32_t array_size)
     {
+    
     std::signal(SIGINT, signal_handler);
     if (escape_radius == 0.0) escape_radius = 2.0;
+
     size_t exp_size = strlen(exp);
+
+    const double dx = (xmax - xmin) / width;
+    const double dy = (ymax - ymin) / height;
+    
     #ifdef USE_CUDA
         // --- GPU Implementation ---
 
-        fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, xmax, ymin, ymax, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, input_array, array_size);
+        fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, input_array, array_size);
     #else
         // --- CPU Implementation using OpenMP ---
-        const double dx = (xmax - xmin) / width;
-        const double dy = (ymax - ymin) / height;
 
         ArrayEntry arrEntries[1] = {
             {"array", input_array, array_size}
@@ -349,30 +348,34 @@ extern "C" {
 
         escape_radius = escape_radius == 0.0 ? 9.0 : escape_radius;
 
-
         n_points = n_points > 1 ? n_points : 2;
         std::vector<Quaternion> attractors(n_points);
     
         // Generate attractors
         generate_attractors(attractors.data(), n_points);
+        
         size_t exp_size = strlen(exp);
+
+        const double dx = (xmax - xmin) / width;
+        const double dy = (ymax - ymin) / height;
+
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-    
-            // fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, xmax, ymin, ymax, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, input_array, array_size);
+            magnet_kernel_call(output, array_top_colors_outside, attractors.data(), exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, v_real, v_imag, escape_radius, quaternion_j, quaternion_k, fast_mode, n_points, input_array, array_size);
+
         #else
             // --- CPU Implementation using OpenMP ---
-            const double dx = (xmax - xmin) / width;
-            const double dy = (ymax - ymin) / height;
+
     
             ArrayEntry arrEntries[1] = {
                 {"array", input_array, array_size}
             };
+
             const size_t numArrays = 1;
     
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion z, velocity, force, diff;
+                Quaternion z, velocity, force, dif;
                 const double damping = 0.1;
                 Quaternion it_quat(0.0);
                 Quaternion x_quat(static_cast<double>(x));
@@ -383,7 +386,7 @@ extern "C" {
                     {"z", &z},
                     {"v", &velocity},
                     {"f", &force},
-                    {"diff", &diff},
+                    {"dif", &dif},
                     {"phi", const_cast<Quaternion*>(&phi)},
                     {"pi", const_cast<Quaternion*>(&pi)},
                     {"e", const_cast<Quaternion*>(&e)},
@@ -415,9 +418,9 @@ extern "C" {
                         force = Quaternion(0);
             
                         for (int i = 0; i < num_attractors; ++i) {
-                            diff = attractors[i] - z;
-                            double distance2 = diff.magSquared() + r0 * r0;
-                            force += diff / distance2;
+                            dif = attractors[i] - z;
+                            double distance2 = dif.magSquared() + r0 * r0;
+                            force += dif / distance2;
 
                             if (distance2 < min_distance) {
                                 min_distance = distance2;
@@ -510,19 +513,20 @@ extern "C" {
         escape_radius = escape_radius == 0.0 ? 600.0 : escape_radius;
         
         size_t exp_size = strlen(exp);
+
+        const double dx = (xmax - xmin) / width;
+        const double dy = (ymax - ymin) / height;
+        
         #ifdef USE_CUDA
             // --- GPU Implementation ---
             lyapunov_kernel_call(output, array_top_colors_outside, array_top_colors_lake,
                 exp, exp_size,width, height, max_iter,
-                xmin, xmax, ymin,
-                ymax, complex_a, complex_b,
+                xmin, ymin, dx, dy, complex_a, complex_b,
                 quaternion_j, quaternion_k, escape_radius, 
                 top_colors_outside, top_colors_lake, input_array, array_size);
         #else
             // --- CPU Implementation using OpenMP ---
-            const double dx = (xmax - xmin) / width;
-            const double dy = (ymax - ymin) / height;
-    
+
             ArrayEntry arrEntries[1] = {
                 {"array", input_array, array_size}
             };
@@ -603,13 +607,16 @@ extern "C" {
 
 
         size_t exp_size = strlen(exp);
+
+        const double dx = (xmax - xmin) / width;
+        const double dy = (ymax - ymin) / height;
+
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, xmax, ymin, ymax, c_real, c_imag, juliaset, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon, input_array, array_size);
+            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, juliaset, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon, input_array, array_size);
         #else
             // --- CPU Implementation using OpenMP ---
-            const double dx = (xmax - xmin) / width;
-            const double dy = (ymax - ymin) / height;
+
     
             ArrayEntry arrEntries[1] = {
                 {"array", input_array, array_size}
