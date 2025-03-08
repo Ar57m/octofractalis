@@ -318,7 +318,7 @@ private:
         return (c > 'h' && c < 'l');
     }
 
-    const char* tokens[7] = {"z", "c", "It", "v", "l", "f", "dif"};
+    const char* tokens[10] = {"z", "c", "It", "v", "l", "f", "dif", "dx", "dy", "dz"};
     
     ASTNode* error_zero = createConstantNode(nodeAllocator, constantDataAllocator, Quaternion(0.0));
 

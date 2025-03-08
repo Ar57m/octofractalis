@@ -10,7 +10,6 @@
 #include <memory>
 #include <functional>
 #include <stdexcept>
-// #include <sstream>
 // #include <chrono>
 #include <cstring>
 
@@ -164,7 +163,7 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 void generate_attractors(Quaternion* attractors, int n) {
     if (n <= 0) return;
 
-    double angle_step = 2 * 3.141592653589793238462643383 / n;
+    double angle_step = 2 * pi.real / n;
 
     for (int i = 0; i < n; ++i) {
         double angle_in_radians = angle_step * i;
@@ -178,40 +177,53 @@ void generate_attractors(Quaternion* attractors, int n) {
 
 
 
-// std::vector<Quaternion> generate_lorenz_trajectory(const double sigma, const double rho, const double beta, const double dt,
-//                         const int max_iter, const std::string expression, const double z_initial_r, const double z_initial_i,
-//                         const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
-//     std::vector<Quaternion> trajectory(max_iter);
-//     int i = 0;
-
-//     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-//     const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
-//         {"z", [&point]() { return point; }},
-//         {"phi", [&]() { return phi; }},
-//         {"pi", [&]() { return pi; }},
-//         {"e", [&]() { return e; }},
-//         {"It", [&]() { return Quaternion(i);   }},
-//         {"dx", [&]() { return sigma * (point.imag - point.real) * dt; }},
-//         {"dy", [&]() { return (point.real * (rho - point.j) - point.imag) * dt; }},
-//         {"dz", [&]() { return (point.real * point.imag - beta * point.j) * dt; }}
-//     };
+void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
+                        const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
+                        const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
     
+    int i = 0;
+
+    Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    Quaternion dx = 0.0;
+    Quaternion dy = 0.0;
+    Quaternion dz = 0.0;
+    Quaternion it_quat = 0.0;
+    const Quaternion dt_q = 0.0;
+
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+    VariableEntry varEntries[9] = {
+        {"z", &point},
+        {"phi", const_cast<Quaternion*>(&phi)},
+        {"pi", const_cast<Quaternion*>(&pi)},
+        {"e", const_cast<Quaternion*>(&e)},
+        {"It", &it_quat},
+        {"dx", &dx},
+        {"dy", &dy},
+        {"dz", &dz},
+        {"dt", const_cast<Quaternion*>(&dt_q)}
+    };
     
-//     const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
-//         {"array", std::make_pair(input_array, array_size)}
-//     };
+    const size_t numVars = 9;
+    Parser parser(expression, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse(); // dx+dy*1i+dz*1j
 
-//     Parser parser(expression, variables, arrays);
-//     const auto ast = parser.parse();
+    while (i < max_iter) {
+        it_quat = static_cast<double>(i);
+        dx = sigma * (point.imag - point.real) * dt;
+        dy = (point.real * (rho - point.j) - point.imag) * dt;
+        dz = (point.real * point.imag - beta * point.j) * dt;
+        point += ast->evaluate();
+        trajectory[i] = point;
+        ++i;
+    }
 
-//     while (i < max_iter) {
-//         point += ast->evaluate();
-//         trajectory[i] = point;
-//         ++i;
-//     }
 
-//     return trajectory;
-// }
+}
+
 
 
 
@@ -448,56 +460,54 @@ extern "C" {
 
 
     
-    // EXPORT void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
-    //             const char* exp, const uint16_t width, const uint16_t height, const int max_iter,
-    //             const double xmin, const double xmax, const double ymin, const double ymax,
-    //             const double zmin, const double zmax, const double sigma, const double rho, const double beta,
-    //             const double dt, const int top_colors_outside, const int axis, const int point_size,
-    //             const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
-    //             double* input_array, const uint32_t array_size) {
-    //     std::signal(SIGINT, signal_handler);
+    EXPORT void lorenz(uint8_t* output, const int* array_top_colors_outside, const double angle,
+                const char* exp, const uint16_t width, const uint16_t height, const int max_iter,
+                const double xmin, const double xmax, const double ymin, const double ymax,
+                const double zmin, const double zmax, const double sigma, const double rho, const double beta,
+                const double dt, const int top_colors_outside, const int axis, const int point_size,
+                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                double* input_array, const uint32_t array_size) {
+        std::signal(SIGINT, signal_handler);
     
 
-    //     const uint16_t max_wh = std::max(width,height);
-    //     const double dx = (xmax - xmin) / width;
-    //     const double dy = (ymax - ymin) / height;
-    //     const double dz = (zmax - zmin) / max_wh;
+        const uint16_t max_wh = std::max(width,height);
+        const double dx = (xmax - xmin) / width;
+        const double dy = (ymax - ymin) / height;
+        const double dz = (zmax - zmin) / max_wh;
 
-    //     std::string expression = std::string(exp);
-    //     if (expression == "z*z+c") {
-    //         expression = "dx+dy*1i+dz*1j";
-    //     }
-    
-    //     const std::vector<Quaternion> trajectory = generate_lorenz_trajectory(sigma, rho, beta, dt, max_iter,
-    //                     expression, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size);
+        size_t exp_size = strlen(exp);
 
-    //     const double camera_position_z = zmin;
-    
-    //     // Initialize depth buffer
-    //     std::vector<float> depthBuffer(width * height, 1e16);
-    
-    //     #pragma omp parallel for schedule(dynamic)
-    //     for (int i = 0; i < max_iter; ++i) {
-    //         Quaternion temp = trajectory[i];
-    //         temp = temp.rotate_in_circle(Quaternion(angle * (pi / 180.0)), Quaternion(axis));
-    //         if (temp.j < camera_position_z || temp.j > zmax) {
-    //             continue;
-    //         }
+        std::vector<Quaternion> trajectory(max_iter);
+        generate_lorenz_trajectory(trajectory.data(), sigma, rho, beta, dt, max_iter,
+            exp, exp_size, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size); // dx+dy*1i+dz*1j
 
-    //         double depth = (temp.j - zmin) / dz;
+        const double camera_position_z = zmin;
     
-    //         int pixel_x = static_cast<int>((temp.real - xmin) / dx);
-    //         int pixel_y = static_cast<int>((temp.imag - ymin) / dy);
-    //         depth =  ((depth / max_wh) * point_size);
+        // Initialize depth buffer
+        std::vector<float> depthBuffer(width * height, 1e16);
     
-    //         int scale_factor = static_cast<int>(point_size - depth);
+        #pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < max_iter; ++i) {
+            Quaternion temp = trajectory[i];
+            temp = temp.rotate_in_circle(Quaternion(angle * (pi.real / 180.0)), Quaternion(axis));
+            if (temp.j < camera_position_z || temp.j > zmax) {
+                continue;
+            }
+
+            double depth = (temp.j - zmin) / dz;
     
-    //         if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
-    //             drawFilledCircle(output, depthBuffer.data(), height, width, pixel_x, pixel_y, scale_factor,
-    //                              depth, array_top_colors_outside[i % (top_colors_outside + 1)]);
-    //         }
-    //     }
-    // }
+            int pixel_x = static_cast<int>((temp.real - xmin) / dx);
+            int pixel_y = static_cast<int>((temp.imag - ymin) / dy);
+            depth =  ((depth / max_wh) * point_size);
+    
+            int scale_factor = static_cast<int>(point_size - depth);
+    
+            if (pixel_x >= 0 && pixel_x < width && pixel_y >= 0 && pixel_y < height) {
+                drawFilledCircle(output, depthBuffer.data(), height, width, pixel_x, pixel_y, scale_factor,
+                                 depth, array_top_colors_outside[i % (top_colors_outside + 1)]);
+            }
+        }
+    }
 
 
     EXPORT void lyapunov(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
