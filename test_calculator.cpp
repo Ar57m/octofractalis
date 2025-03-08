@@ -12,7 +12,7 @@ const Quaternion phi(1.618033988749895, 0.0);
 
 int main() {
     Quaternion z, c;
-    double x = 1, y = 2;
+
     z = Quaternion(0.5, 1.5);
     c = Quaternion(1.0, -1.0, 3.0, 2.0);
     
@@ -57,13 +57,7 @@ int main() {
             std::memcpy(exprBody, expression + 2, j - 2);
             exprBody[j - 2] = '\0';
         }
-        // nodeAllocator.reset();
-        // constantAllocator.reset();
-        // variableAllocator.reset();
-        // arrayAllocator.reset();
-        // unaryAllocator.reset();
-        // binaryAllocator.reset();
-        // ternaryAllocator.reset();
+
 
         try {
             size_t exprSize = std::strlen(expression);

@@ -902,12 +902,14 @@ private:
                     [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
                         return abs(a.real) > 1e-9 ? b : c;
                     });
-            case str2int("pd"):
+            #ifndef USE_CUDA
+            case str2int("rand"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
                     [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
-                        return a.pow(b);
+                        return a.generateRandom(b,c);
                     });
+            #endif
             case str2int("rotate"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
@@ -924,7 +926,7 @@ private:
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
                     [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
-                        return a.minimum(b);
+                        return a.ellipsoid(b,c);
                     });
             default:
                 return nullptr;

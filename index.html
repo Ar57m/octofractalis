@@ -633,6 +633,17 @@
         });
 
 
+
+        document.getElementById("grid_length").addEventListener("input",function() {
+            let gridValue = this.value;
+            if (gridValue > 0) {
+                column_aim.max = gridValue;
+                row_aim.max = gridValue;                
+            }
+
+        });
+
+
         // For the random palette generator
         const elements = {
           colorCount: document.getElementById('colorCount'),
