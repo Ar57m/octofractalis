@@ -163,7 +163,7 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 void generate_attractors(Quaternion* attractors, int n) {
     if (n <= 0) return;
 
-    double angle_step = 2 * pi.real / n;
+    double angle_step = 2 * 3.1415926535897932384626433832795028841971693993751 / n;
 
     for (int i = 0; i < n; ++i) {
         double angle_in_radians = angle_step * i;
@@ -175,13 +175,16 @@ void generate_attractors(Quaternion* attractors, int n) {
     }
 }
 
-
+#ifndef USE_CUDA
 
 void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
                         const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
                         const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
     
     int i = 0;
+    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
+    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
+    Quaternion e(2.7182818284590452353602874713526624977572470937000);
 
     Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
     Quaternion dx = 0.0;
@@ -224,6 +227,7 @@ void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, cons
 
 }
 
+#endif
 
 
 
@@ -262,7 +266,9 @@ extern "C" {
         double escape_radius, const double quaternion_j, const double quaternion_k,
         const bool fast_mode, int n_points, double* input_array, const uint32_t array_size);
 
-
+    void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
+        const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
+        const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size);
 
 
 
@@ -478,18 +484,26 @@ extern "C" {
         size_t exp_size = strlen(exp);
 
         std::vector<Quaternion> trajectory(max_iter);
+
+        #ifdef USE_CUDA
+        generate_lorenz_trajectory_kernel(trajectory.data(), sigma, rho, beta, dt, max_iter,
+            exp, exp_size, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size); // dx+dy*1i+dz*1j
+        
+        #else
         generate_lorenz_trajectory(trajectory.data(), sigma, rho, beta, dt, max_iter,
             exp, exp_size, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size); // dx+dy*1i+dz*1j
+        
+        #endif
 
         const double camera_position_z = zmin;
     
         // Initialize depth buffer
         std::vector<float> depthBuffer(width * height, 1e16);
     
-        #pragma omp parallel for schedule(dynamic)
+        //#pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < max_iter; ++i) {
             Quaternion temp = trajectory[i];
-            temp = temp.rotate_in_circle(Quaternion(angle * (pi.real / 180.0)), Quaternion(axis));
+            temp = temp.rotate_in_circle(Quaternion(angle * (3.1415926535897932384626433832795028841971693993751 / 180.0)), Quaternion(axis));
             if (temp.j < camera_position_z || temp.j > zmax) {
                 continue;
             }

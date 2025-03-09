@@ -25,6 +25,7 @@ private:
     //     while (angle < -pi) angle += 2 * pi;
     //     return angle;
     // }
+    
     HOST_DEVICE inline double noNan(double value) const {
         return ( my_abs(value) < 1e300) ? value : 0.0;
     }
@@ -700,9 +701,9 @@ public:
     }
     #ifndef USE_CUDA
 
-    double generateRandom(const Quaternion& max, const Quaternion& seed) const {
+    Quaternion generateRandom(const Quaternion& max, const Quaternion& seed) const {
         // Use the real part of the seed as the base for generating the random number
-        unsigned int finalSeed = static_cast<unsigned int>(seed.real);
+        unsigned int finalSeed = static_cast<unsigned int>(my_abs(seed.real));
 
         // Validate and correct the magnitude range
         double minMag = mag();
@@ -726,7 +727,7 @@ public:
         }
 
         std::uniform_real_distribution<double> distribution(minMag, maxMag);
-        return distribution(generator);
+        return Quaternion(distribution(generator));
     }
     
     std::string to_string() const {

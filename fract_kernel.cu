@@ -739,5 +739,91 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
 }
 
 
+__global__ void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
+                        const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
+                        const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
+    
 
+    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
+    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
+    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+
+    Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    Quaternion dx = 0.0;
+    Quaternion dy = 0.0;
+    Quaternion dz = 0.0;
+    Quaternion it_quat = 0.0;
+    const Quaternion dt_q = 0.0;
+
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+    VariableEntry varEntries[9] = {
+        {"z", &point},
+        {"phi", const_cast<Quaternion*>(&phi)},
+        {"pi", const_cast<Quaternion*>(&pi)},
+        {"e", const_cast<Quaternion*>(&e)},
+        {"It", &it_quat},
+        {"dx", &dx},
+        {"dy", &dy},
+        {"dz", &dz},
+        {"dt", const_cast<Quaternion*>(&dt_q)}
+    };
+    
+    const size_t numVars = 9;
+    Parser parser(expression, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse(); // dx+dy*1i+dz*1j
+
+    #pragma unroll
+    for (int i = 0; i < max_iter; ++i) {
+        it_quat = static_cast<double>(i);
+        dx = sigma * (point.imag - point.real) * dt;
+        dy = (point.real * (rho - point.j) - point.imag) * dt;
+        dz = (point.real * point.imag - beta * point.j) * dt;
+        point += ast->evaluate();
+        trajectory[i] = point;
+    }
+}
+
+extern "C" void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
+    const int max_iter, const char* exp, const size_t exp_size, const double z_initial_r, const double z_initial_i,
+    const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
+
+
+    cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+    // Allocate device memory using the RAII wrapper.
+    // Note: The count here is the number of elements.
+    CudaMemory<double> d_input_array(array_size);
+    CudaMemory<Quaternion> d_trajectory(max_iter);
+    
+    size_t exp_len = exp_size + 1; // +1 for null terminator
+    CudaMemory<char> d_exp(exp_len);
+
+    // Copy host data to device
+    copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+    copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+    copyMemory(d_trajectory.get(), trajectory, max_iter, cudaMemcpyHostToDevice);
+    
+
+    generate_lorenz_trajectory<<<1, 1>>>(d_trajectory.get(),
+                    sigma, rho, beta, dt, max_iter,
+                    d_exp.get(), exp_size, z_initial_r, z_initial_i,
+                    quaternion_j, quaternion_k, d_input_array.get(), array_size);
+
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+    }
+
+    // Synchronize the device to ensure kernel completion
+    cudaDeviceSynchronize();
+
+    // Copy the result from device to host
+    copyMemory(trajectory, d_trajectory.get(), max_iter, cudaMemcpyDeviceToHost);
+
+}
 
