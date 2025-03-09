@@ -18,7 +18,7 @@ fractal = lib.fractal
 lyapunov = lib.lyapunov
 newton = lib.newton
 magnet = lib.magnet
-# lorenz = lib.lorenz
+lorenz = lib.lorenz
 sandpile = lib.sandpile
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
@@ -39,10 +39,10 @@ magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
     c_double, c_double, c_double, c_bool, c_int, POINTER(c_double), c_uint32]
 
-# lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
-#     c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
-#     c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double,
-#     c_double, c_double, POINTER(c_double), c_uint32]
+lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
+    c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
+    c_double, c_double, c_double, c_double, c_int, c_int, c_int, c_double, c_double,
+    c_double, c_double, POINTER(c_double), c_uint32]
 
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
@@ -348,25 +348,25 @@ def generate(all_parameters):
             save_img()
 
 
-        # # Lorenz Attractor / Lorenz system
-        # if ((key == "lorenz")) and (value):
+        # Lorenz Attractor / Lorenz system
+        if ((key == "lorenz")) and (value):
 
-        #     lorenz(
-        #         gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-        #         rotation_angle,
-        #         expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-        #         zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
-        #         axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i,
-        #         array.ctypes.data_as(POINTER(c_double)), array.size
-        #     )
-        #     save_img()
+            lorenz(
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                rotation_angle,
+                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
+                zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
+                axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i,
+                array.ctypes.data_as(POINTER(c_double)), array.size
+            )
+            save_img()
 
 
         # Magnet Pendulum Attractor
         if (key == "magnet") and (value):
             
             magnet(
-                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
+                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside[:n_points].ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax, velocity_r, velocity_i, escape_radius,
                 quaternion_j, quaternion_k, fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
             )
