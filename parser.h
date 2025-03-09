@@ -469,17 +469,17 @@ private:
         for (int t = 0; t < numTokens; t++) {
             const char* token = tokens[t];
             // Build the replacement string into rep.
-            char rep[64];  // Sufficient for "(" + token + "+0.000001)"
+            char rep[128];  // Sufficient for "(" + token + "+0.000001)"
             int rep_index = 0;
             rep[rep_index++] = '(';
-            for (int i = 0; token[i] != '\0' && rep_index < 63; i++) {
+            for (int i = 0; token[i] != '\0' && rep_index < 127; i++) {
                 rep[rep_index++] = token[i];
             }
             const char* suffix = "+0.000001";
-            for (int i = 0; suffix[i] != '\0' && rep_index < 63; i++) {
+            for (int i = 0; suffix[i] != '\0' && rep_index < 127; i++) {
                 rep[rep_index++] = suffix[i];
             }
-            rep[rep_index++] = ')';
+            if (rep_index < 127) rep[rep_index++] = ')';
             rep[rep_index] = '\0';
             
             // Calculate token length.
@@ -836,7 +836,7 @@ private:
                 
                 pos = old_pos;
                 eraseBeforePos(pos);
-                replaceTokens(tokens, 3);
+                replaceTokens(tokens, 10);
                 expr_size = my_strlen(expr);
                 pos = 0;
                 ASTNode* arg2 = parseExpression();
