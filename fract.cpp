@@ -181,7 +181,7 @@ void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, cons
                         const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
                         const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
     
-    int i = 0;
+
     Quaternion pi(3.1415926535897932384626433832795028841971693993751);
     Quaternion phi(1.6180339887498948482045868343656381177203091798057);
     Quaternion e(2.7182818284590452353602874713526624977572470937000);
@@ -214,14 +214,13 @@ void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, cons
     Parser parser(expression, exp_size, varEntries, numVars, arrEntries, numArrays);
     const ASTNode* ast = parser.parse(); // dx+dy*1i+dz*1j
 
-    while (i < max_iter) {
+    for (int i = 0; i < max_iter; ++i) {
         it_quat = static_cast<double>(i);
         dx = sigma * (point.imag - point.real) * dt;
         dy = (point.real * (rho - point.j) - point.imag) * dt;
         dz = (point.real * point.imag - beta * point.j) * dt;
         point += ast->evaluate();
         trajectory[i] = point;
-        ++i;
     }
 
 
