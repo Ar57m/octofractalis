@@ -70,8 +70,8 @@ all_parameters = {
 
 
 
-    'width' : int(2048), # I'm using ratio 1/1
-    'height' : int(2048), #2304
+    'width' : int(1024), # I'm using ratio 1/1
+    'height' : int(1024), #2304
 
     # Number of iterations
     'max_iter' : 400,
@@ -110,7 +110,7 @@ all_parameters = {
     'gradient' : 16,        # Amount of colors between the colors
 
     # How many top colors to use from the palette.png
-    'top_colors' : 24,
+    'top_colors' : 16,
     'levels' : 16,      # Level of quantization of the palette to be processed
     'shift_palette' : 0,   # This shift the palette, you can set negative and positive integers.
     'shift_palette_lake' : 0,
@@ -380,7 +380,7 @@ def generate(all_parameters):
                 width, height, max_iter, (array_top_colors_outside.shape[0]), max_grains)
             save_img()
 
-    write_to_file("last_expressions.txt" , input_expression +str(time.time()-ini)+ ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
+    write_to_file("last_expressions.txt" , input_expression + ", " + str(time.time()-ini) + ", " + ", ".join(img_names)) if all_parameters["save_expressions"] else None
     return img_names
 
 
