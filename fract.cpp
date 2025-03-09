@@ -78,7 +78,7 @@ void signal_handler(int signal) {
 
 
 
-void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const double temp,
+void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType temp,
                 const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
                 const bool not_escaped, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
 
@@ -134,10 +134,10 @@ void drawFilledCircle(uint8_t* array, float* depthBuffer, const int rows, const 
 
 
 void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
-                    const double c_real, const double c_imag,
-                    const double r_part, const double i_part,
-                    const double z_initial_r, const double z_initial_i,
-                    const double quaternion_j = 0.0, const double quaternion_k = 0.0) {
+                    const DefaultType c_real, const DefaultType c_imag,
+                    const DefaultType r_part, const DefaultType i_part,
+                    const DefaultType z_initial_r, const DefaultType z_initial_i,
+                    const DefaultType quaternion_j = 0.0, const DefaultType quaternion_k = 0.0) {
 
     if (juliaset) {
         c = Quaternion(c_real, c_imag);
@@ -163,13 +163,15 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 void generate_attractors(Quaternion* attractors, int n) {
     if (n <= 0) return;
 
-    double angle_step = 2 * 3.1415926535897932384626433832795028841971693993751 / n;
+    DefaultType angle_step = 2 * 3.1415926535897932384626433832795028841971693993751 / n;
 
     for (int i = 0; i < n; ++i) {
-        double angle_in_radians = angle_step * i;
 
-        double new_r = 1.5 * std::cos(angle_in_radians);
-        double new_i = 1.5 * std::sin(angle_in_radians);
+
+        DefaultType angle_in_radians = angle_step * i;
+
+        DefaultType new_r = 1.5 * std::cos(angle_in_radians);
+        DefaultType new_i = 1.5 * std::sin(angle_in_radians);
         
         attractors[i] =  Quaternion(new_r, new_i);
     }
@@ -177,9 +179,9 @@ void generate_attractors(Quaternion* attractors, int n) {
 
 #ifndef USE_CUDA
 
-void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
-                        const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
-                        const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size) {
+void generate_lorenz_trajectory(Quaternion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+                        const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
+                        const DefaultType quaternion_j, const DefaultType quaternion_k, double* input_array, const uint32_t array_size) {
     
 
     Quaternion pi(3.1415926535897932384626433832795028841971693993751);
@@ -215,7 +217,7 @@ void generate_lorenz_trajectory(Quaternion* trajectory, const double sigma, cons
     const ASTNode* ast = parser.parse(); // dx+dy*1i+dz*1j
 
     for (int i = 0; i < max_iter; ++i) {
-        it_quat = static_cast<double>(i);
+        it_quat = static_cast<DefaultType>(i);
         dx = sigma * (point.imag - point.real) * dt;
         dy = (point.real * (rho - point.j) - point.imag) * dt;
         dz = (point.real * point.imag - beta * point.j) * dt;
@@ -237,37 +239,37 @@ extern "C" {
     void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside,
         const int* array_top_colors_lake, const char* exp, const size_t exp_size,
         const uint16_t width, const uint16_t height, const uint16_t max_iter,
-        const double xmin, const double ymin, const double dx, const double dy,
-        const double c_real, const double c_imag, double escape_radius,
+        const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy,
+        const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius,
         const bool fast_mode, const bool juliaset, const bool lake,
-        const int top_colors_outside, const int top_colors_lake, const double quaternion_j,
-        const double quaternion_k, const double z_initial_r,
-        const double z_initial_i, double* input_array, const uint32_t array_size);
+        const int top_colors_outside, const int top_colors_lake, const DefaultType quaternion_j,
+        const DefaultType quaternion_k, const DefaultType z_initial_r,
+        const DefaultType z_initial_i, double* input_array, const uint32_t array_size);
     
     void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside,
         const int* array_top_colors_lake, const char* exp, const size_t exp_size,
         const uint16_t width, const uint16_t height, const uint16_t max_iter,
-        const double xmin, const double ymin, const double dx, const double dy, double complex_a, double complex_b,
-        const double quaternion_j, const double quaternion_k, double escape_radius, 
+        const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy, DefaultType complex_a, DefaultType complex_b,
+        const DefaultType quaternion_j, const DefaultType quaternion_k, DefaultType escape_radius, 
         const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size);
     
     void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
         const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
-        const double xmin, const double ymin, const double dx, const double dy, const double c_real, const double c_imag,
+        const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
         const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-        const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
-        const double newton_epsilon, double* input_array, const uint32_t array_size);
+        const DefaultType quaternion_j, const DefaultType quaternion_k, const DefaultType z_initial_r, const DefaultType z_initial_i,
+        const DefaultType newton_epsilon, double* input_array, const uint32_t array_size);
 
     void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const Quaternion* attractors, const char* exp,
         const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
-        const double xmin, const double ymin, const double dx, const double dy,
-        const double v_real, const double v_imag,
-        double escape_radius, const double quaternion_j, const double quaternion_k,
+        const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy,
+        const DefaultType v_real, const DefaultType v_imag,
+        DefaultType escape_radius, const DefaultType quaternion_j, const DefaultType quaternion_k,
         const bool fast_mode, int n_points, double* input_array, const uint32_t array_size);
 
-    void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const double sigma, const double rho, const double beta, const double dt,
-        const int max_iter, const char* expression, const size_t exp_size, const double z_initial_r, const double z_initial_i,
-        const double quaternion_j, const double quaternion_k, double* input_array, const uint32_t array_size);
+    void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+        const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
+        const DefaultType quaternion_j, const DefaultType quaternion_k, double* input_array, const uint32_t array_size);
 
 
 
@@ -289,8 +291,8 @@ extern "C" {
 
     size_t exp_size = strlen(exp);
 
-    const double dx = (xmax - xmin) / width;
-    const double dy = (ymax - ymin) / height;
+    const DefaultType dx = (xmax - xmin) / width;
+    const DefaultType dy = (ymax - ymin) / height;
     
     #ifdef USE_CUDA
         // --- GPU Implementation ---
@@ -308,7 +310,7 @@ extern "C" {
         for (int x = 0; x < width; ++x) {
             Quaternion z , c, last_it_z;
             Quaternion it_quat(0.0);
-            Quaternion x_quat(static_cast<double>(x));
+            Quaternion x_quat(static_cast<DefaultType>(x));
             Quaternion y_quat(0.0);
             int y = 0;
 
@@ -327,17 +329,17 @@ extern "C" {
             const ASTNode* ast = parser.parse();
 
             while (y < height) {
-                y_quat = (static_cast<double>(y));
+                y_quat = (static_cast<DefaultType>(y));
                 setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
                     ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
 
                 uint16_t iteration = 0;
-                double temp = 0.0;
+                DefaultType temp = 0.0;
                 bool not_escaped = true;
                 
 
                 while ( not_escaped && iteration < max_iter) {
-                    it_quat = Quaternion(static_cast<double>(iteration));
+                    it_quat = Quaternion(static_cast<DefaultType>(iteration));
                     last_it_z = (ast->evaluate());
                     if (last_it_z == z && fast_mode) break;
                     z = last_it_z;
@@ -373,8 +375,8 @@ extern "C" {
         
         size_t exp_size = strlen(exp);
 
-        const double dx = (xmax - xmin) / width;
-        const double dy = (ymax - ymin) / height;
+        const DefaultType dx = (xmax - xmin) / width;
+        const DefaultType dy = (ymax - ymin) / height;
 
         #ifdef USE_CUDA
             // --- GPU Implementation ---
@@ -393,9 +395,9 @@ extern "C" {
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
                 Quaternion z, velocity, force, dif;
-                const double damping = 0.1;
+                const DefaultType damping = 0.1;
                 Quaternion it_quat(0.0);
-                Quaternion x_quat(static_cast<double>(x));
+                Quaternion x_quat(static_cast<DefaultType>(x));
                 Quaternion y_quat(0.0);
                 int y = 0;
     
@@ -416,27 +418,27 @@ extern "C" {
                 Parser parser(exp, exp_size, varEntries, numVars, arrEntries, numArrays);
                 const ASTNode* ast = parser.parse();
                 const int num_attractors = attractors.size();    
-                const double r0 = 0.1;
+                const DefaultType r0 = 0.1;
     
                 while (y < height) {
-                    y_quat = (static_cast<double>(y));
+                    y_quat = (static_cast<DefaultType>(y));
                     Quaternion last_it_z;
                     z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
                     velocity = Quaternion(v_real, v_imag);
 
                     uint16_t iteration = 0;
-                    double temp = 0;
+                    DefaultType temp = 0;
                     int closest_attractor_index = -1;
-                    double min_distance = std::numeric_limits<double>::max();
+                    DefaultType min_distance = Max_flt;
                     
     
                     while (iteration < max_iter) {
-                        it_quat = Quaternion(static_cast<double>(iteration));
+                        it_quat = Quaternion(static_cast<DefaultType>(iteration));
                         force = Quaternion(0);
             
                         for (int i = 0; i < num_attractors; ++i) {
                             dif = attractors[i] - z;
-                            double distance2 = dif.magSquared() + r0 * r0;
+                            DefaultType distance2 = dif.magSquared() + r0 * r0;
                             force += dif / distance2;
 
                             if (distance2 < min_distance) {
@@ -476,9 +478,9 @@ extern "C" {
     
 
         const uint16_t max_wh = std::max(width,height);
-        const double dx = (xmax - xmin) / width;
-        const double dy = (ymax - ymin) / height;
-        const double dz = (zmax - zmin) / max_wh;
+        const DefaultType dx = (xmax - xmin) / width;
+        const DefaultType dy = (ymax - ymin) / height;
+        const DefaultType dz = (zmax - zmin) / max_wh;
 
         size_t exp_size = strlen(exp);
 
@@ -494,7 +496,7 @@ extern "C" {
         
         #endif
 
-        const double camera_position_z = zmin;
+        const DefaultType camera_position_z = zmin;
     
         // Initialize depth buffer
         std::vector<float> depthBuffer(width * height, 1e16);
@@ -507,7 +509,7 @@ extern "C" {
                 continue;
             }
 
-            double depth = (temp.j - zmin) / dz;
+            DefaultType depth = (temp.j - zmin) / dz;
     
             int pixel_x = static_cast<int>((temp.real - xmin) / dx);
             int pixel_y = static_cast<int>((temp.imag - ymin) / dy);
@@ -537,8 +539,8 @@ extern "C" {
         
         size_t exp_size = strlen(exp);
 
-        const double dx = (xmax - xmin) / width;
-        const double dy = (ymax - ymin) / height;
+        const DefaultType dx = (xmax - xmin) / width;
+        const DefaultType dy = (ymax - ymin) / height;
         
         #ifdef USE_CUDA
             // --- GPU Implementation ---
@@ -559,7 +561,7 @@ extern "C" {
             for (int x = 0; x < width; ++x) {
                 Quaternion v, l, temp;
                 Quaternion it_quat(0.0);
-                Quaternion x_quat(static_cast<double>(x));
+                Quaternion x_quat(static_cast<DefaultType>(x));
                 Quaternion y_quat(0.0);
                 Quaternion k_q = 0.0;
                 int y = 0;
@@ -589,7 +591,7 @@ extern "C" {
                     v = Quaternion(0.5, 0.0);
 
                     k = 0;
-                    y_quat = (static_cast<double>(y));
+                    y_quat = (static_cast<DefaultType>(y));
 
 
                     double l_mag = 0.0;

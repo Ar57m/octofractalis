@@ -345,7 +345,7 @@ private:
     }
 
 
-    HOST_DEVICE double my_atof(const char* str) {
+    HOST_DEVICE DefaultType my_atof(const char* str) {
         // Skip any leading whitespace.
         while (*str == ' ' || *str == '\t' || *str == '\n') {
             str++;
@@ -360,7 +360,7 @@ private:
             str++;
         }
         
-        double result = 0.0;
+        DefaultType result = 0.0;
         
         // Process the integer part.
         while (*str >= '0' && *str <= '9') {
@@ -371,8 +371,8 @@ private:
         // Process the fractional part.
         if (*str == '.') {
             str++;
-            double fraction = 0.0;
-            double divisor = 10.0;
+            DefaultType fraction = 0.0;
+            DefaultType divisor = 10.0;
             while (*str >= '0' && *str <= '9') {
                 fraction += (*str - '0') / divisor;
                 divisor *= 10.0;
@@ -396,7 +396,7 @@ private:
                 exponent = exponent * 10 + (*str - '0');
                 str++;
             }
-            double expMultiplier = 1.0;
+            DefaultType expMultiplier = 1.0;
             // Compute 10^exponent by simple multiplication.
             for (int i = 0; i < exponent; ++i) {
                 expMultiplier *= 10.0;
@@ -665,7 +665,7 @@ private:
     HOST_DEVICE ASTNode* parseNumber() {
         char number[256];
         int num_index = 0;
-        double realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
+        DefaultType realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
         char identifier = '\0';
         char exprpos = expr[pos];
         bool imag = isImaginaryChar(exprpos);
@@ -693,7 +693,7 @@ private:
             number[i] = '\0';
         }
         
-        const double parsedValue = (identifier != '\0' && my_strcmp(number, "0.0") == 0) ? 1.0 : my_atof(number);
+        const DefaultType parsedValue = (identifier != '\0' && my_strcmp(number, "0.0") == 0) ? 1.0 : my_atof(number);
         
         switch (identifier) {
             case 'i':
