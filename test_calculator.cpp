@@ -1,8 +1,7 @@
 #include <iostream>
-#include <unordered_map>
 #include <functional>
-#include <string>
 #include <algorithm>
+#include <cstring>
 
 #include "custom_quaternion.h"
 #include "parser.h"
@@ -13,67 +12,87 @@ const Quaternion phi(1.618033988749895, 0.0);
 
 int main() {
     Quaternion z, c;
-    double x = 1, y = 2;
-    z = Quaternion(0.5, 1.5);//, 0.2, 0.1);
-    c = Quaternion(1.0, -1.0,3.0,2.0);//, 0.8, 0.4);
-    
-    //sstd::cout << z.pow(2) << z.pow(Quaternion(2.0)) <<c.pow(2) << c.pow(Quaternion(2.0))<<"\n";
 
-    const std::unordered_map<std::string, std::function<Quaternion()>> variables = {
-        {"z", [&z]() { return z; }},
-        {"c", [&c]() { return c; }},
-        {"phi", [&]() { return phi; }},
-        {"pi", [&]() { return pi; }},
-        {"e", [&]() { return e; }},
-        {"y", [&]() { return Quaternion(y, 0.0); }},
-        {"x", [&]() { return Quaternion(x, 0.0); }}
+    z = Quaternion(0.5, 1.5);
+    c = Quaternion(1.0, -1.0, 3.0, 2.0);
+    
+    VariableEntry varEntries[5] = {
+        {"z", &z},
+        {"c", &c},
+        {"phi", const_cast<Quaternion*>(&phi)},
+        {"pi", const_cast<Quaternion*>(&pi)},
+        {"e", const_cast<Quaternion*>(&e)},
     };
+    const size_t numVars = sizeof(varEntries) / sizeof(VariableEntry);
+
     double myArray[] = {1.0, 2.0, 3.0, 4.0, 5.0};
-    uint32_t arraySize = 5;
-    
-    
-    const std::unordered_map<std::string, std::pair<double*, uint32_t>> arrays = {
-        {"array", {myArray, arraySize}}
+    ArrayEntry arrEntries[1] = {
+        {"array", myArray, 5}
     };
-    
+    const size_t numArrays = sizeof(arrEntries) / sizeof(ArrayEntry);
     
 
-    std::string expression;
+    
     while (true) {
-        std::cout << "\nEnter expression (or type 'exit' to quit):\n";
-        std::getline(std::cin, expression);
-        expression.erase(std::remove(expression.begin(), expression.end(), ' '), expression.end());
+        char expression[512] = {};
 
-        if (expression.find("exit") == 0) break;
+        std::cout << "\nEnter expression (or type 'exit' to quit):\n";
+        std::cin.getline(expression, sizeof(expression));
+
+        size_t len = std::strlen(expression);
+        size_t j = 0;
+        for (size_t i = 0; i < len; i++) {
+            if (expression[i] != ' ') {
+                expression[j++] = expression[i];
+            }
+        }
+        expression[j] = '\0';
+
+        if (std::strcmp(expression, "exit") == 0) {
+            break;
+        }
+
+        char exprBody[510] = {};
+        if (j > 2) {
+            std::memcpy(exprBody, expression + 2, j - 2);
+            exprBody[j - 2] = '\0';
+        }
+
 
         try {
-            if (expression.find("z=") == 0) {
-                expression.erase(0, 2);
-                Parser parser(expression, variables, arrays);
-                const auto ast = parser.parse();
+            size_t exprSize = std::strlen(expression);
+            
+            if (std::strncmp(expression, "z=", 2) == 0) {
+
+                Parser parser(exprBody, exprSize, varEntries, numVars, arrEntries, numArrays);
+
+                ASTNode* ast = parser.parse();
                 z = ast->evaluate();
                 std::cout << "\nValue assigned to z: " << z << "\n";
                 continue;
             }
 
-            if (expression.find("c=") == 0) {
-                expression.erase(0, 2);
-                Parser parser(expression, variables, arrays);
-                const auto ast = parser.parse();
+            if (std::strncmp(expression, "c=", 2) == 0) {
+
+                Parser parser(exprBody, exprSize, varEntries, numVars, arrEntries, numArrays);
+
+                ASTNode* ast = parser.parse();
                 c = ast->evaluate();
                 std::cout << "\nValue assigned to c: " << c << "\n";
                 continue;
             }
 
-            Parser parser(expression, variables, arrays);
-            const auto ast = parser.parse();
+            
+            Parser parser(expression, exprSize, varEntries, numVars, arrEntries, numArrays);
+
+            ASTNode* ast = parser.parse();
             Quaternion result = ast->evaluate();
             std::cout << "\nResult: " << result << "\n";
-        } catch (const std::exception& e) {
-            std::cerr << "\nError: " << e.what() << "\n";
+        }
+        catch (const std::exception& ex) {
+            std::cerr << "\nError: " << ex.what() << "\n";
         }
     }
-
     return 0;
 }
 // g++ -O3 -Wall -Wextra -pedantic -march=native -fPIC -funroll-loops -fopenmp -o test_calculator test_calculator.cpp 
