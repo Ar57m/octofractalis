@@ -17,7 +17,7 @@ pip install numpy opencv-python
 (on termux is necessary to `apt install x11-repo && apt update && apt install opencv && apt install opencv-python`)
 <br>
 <br>
-Passing the flag --cuda on NVIDIA GPUs it will use gpu to compute, also there is the --f32 flag to use float32 on almost all operations, it may improve speed in some machines.
+Passing the flag --cuda on NVIDIA GPUs it will use the gpu to compute, also there is the --f32 flag to use float32 on almost all operations, it may improve speed in some machines.
 
 ```bash
 git clone https://github.com/Ar57m/another_fractal_generator
