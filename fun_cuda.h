@@ -1,7 +1,7 @@
 #ifndef CUDA_MATH_WRAPPER_H
 #define CUDA_MATH_WRAPPER_H
 
-#include <cfloat>
+
 
 
 
