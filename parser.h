@@ -759,7 +759,7 @@ private:
     HOST_DEVICE ASTNode* parseNumber() {
         char number[256];
         int num_index = 0;
-        DefaultType realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0, lPart = 0.0, mPart = 0.0, nPart = 0.0, oPart = 0.0;
+        DefaultType realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0;
         char identifier = '\0';
         char exprpos = expr[pos];
         bool imag = isImaginaryChar(exprpos);
