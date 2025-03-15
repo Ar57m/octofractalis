@@ -3,25 +3,25 @@
 #include <algorithm>
 #include <cstring>
 
-#include "custom_quaternion.h"
+
 #include "parser.h"
 
-const Quaternion pi(3.141592653589793, 0.0);
-const Quaternion e(2.718281828459045, 0.0);
-const Quaternion phi(1.618033988749895, 0.0);
+const QuaternionOrOctonion pi(3.141592653589793, 0.0);
+const QuaternionOrOctonion e(2.718281828459045, 0.0);
+const QuaternionOrOctonion phi(1.618033988749895, 0.0);
 
 int main() {
-    Quaternion z, c;
+    QuaternionOrOctonion z, c;
 
-    z = Quaternion(0.5, 1.5);
-    c = Quaternion(1.0, -1.0, 3.0, 2.0);
+    z = QuaternionOrOctonion(0.5, 1.5);
+    c = QuaternionOrOctonion(1.0, -1.0, 3.0, 2.0);
     
     VariableEntry varEntries[5] = {
         {"z", &z},
         {"c", &c},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
     };
     const size_t numVars = sizeof(varEntries) / sizeof(VariableEntry);
 
@@ -86,7 +86,7 @@ int main() {
             Parser parser(expression, exprSize, varEntries, numVars, arrEntries, numArrays);
 
             ASTNode* ast = parser.parse();
-            Quaternion result = ast->evaluate();
+            QuaternionOrOctonion result = ast->evaluate();
             std::cout << "\nResult: " << result << "\n";
         }
         catch (const std::exception& ex) {

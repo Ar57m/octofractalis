@@ -13,13 +13,17 @@
 // #include <chrono>
 #include <cstring>
 
-#include "custom_quaternion.h"
+#ifndef OCTO
+    #include "custom_quaternion.h"
+#else
+    #include "custom_octonion.h"
+#endif
 
 #ifndef USE_CUDA
 #include "parser.h"
-Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-Quaternion e(2.7182818284590452353602874713526624977572470937000);
+QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 #endif
 
 #ifdef _WIN32
@@ -133,18 +137,18 @@ void drawFilledCircle(uint8_t* array, float* depthBuffer, const int rows, const 
 }
 
 
-void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
+void setQuaternionOrOctonionValues(const bool juliaset, QuaternionOrOctonion& c, QuaternionOrOctonion& z,
                     const DefaultType c_real, const DefaultType c_imag,
                     const DefaultType r_part, const DefaultType i_part,
                     const DefaultType z_initial_r, const DefaultType z_initial_i,
-                    const DefaultType quaternion_j = 0.0, const DefaultType quaternion_k = 0.0) {
+                    const DefaultType QuaternionOrOctonion_j = 0.0, const DefaultType QuaternionOrOctonion_k = 0.0) {
 
     if (juliaset) {
-        c = Quaternion(c_real, c_imag);
-        z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
+        c = QuaternionOrOctonion(c_real, c_imag);
+        z = QuaternionOrOctonion(r_part, i_part, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
     } else {
-        c = Quaternion(r_part, i_part);
-        z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
     }
 }
 
@@ -160,7 +164,7 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 }
 
 
-void generate_attractors(Quaternion* attractors, int n) {
+void generate_attractors(QuaternionOrOctonion* attractors, int n) {
     if (n <= 0) return;
 
     DefaultType angle_step = 2 * 3.1415926535897932384626433832795028841971693993751 / n;
@@ -173,27 +177,27 @@ void generate_attractors(Quaternion* attractors, int n) {
         DefaultType new_r = 1.5 * std::cos(angle_in_radians);
         DefaultType new_i = 1.5 * std::sin(angle_in_radians);
         
-        attractors[i] =  Quaternion(new_r, new_i);
+        attractors[i] =  QuaternionOrOctonion(new_r, new_i);
     }
 }
 
 #ifndef USE_CUDA
 
-void generate_lorenz_trajectory(Quaternion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+void generate_lorenz_trajectory(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
                         const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-                        const DefaultType quaternion_j, const DefaultType quaternion_k, double* input_array, const uint32_t array_size) {
+                        const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, double* input_array, const uint32_t array_size) {
     
 
-    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-    Quaternion dx = 0.0;
-    Quaternion dy = 0.0;
-    Quaternion dz = 0.0;
-    Quaternion it_quat = 0.0;
-    const Quaternion dt_q = 0.0;
+    QuaternionOrOctonion point(z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+    QuaternionOrOctonion dx = 0.0;
+    QuaternionOrOctonion dy = 0.0;
+    QuaternionOrOctonion dz = 0.0;
+    QuaternionOrOctonion it_quat = 0.0;
+    const QuaternionOrOctonion dt_q = 0.0;
 
     ArrayEntry arrEntries[1] = {
         {"array", input_array, array_size}
@@ -202,14 +206,14 @@ void generate_lorenz_trajectory(Quaternion* trajectory, const DefaultType sigma,
 
     VariableEntry varEntries[9] = {
         {"z", &point},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
-        {"It", &it_quat},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
         {"dx", &dx},
         {"dy", &dy},
         {"dz", &dz},
-        {"dt", const_cast<Quaternion*>(&dt_q)}
+        {"dt", const_cast<QuaternionOrOctonion*>(&dt_q)}
     };
     
     const size_t numVars = 9;
@@ -242,34 +246,34 @@ extern "C" {
         const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy,
         const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius,
         const bool fast_mode, const bool juliaset, const bool lake,
-        const int top_colors_outside, const int top_colors_lake, const DefaultType quaternion_j,
-        const DefaultType quaternion_k, const DefaultType z_initial_r,
+        const int top_colors_outside, const int top_colors_lake, const DefaultType QuaternionOrOctonion_j,
+        const DefaultType QuaternionOrOctonion_k, const DefaultType z_initial_r,
         const DefaultType z_initial_i, double* input_array, const uint32_t array_size);
     
     void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside,
         const int* array_top_colors_lake, const char* exp, const size_t exp_size,
         const uint16_t width, const uint16_t height, const uint16_t max_iter,
         const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy, DefaultType complex_a, DefaultType complex_b,
-        const DefaultType quaternion_j, const DefaultType quaternion_k, DefaultType escape_radius, 
+        const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, DefaultType escape_radius, 
         const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size);
     
     void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
         const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
         const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
         const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-        const DefaultType quaternion_j, const DefaultType quaternion_k, const DefaultType z_initial_r, const DefaultType z_initial_i,
+        const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, const DefaultType z_initial_r, const DefaultType z_initial_i,
         const DefaultType newton_epsilon, double* input_array, const uint32_t array_size);
 
-    void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const Quaternion* attractors, const char* exp,
+    void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const QuaternionOrOctonion* attractors, const char* exp,
         const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
         const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy,
         const DefaultType v_real, const DefaultType v_imag,
-        DefaultType escape_radius, const DefaultType quaternion_j, const DefaultType quaternion_k,
+        DefaultType escape_radius, const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k,
         const bool fast_mode, int n_points, double* input_array, const uint32_t array_size);
 
-    void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+    void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
         const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-        const DefaultType quaternion_j, const DefaultType quaternion_k, double* input_array, const uint32_t array_size);
+        const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, double* input_array, const uint32_t array_size);
 
 
 
@@ -281,8 +285,8 @@ extern "C" {
         const double xmin, const double xmax, const double ymin, const double ymax,
         const double c_real, const double c_imag, double escape_radius,
         const bool fast_mode, const bool juliaset, const bool lake,
-        const int top_colors_outside, const int top_colors_lake, const double quaternion_j,
-        const double quaternion_k, const double z_initial_r,
+        const int top_colors_outside, const int top_colors_lake, const double QuaternionOrOctonion_j,
+        const double QuaternionOrOctonion_k, const double z_initial_r,
         const double z_initial_i, double* input_array, const uint32_t array_size)
     {
     
@@ -297,7 +301,7 @@ extern "C" {
     #ifdef USE_CUDA
         // --- GPU Implementation ---
 
-        fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, input_array, array_size);
+        fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, QuaternionOrOctonion_j, QuaternionOrOctonion_k, z_initial_r, z_initial_i, input_array, array_size);
     #else
         // --- CPU Implementation using OpenMP ---
 
@@ -308,19 +312,19 @@ extern "C" {
 
         #pragma omp parallel for schedule(dynamic)
         for (int x = 0; x < width; ++x) {
-            Quaternion z , c, last_it_z;
-            Quaternion it_quat(0.0);
-            Quaternion x_quat(static_cast<DefaultType>(x));
-            Quaternion y_quat(0.0);
+            QuaternionOrOctonion z , c, last_it_z;
+            QuaternionOrOctonion it_quat(0.0);
+            QuaternionOrOctonion x_quat(static_cast<DefaultType>(x));
+            QuaternionOrOctonion y_quat(0.0);
             int y = 0;
 
             VariableEntry varEntries[8] = {
                 {"z", &z},
                 {"c", &c},
-                {"phi", const_cast<Quaternion*>(&phi)},
-                {"pi", const_cast<Quaternion*>(&pi)},
-                {"e", const_cast<Quaternion*>(&e)},
-                {"It", &it_quat},
+                {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+                {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+                {"e", const_cast<QuaternionOrOctonion*>(&e)},
+                {"it", &it_quat},
                 {"y", &y_quat},
                 {"x", &x_quat}
             };
@@ -330,8 +334,8 @@ extern "C" {
 
             while (y < height) {
                 y_quat = (static_cast<DefaultType>(y));
-                setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                    ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                    ymin + y * dy, z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
 
                 uint16_t iteration = 0;
                 DefaultType temp = 0.0;
@@ -339,7 +343,7 @@ extern "C" {
                 
 
                 while ( not_escaped && iteration < max_iter) {
-                    it_quat = Quaternion(static_cast<DefaultType>(iteration));
+                    it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
                     last_it_z = (ast->evaluate());
                     if (last_it_z == z && fast_mode) break;
                     z = last_it_z;
@@ -360,7 +364,7 @@ extern "C" {
                 const uint16_t width, const uint16_t height, const uint16_t max_iter,
                 const double xmin, const double xmax, const double ymin,
                 const double ymax, const double v_real, const double v_imag,
-                double escape_radius, const double quaternion_j, const double quaternion_k,
+                double escape_radius, const double QuaternionOrOctonion_j, const double QuaternionOrOctonion_k,
                 const bool fast_mode, int n_points, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
@@ -368,7 +372,7 @@ extern "C" {
         escape_radius = escape_radius == 0.0 ? 9.0 : escape_radius;
 
         n_points = n_points > 1 ? n_points : 2;
-        std::vector<Quaternion> attractors(n_points);
+        std::vector<QuaternionOrOctonion> attractors(n_points);
     
         // Generate attractors
         generate_attractors(attractors.data(), n_points);
@@ -380,7 +384,7 @@ extern "C" {
 
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-            magnet_kernel_call(output, array_top_colors_outside, attractors.data(), exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, v_real, v_imag, escape_radius, quaternion_j, quaternion_k, fast_mode, n_points, input_array, array_size);
+            magnet_kernel_call(output, array_top_colors_outside, attractors.data(), exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, v_real, v_imag, escape_radius, QuaternionOrOctonion_j, QuaternionOrOctonion_k, fast_mode, n_points, input_array, array_size);
 
         #else
             // --- CPU Implementation using OpenMP ---
@@ -394,11 +398,11 @@ extern "C" {
     
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion z, velocity, force, dif;
+                QuaternionOrOctonion z, velocity, force, dif;
                 const DefaultType damping = 0.1;
-                Quaternion it_quat(0.0);
-                Quaternion x_quat(static_cast<DefaultType>(x));
-                Quaternion y_quat(0.0);
+                QuaternionOrOctonion it_quat(0.0);
+                QuaternionOrOctonion x_quat(static_cast<DefaultType>(x));
+                QuaternionOrOctonion y_quat(0.0);
                 int y = 0;
     
                 VariableEntry varEntries[10] = {
@@ -406,10 +410,10 @@ extern "C" {
                     {"v", &velocity},
                     {"f", &force},
                     {"dif", &dif},
-                    {"phi", const_cast<Quaternion*>(&phi)},
-                    {"pi", const_cast<Quaternion*>(&pi)},
-                    {"e", const_cast<Quaternion*>(&e)},
-                    {"It", &it_quat},
+                    {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+                    {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+                    {"e", const_cast<QuaternionOrOctonion*>(&e)},
+                    {"it", &it_quat},
                     {"y", &y_quat},
                     {"x", &x_quat}
                 };
@@ -422,9 +426,9 @@ extern "C" {
     
                 while (y < height) {
                     y_quat = (static_cast<DefaultType>(y));
-                    Quaternion last_it_z;
-                    z = Quaternion(xmin + x * dx, ymin + y * dy, quaternion_j, quaternion_k);
-                    velocity = Quaternion(v_real, v_imag);
+                    QuaternionOrOctonion last_it_z;
+                    z = QuaternionOrOctonion(xmin + x * dx, ymin + y * dy, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+                    velocity = QuaternionOrOctonion(v_real, v_imag);
 
                     uint16_t iteration = 0;
                     DefaultType temp = 0;
@@ -433,8 +437,8 @@ extern "C" {
                     
     
                     while (iteration < max_iter) {
-                        it_quat = Quaternion(static_cast<DefaultType>(iteration));
-                        force = Quaternion(0);
+                        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
+                        force = QuaternionOrOctonion(0);
             
                         for (int i = 0; i < num_attractors; ++i) {
                             dif = attractors[i] - z;
@@ -472,7 +476,7 @@ extern "C" {
                 const double xmin, const double xmax, const double ymin, const double ymax,
                 const double zmin, const double zmax, const double sigma, const double rho, const double beta,
                 const double dt, const int top_colors_outside, const int axis, const int point_size,
-                const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                const double QuaternionOrOctonion_j, const double QuaternionOrOctonion_k, const double z_initial_r, const double z_initial_i,
                 double* input_array, const uint32_t array_size) {
         std::signal(SIGINT, signal_handler);
     
@@ -484,15 +488,15 @@ extern "C" {
 
         size_t exp_size = strlen(exp);
 
-        std::vector<Quaternion> trajectory(max_iter);
+        std::vector<QuaternionOrOctonion> trajectory(max_iter);
 
         #ifdef USE_CUDA
         generate_lorenz_trajectory_kernel(trajectory.data(), sigma, rho, beta, dt, max_iter,
-            exp, exp_size, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size); // dx+dy*1i+dz*1j
+            exp, exp_size, z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k, input_array, array_size); // dx+dy*1i+dz*1j
         
         #else
         generate_lorenz_trajectory(trajectory.data(), sigma, rho, beta, dt, max_iter,
-            exp, exp_size, z_initial_r, z_initial_i, quaternion_j, quaternion_k, input_array, array_size); // dx+dy*1i+dz*1j
+            exp, exp_size, z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k, input_array, array_size); // dx+dy*1i+dz*1j
         
         #endif
 
@@ -503,8 +507,8 @@ extern "C" {
     
         //#pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < max_iter; ++i) {
-            Quaternion temp = trajectory[i];
-            temp = temp.rotate_in_circle(Quaternion(angle * (3.1415926535897932384626433832795028841971693993751 / 180.0)), Quaternion(axis));
+            QuaternionOrOctonion temp = trajectory[i];
+            temp = temp.rotate_in_circle(QuaternionOrOctonion(angle * (3.1415926535897932384626433832795028841971693993751 / 180.0)), QuaternionOrOctonion(axis));
             if (temp.j < camera_position_z || temp.j > zmax) {
                 continue;
             }
@@ -529,7 +533,7 @@ extern "C" {
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, double complex_a, double complex_b,
-                    const double quaternion_j, const double quaternion_k, double escape_radius, 
+                    const double QuaternionOrOctonion_j, const double QuaternionOrOctonion_k, double escape_radius, 
                     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
@@ -547,7 +551,7 @@ extern "C" {
             lyapunov_kernel_call(output, array_top_colors_outside, array_top_colors_lake,
                 exp, exp_size,width, height, max_iter,
                 xmin, ymin, dx, dy, complex_a, complex_b,
-                quaternion_j, quaternion_k, escape_radius, 
+                QuaternionOrOctonion_j, QuaternionOrOctonion_k, escape_radius, 
                 top_colors_outside, top_colors_lake, input_array, array_size);
         #else
             // --- CPU Implementation using OpenMP ---
@@ -559,23 +563,22 @@ extern "C" {
     
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion v, l, temp;
-                Quaternion it_quat(0.0);
-                Quaternion x_quat(static_cast<DefaultType>(x));
-                Quaternion y_quat(0.0);
-                Quaternion k_q = 0.0;
+                QuaternionOrOctonion v, p, temp;
+                QuaternionOrOctonion it_quat(0.0);
+                QuaternionOrOctonion x_quat(static_cast<DefaultType>(x));
+                QuaternionOrOctonion y_quat(0.0);
                 int y = 0;
                 int k = 0;
                 
     
                 VariableEntry varEntries[9] = {
                     {"v", &v},
-                    {"l", &l},
+                    {"p", &p},
                     {"c", &temp},
-                    {"phi", const_cast<Quaternion*>(&phi)},
-                    {"pi", const_cast<Quaternion*>(&pi)},
-                    {"e", const_cast<Quaternion*>(&e)},
-                    {"It", &k_q},
+                    {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+                    {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+                    {"e", const_cast<QuaternionOrOctonion*>(&e)},
+                    {"it", &it_quat},
                     {"y", &y_quat},
                     {"x", &x_quat}
                 };
@@ -585,33 +588,33 @@ extern "C" {
                 const ASTNode* ast = parser.parse();
     
                 while (y < height) {
-                    const Quaternion a(0.5 + (xmin + x * dx) * 0.5, complex_a, quaternion_j, quaternion_k);
-                    const Quaternion b(0.5 + (ymin + y * dy) * 0.5, complex_b, quaternion_j, quaternion_k);
-                    l = Quaternion(0.0, 0.0);
-                    v = Quaternion(0.5, 0.0);
+                    const QuaternionOrOctonion a(0.5 + (xmin + x * dx) * 0.5, complex_a, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+                    const QuaternionOrOctonion b(0.5 + (ymin + y * dy) * 0.5, complex_b, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+                    p = QuaternionOrOctonion(0.0, 0.0);
+                    v = QuaternionOrOctonion(0.5, 0.0);
 
                     k = 0;
                     y_quat = (static_cast<DefaultType>(y));
 
 
-                    double l_mag = 0.0;
+                    double p_mag = 0.0;
 
                     while (k < max_iter) {
-                        it_quat = Quaternion(static_cast<double>(k));
+                        it_quat = QuaternionOrOctonion(static_cast<double>(k));
                         if (k % 12 < 6) {
                             v = b * v * (1.0 - v);
                             temp = b;
-                            l += (ast->evaluate());
+                            p += (ast->evaluate());
                         } else { //     log(mag(c*(1-2*v)))
                             v = a * v * (1.0 - v);
                             temp = a;
-                            l += (ast->evaluate());
+                            p += (ast->evaluate());
                         }
-                        l_mag = l.mag();
-                        if (l_mag > escape_radius) break;
+                        p_mag = p.mag();
+                        if (p_mag > escape_radius) break;
                         ++k;
                     }
-                    update_output( output, array_top_colors_outside, array_top_colors_lake, l_mag, width,
+                    update_output( output, array_top_colors_outside, array_top_colors_lake, p_mag, width,
                         0, x, y, false, top_colors_outside, top_colors_lake, false, true);
                     ++y;
                 }
@@ -625,7 +628,7 @@ extern "C" {
                     const double xmin, const double xmax, const double ymin,
                     const double ymax, const double c_real, const double c_imag,
                     const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-                    const double quaternion_j, const double quaternion_k, const double z_initial_r, const double z_initial_i,
+                    const double QuaternionOrOctonion_j, const double QuaternionOrOctonion_k, const double z_initial_r, const double z_initial_i,
                     const double newton_epsilon, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
@@ -638,7 +641,7 @@ extern "C" {
 
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, juliaset, top_colors_outside, top_colors_lake, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon, input_array, array_size);
+            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, juliaset, top_colors_outside, top_colors_lake, QuaternionOrOctonion_j, QuaternionOrOctonion_k, z_initial_r, z_initial_i, newton_epsilon, input_array, array_size);
         #else
             // --- CPU Implementation using OpenMP ---
 
@@ -650,19 +653,19 @@ extern "C" {
     
             #pragma omp parallel for schedule(dynamic)
             for (int x = 0; x < width; ++x) {
-                Quaternion z , c;
-                Quaternion it_quat(0.0);
-                Quaternion x_quat(static_cast<double>(x));
-                Quaternion y_quat(0.0);
+                QuaternionOrOctonion z , c;
+                QuaternionOrOctonion it_quat(0.0);
+                QuaternionOrOctonion x_quat(static_cast<double>(x));
+                QuaternionOrOctonion y_quat(0.0);
                 int y = 0;
     
                 VariableEntry varEntries[8] = {
                     {"z", &z},
                     {"c", &c},
-                    {"phi", const_cast<Quaternion*>(&phi)},
-                    {"pi", const_cast<Quaternion*>(&pi)},
-                    {"e", const_cast<Quaternion*>(&e)},
-                    {"It", &it_quat},
+                    {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+                    {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+                    {"e", const_cast<QuaternionOrOctonion*>(&e)},
+                    {"it", &it_quat},
                     {"y", &y_quat},
                     {"x", &x_quat}
                 };
@@ -672,28 +675,28 @@ extern "C" {
     
                 while (y < height) {
                     y_quat = (static_cast<double>(y));
-                    setQuaternionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                        ymin + y * dy, z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+                    setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
+                        ymin + y * dy, z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
     
                     uint16_t iteration = 0;
                     double temp = 0.0;
                     
     
                     while (iteration < max_iter) {
-                        it_quat = Quaternion(static_cast<double>(iteration));
+                        it_quat = QuaternionOrOctonion(static_cast<double>(iteration));
 
-                        const Quaternion last_z = z;
+                        const QuaternionOrOctonion last_z = z;
                         const double h(newton_epsilon);
                         
                         z += h;
-                        const Quaternion next_z = ast->evaluate();
+                        const QuaternionOrOctonion next_z = ast->evaluate();
                         z = last_z;
                         z = ast->evaluate();
                         
                         temp = z.mag();
                         
                         if ( temp < 1e-13 ) break;
-                        const Quaternion znew = ( next_z - z )/(h); 
+                        const QuaternionOrOctonion znew = ( next_z - z )/(h); 
                         z = last_z - ( z/znew );
                         ++iteration;
 
