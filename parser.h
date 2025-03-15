@@ -329,7 +329,7 @@ private:
         
     }
 
-    const char* tokens[10] = {"z", "c", "it", "v", "l", "f", "dif", "dx", "dy", "dz"};
+    const char* tokens[10] = {"z", "c", "it", "v", "p", "f", "dif", "dx", "dy", "dz"};
     
     ASTNode* error_zero = createConstantNode(nodeAllocator, constantDataAllocator, QuaternionOrOctonion(0.0));
 
