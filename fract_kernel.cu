@@ -12,14 +12,14 @@ __device__ inline void setQuaternionOrOctonionValues(const bool juliaset, Quater
     const DefaultType c_real, const DefaultType c_imag,
     const DefaultType r_part, const DefaultType i_part,
     const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType QuaternionOrOctonion_j = 0.0, const DefaultType QuaternionOrOctonion_k = 0.0) {
+    const DefaultType z_initial_j = 0.0, const DefaultType z_initial_k = 0.0) {
 
     if (juliaset) {
         c = QuaternionOrOctonion(c_real, c_imag);
-        z = QuaternionOrOctonion(r_part, i_part, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k);
     } else {
         c = QuaternionOrOctonion(r_part, i_part);
-        z = QuaternionOrOctonion(z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+        z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
     }
 }
 
@@ -72,8 +72,8 @@ __global__ void fractal_kernel(uint8_t* d_output,
                     const bool lake,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType QuaternionOrOctonion_j,
-                    const DefaultType QuaternionOrOctonion_k,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     const DefaultType z_initial_r,
                     const DefaultType z_initial_i,
                     double* input_array,
@@ -123,7 +123,7 @@ __global__ void fractal_kernel(uint8_t* d_output,
 
 
     setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                            z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+                            z_initial_r, z_initial_i, z_initial_j, z_initial_k);
 
 
     DefaultType temp = 0;
@@ -163,8 +163,8 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
                     DefaultType escape_radius,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType QuaternionOrOctonion_j,
-                    const DefaultType QuaternionOrOctonion_k,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     double* input_array,
                     const uint32_t array_size)
 {
@@ -207,8 +207,8 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
     const size_t numVars = 9;
     Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
     const ASTNode* ast = parser.parse();
-    const QuaternionOrOctonion a(0.5 + point_x * 0.5, complex_a, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
-    const QuaternionOrOctonion b(0.5 + point_y * 0.5, complex_b, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+    const QuaternionOrOctonion a(0.5 + point_x * 0.5, complex_a, z_initial_j, z_initial_k);
+    const QuaternionOrOctonion b(0.5 + point_y * 0.5, complex_b, z_initial_j, z_initial_k);
     p = QuaternionOrOctonion(0.0, 0.0);
     v = QuaternionOrOctonion(0.5, 0.0);
 
@@ -252,8 +252,8 @@ __global__ void newton_kernel(uint8_t* d_output,
                     const bool juliaset,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType QuaternionOrOctonion_j,
-                    const DefaultType QuaternionOrOctonion_k,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     const DefaultType z_initial_r,
                     const DefaultType z_initial_i,
                     const DefaultType newton_epsilon,
@@ -304,7 +304,7 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 
     setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+                z_initial_r, z_initial_i, z_initial_j, z_initial_k);
 
 
     DefaultType temp = 0;
@@ -346,8 +346,8 @@ __global__ void magnet_kernel(uint8_t* d_output,
                     const DefaultType dx, const DefaultType dy,
                     const DefaultType v_real, const DefaultType v_imag,
                     DefaultType escape_radius,
-                    const DefaultType QuaternionOrOctonion_j,
-                    const DefaultType QuaternionOrOctonion_k,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     const bool fast_mode,
                     const int n_points,
                     double* input_array,
@@ -404,7 +404,7 @@ __global__ void magnet_kernel(uint8_t* d_output,
 
 
     QuaternionOrOctonion last_it_z;
-    z = QuaternionOrOctonion(point_x, point_y, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+    z = QuaternionOrOctonion(point_x, point_y, z_initial_j, z_initial_k);
     velocity = QuaternionOrOctonion(v_real, v_imag);
 
 
@@ -445,14 +445,14 @@ __global__ void magnet_kernel(uint8_t* d_output,
 
 __global__ void generate_lorenz_trajectory(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
                         const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-                        const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, double* input_array, const uint32_t array_size) {
+                        const DefaultType z_initial_j, const DefaultType z_initial_k, double* input_array, const uint32_t array_size) {
     
 
     QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
     QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
     QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    QuaternionOrOctonion point(z_initial_r, z_initial_i, QuaternionOrOctonion_j, QuaternionOrOctonion_k);
+    QuaternionOrOctonion point(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
     QuaternionOrOctonion dx = 0.0;
     QuaternionOrOctonion dy = 0.0;
     QuaternionOrOctonion dz = 0.0;
@@ -540,7 +540,7 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
     const DefaultType dy, const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius, const bool fast_mode,
     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
+    const DefaultType z_initial_j, const DefaultType z_initial_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
     double* input_array, const uint32_t array_size) {
 
 
@@ -581,8 +581,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
                                               lake,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              QuaternionOrOctonion_j,
-                                              QuaternionOrOctonion_k,
+                                              z_initial_j,
+                                              z_initial_k,
                                               z_initial_r,
                                               z_initial_i,
                                               d_input_array.get(), array_size);
@@ -606,7 +606,7 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
     const DefaultType dy, DefaultType complex_a, DefaultType complex_b,
-    const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, DefaultType escape_radius, 
+    const DefaultType z_initial_j, const DefaultType z_initial_k, DefaultType escape_radius, 
     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
     // Increase the device stack size if needed.
@@ -642,8 +642,8 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
                                            escape_radius,
                                            top_colors_outside,
                                            top_colors_lake,
-                                           QuaternionOrOctonion_j,
-                                           QuaternionOrOctonion_k,
+                                           z_initial_j,
+                                           z_initial_k,
                                            d_input_array.get(), array_size);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -666,7 +666,7 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
     const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
     const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
+    const DefaultType z_initial_j, const DefaultType z_initial_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
     const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
 
 
@@ -704,8 +704,8 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
                                               juliaset,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              QuaternionOrOctonion_j,
-                                              QuaternionOrOctonion_k,
+                                              z_initial_j,
+                                              z_initial_k,
                                               z_initial_r,
                                               z_initial_i,
                                               newton_epsilon,
@@ -729,7 +729,7 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
     const char* exp, const size_t exp_size, const uint16_t width, const uint16_t height,
     const uint16_t max_iter, const DefaultType xmin, const DefaultType ymin,
     const DefaultType dx, const DefaultType dy, const DefaultType v_real, const DefaultType v_imag,
-    DefaultType escape_radius, const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, 
+    DefaultType escape_radius, const DefaultType z_initial_j, const DefaultType z_initial_k, 
     const bool fast_mode, const int n_points, double* input_array, const uint32_t array_size) {
 
 
@@ -765,8 +765,8 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
                                               xmin, ymin, dx, dy,
                                               v_real, v_imag,
                                               escape_radius,
-                                              QuaternionOrOctonion_j,
-                                              QuaternionOrOctonion_k,
+                                              z_initial_j,
+                                              z_initial_k,
                                               fast_mode, n_points,
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
@@ -787,7 +787,7 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
 
 extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
     const int max_iter, const char* exp, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType QuaternionOrOctonion_j, const DefaultType QuaternionOrOctonion_k, double* input_array, const uint32_t array_size) {
+    const DefaultType z_initial_j, const DefaultType z_initial_k, double* input_array, const uint32_t array_size) {
 
 
     cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -809,7 +809,7 @@ extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajecto
     generate_lorenz_trajectory<<<1, 1>>>(d_trajectory.get(),
                     sigma, rho, beta, dt, max_iter,
                     d_exp.get(), exp_size, z_initial_r, z_initial_i,
-                    QuaternionOrOctonion_j, QuaternionOrOctonion_k, d_input_array.get(), array_size);
+                    z_initial_j, z_initial_k, d_input_array.get(), array_size);
 
 
     cudaError_t err = cudaGetLastError();

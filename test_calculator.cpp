@@ -95,4 +95,4 @@ int main() {
     }
     return 0;
 }
-// g++ -O3 -Wall -Wextra -pedantic -march=native -fPIC -funroll-loops -fopenmp -o test_calculator test_calculator.cpp 
+// g++ -O3 -Wall -Wextra -pedantic -march=native -fPIC -funroll-loops -fopenmp -DOCTO -o test_calculator test_calculator.cpp 
