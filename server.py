@@ -223,9 +223,7 @@ def process_form_data(params, timeout):
     all_parameters["z_initial_m"]= float(params.get('z_initial_m', 0.0))
     all_parameters['z_initial_n'] = float(params.get('z_initial_n', 0.0))
     all_parameters['z_initial_o'] = float(params.get('z_initial_o', 0.0))
-    for key in all_parameters:
-        if key.startswith("z_initial_"):
-            print(f"{key}: {all_parameters[key]}")
+
 
 
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', 0.000001))
