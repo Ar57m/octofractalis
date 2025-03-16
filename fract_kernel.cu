@@ -12,15 +12,28 @@ __device__ inline void setQuaternionOrOctonionValues(const bool juliaset, Quater
     const DefaultType c_real, const DefaultType c_imag,
     const DefaultType r_part, const DefaultType i_part,
     const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType z_initial_j = 0.0, const DefaultType z_initial_k = 0.0) {
+    const DefaultType z_initial_j, const DefaultType z_initial_k,
+    const DefaultType z_initial_l, const DefaultType z_initial_m,
+    const DefaultType z_initial_n, const DefaultType z_initial_o
+    ) {
 
-    if (juliaset) {
-        c = QuaternionOrOctonion(c_real, c_imag);
-        z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k);
-    } else {
-        c = QuaternionOrOctonion(r_part, i_part);
-        z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
-    }
+    #ifndef OCTO
+        if (juliaset) {
+            c = QuaternionOrOctonion(c_real, c_imag);
+            z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k);
+        } else {
+            c = QuaternionOrOctonion(r_part, i_part);
+            z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
+        }
+    #else
+        if (juliaset) {
+            c = QuaternionOrOctonion(c_real, c_imag);
+            z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
+        } else {
+            c = QuaternionOrOctonion(r_part, i_part);
+            z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
+        }
+    #endif
 }
 
 __device__ inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType temp,
@@ -72,10 +85,14 @@ __global__ void fractal_kernel(uint8_t* d_output,
                     const bool lake,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType z_initial_j,
-                    const DefaultType z_initial_k,
                     const DefaultType z_initial_r,
                     const DefaultType z_initial_i,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
+                    const DefaultType z_initial_l,
+                    const DefaultType z_initial_m,
+                    const DefaultType z_initial_n,
+                    const DefaultType z_initial_o,
                     double* input_array,
                     const uint32_t array_size)
 {
@@ -123,7 +140,7 @@ __global__ void fractal_kernel(uint8_t* d_output,
 
 
     setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                            z_initial_r, z_initial_i, z_initial_j, z_initial_k);
+                            z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
 
 
     DefaultType temp = 0;
@@ -252,10 +269,10 @@ __global__ void newton_kernel(uint8_t* d_output,
                     const bool juliaset,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType z_initial_j,
-                    const DefaultType z_initial_k,
                     const DefaultType z_initial_r,
                     const DefaultType z_initial_i,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     const DefaultType newton_epsilon,
                     double* input_array,
                     const uint32_t array_size)
@@ -304,7 +321,7 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 
     setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                z_initial_r, z_initial_i, z_initial_j, z_initial_k);
+                z_initial_r, z_initial_i, z_initial_j, z_initial_k,0.0,0.0,0.0,0.0);
 
 
     DefaultType temp = 0;
@@ -540,7 +557,9 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
     const DefaultType dy, const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius, const bool fast_mode,
     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType z_initial_j, const DefaultType z_initial_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
+    const DefaultType z_initial_r, const DefaultType z_initial_i, const DefaultType z_initial_j, const DefaultType z_initial_k,
+    const DefaultType z_initial_l, const DefaultType z_initial_m,
+    const DefaultType z_initial_n, const DefaultType z_initial_o,
     double* input_array, const uint32_t array_size) {
 
 
@@ -581,10 +600,14 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
                                               lake,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              z_initial_j,
-                                              z_initial_k,
                                               z_initial_r,
                                               z_initial_i,
+                                              z_initial_j,
+                                              z_initial_k,
+                                              z_initial_l,
+                                              z_initial_m,
+                                              z_initial_n,
+                                              z_initial_o,
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -666,7 +689,7 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
     const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
     const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType z_initial_j, const DefaultType z_initial_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
+    const DefaultType z_initial_r, const DefaultType z_initial_i, const DefaultType z_initial_j, const DefaultType z_initial_k, 
     const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
 
 
@@ -704,10 +727,10 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
                                               juliaset,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              z_initial_j,
-                                              z_initial_k,
                                               z_initial_r,
                                               z_initial_i,
+                                              z_initial_j,
+                                              z_initial_k,
                                               newton_epsilon,
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();

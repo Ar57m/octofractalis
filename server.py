@@ -201,8 +201,7 @@ def process_form_data(params, timeout):
     all_parameters['coordinates'] = coordinates
     all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
 
-    all_parameters['quaternion_j'] = float(params.get('quaternion_j', 0.0))
-    all_parameters['quaternion_k'] = float(params.get('quaternion_k', 0.0))
+
 
     if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
         xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
@@ -218,6 +217,17 @@ def process_form_data(params, timeout):
 
     all_parameters["z_initial_r"]= float(params.get('z_initial_r', 0.0))
     all_parameters["z_initial_i"]= float(params.get('z_initial_i', 0.0))
+    all_parameters['z_initial_j'] = float(params.get('z_initial_j', 0.0))
+    all_parameters['z_initial_k'] = float(params.get('z_initial_k', 0.0))
+    all_parameters["z_initial_l"]= float(params.get('z_initial_l', 0.0))
+    all_parameters["z_initial_m"]= float(params.get('z_initial_m', 0.0))
+    all_parameters['z_initial_n'] = float(params.get('z_initial_n', 0.0))
+    all_parameters['z_initial_o'] = float(params.get('z_initial_o', 0.0))
+    for key in all_parameters:
+        if key.startswith("z_initial_"):
+            print(f"{key}: {all_parameters[key]}")
+
+
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', 0.000001))
     all_parameters["sigma"]= float(params.get('sigma', 10.0))
     all_parameters["rho"]= float(params.get('rho', 28.0))

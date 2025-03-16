@@ -24,7 +24,7 @@ sandpile = lib.sandpile
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
     c_double, c_double, c_bool, c_bool, c_bool, c_int, c_int, c_double, c_double, c_double,
-    c_double, POINTER(c_double), c_uint32]
+    c_double, c_double, c_double, c_double, c_double, POINTER(c_double), c_uint32]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -86,8 +86,8 @@ all_parameters = {
 
     # You can generate different types of fractals
     'fractals' : {
-        'mandelbrot': True,
-        'juliaset': False,
+        'mandelbrot': False,
+        'juliaset': True,
         'newton' : False,
         'newton_juliaset': False,
         'magnet': False,
@@ -121,8 +121,17 @@ all_parameters = {
     'lake_palette' : "./palettes/lake_palette.png",
     
     # Initial z for newton-based fractals and mandelbrot-based
-    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0, for lorenz 0.0, 1.0 and the quaternion_j 1.05
+    'z_initial_r' : 0.0,  # for newton use -1.0 and 0.0, for lorenz 0.0, 1.0 and the z_initial_j 1.05
     'z_initial_i' : 0.0,
+    # Quaternion parameters
+    'z_initial_j' : 0.0,
+    'z_initial_k' : 0.0,
+    # Octonion parameters if compiled with --octo
+    'z_initial_l' : 0.0,
+    'z_initial_m' : 0.0,
+    'z_initial_n' : 0.0,
+    'z_initial_o' : 0.0,
+
 
     # Julia set parameters
     'juliaset_c_real' : -0.8,
@@ -145,9 +154,7 @@ all_parameters = {
     'lyapunov_c_b' : 0.0,
 
 
-    # Quaternion parameters
-    'quaternion_j' : 0.0,
-    'quaternion_k' : 0.0,
+
 
 
     # Magnet Parameters
@@ -265,10 +272,15 @@ def generate(all_parameters):
     shift_palette = all_parameters["shift_palette"]
     shift_palette_lake = all_parameters["shift_palette_lake"]
     
-    quaternion_j = all_parameters["quaternion_j"]
-    quaternion_k = all_parameters["quaternion_k"]
+
     z_initial_r = all_parameters["z_initial_r"]
     z_initial_i = all_parameters["z_initial_i"]
+    z_initial_j = all_parameters["z_initial_j"]
+    z_initial_k = all_parameters["z_initial_k"]
+    z_initial_l = all_parameters["z_initial_l"]
+    z_initial_m = all_parameters["z_initial_m"]
+    z_initial_n = all_parameters["z_initial_n"]
+    z_initial_o = all_parameters["z_initial_o"]
     newton_epsilon = all_parameters["newton_epsilon"]
 
     velocity_r = all_parameters["velocity_r"]
@@ -317,7 +329,7 @@ def generate(all_parameters):
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, escape_radius, fast_mode, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, array.ctypes.data_as(POINTER(c_double)), array.size
+                (array_top_colors_lake.shape[0])-1, z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
             
@@ -329,7 +341,7 @@ def generate(all_parameters):
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                lyapunov_c_a, lyapunov_c_b, quaternion_j, quaternion_k, escape_radius, (array_top_colors_outside.shape[0])-1, 
+                lyapunov_c_a, lyapunov_c_b, z_initial_j, z_initial_k, escape_radius, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
@@ -342,7 +354,7 @@ def generate(all_parameters):
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c_real, juliaset_c_imag, "newton_juliaset" == key, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, quaternion_j, quaternion_k, z_initial_r, z_initial_i, newton_epsilon,
+                (array_top_colors_lake.shape[0])-1, z_initial_r, z_initial_i, z_initial_j, z_initial_k, newton_epsilon,
                 array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
@@ -356,7 +368,7 @@ def generate(all_parameters):
                 rotation_angle,
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
-                axis, max_point_size, quaternion_j, quaternion_k, z_initial_r, z_initial_i,
+                axis, max_point_size, z_initial_r, z_initial_i, z_initial_j, z_initial_k,
                 array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
@@ -368,7 +380,7 @@ def generate(all_parameters):
             magnet(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside[:n_points].ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax, velocity_r, velocity_i, escape_radius,
-                quaternion_j, quaternion_k, fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
+                z_initial_j, z_initial_k, fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
 
