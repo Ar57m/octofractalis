@@ -313,12 +313,36 @@
                         <input type="number" id="gradient" name="gradient" min="0" max="256" value="24" required class="small-input">
                         <br>
 
-                        <label for="z_initial_r">Initial Z Real:</label>
+                        <label for="z_initial_r">Z Initial Real:</label>
                         <input type="text" id="z_initial_r" name="z_initial_r" value="0.0" required class="small-input">
                         <br>
 
-                        <label for="z_initial_i">Initial Z Imaginary:</label>
+                        <label for="z_initial_i">Z Initial I:</label>
                         <input type="text" id="z_initial_i" name="z_initial_i" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_j">Z Initial J:</label>
+                        <input type="text" id="z_initial_j" name="z_initial_j" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_k">Z Initial K:</label>
+                        <input type="text" id="z_initial_k" name="z_initial_k" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_l">Z Initial L:</label>
+                        <input type="text" id="z_initial_l" name="z_initial_l" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_m">Z Initial M:</label>
+                        <input type="text" id="z_initial_m" name="z_initial_m" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_n">Z Initial N:</label>
+                        <input type="text" id="z_initial_n" name="z_initial_n" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_o">Z Initial O:</label>
+                        <input type="text" id="z_initial_o" name="z_initial_o" value="0.0" required class="small-input">
                         <br>
 
                         <label for="newton_epsilon">Newton Epsilon:</label>
@@ -389,14 +413,7 @@
                         <input type="text" id="juliaset_c_imag" name="juliaset_c_imag" value="0.16" required class="small-input">
                         <br>
 
-                        <legend>Quaternion Parameters</legend>
-                        <label for="quaternion_j">Quaternion J:</label>
-                        <input type="text" id="quaternion_j" name="quaternion_j" value="0.0" required class="small-input">
-                        <br>
 
-                        <label for="quaternion_k">Quaternion K:</label>
-                        <input type="text" id="quaternion_k" name="quaternion_k" value="0.0" required class="small-input">
-                        <br>
 
                     </fieldset>
                         <br>
@@ -553,8 +570,6 @@
 
         validateInput("escape_radius", 0.0, 1000000000.0, 0.0);
         validateInput("newton_epsilon", 0.0000001, 1.0, 0.000001);
-        validateInput("quaternion_j", -100.0, 100.0, 0.0);
-        validateInput("quaternion_k", -100.0, 100.0, 0.0);
         validateInput("juliaset_c_real", -100.0, 100.0, -0.8);
         validateInput("juliaset_c_imag", -100.0, 100.0, 0.16);
         validateInput("sigma", -10000.0, 10000.0, 10.0);
@@ -563,6 +578,12 @@
         validateInput("dt", -1000.0, 1000.0, 0.01);
         validateInput("z_initial_r", -10000.0, 10000.0, 0.0);
         validateInput("z_initial_i", -10000.0, 10000.0, 0.0);
+        validateInput("z_initial_j", -10000.0, 10000.0, 0.0);
+        validateInput("z_initial_k", -10000.0, 10000.0, 0.0);
+        validateInput("z_initial_l", -10000.0, 10000.0, 0.0);
+        validateInput("z_initial_m", -10000.0, 10000.0, 0.0);
+        validateInput("z_initial_n", -10000.0, 10000.0, 0.0);
+        validateInput("z_initial_o", -10000.0, 10000.0, 0.0);
         validateInput("xmin", -10000.0, 10000.0, -2.0);
         validateInput("xmax", -10000.0, 10000.0, 2.0);
         validateInput("ymin", -10000.0, 10000.0, -2.0);
@@ -879,10 +900,14 @@
                     row_aim: formData.get('row_aim'),
                     grid_length: formData.get('grid_length'),
                     continue_aim: formData.get('continue_aim') === 'on',
-                    quaternion_j: formData.get('quaternion_j'),
-                    quaternion_k: formData.get('quaternion_k'),
                     z_initial_r: formData.get('z_initial_r'),
                     z_initial_i: formData.get('z_initial_i'),
+                    z_initial_j: formData.get('z_initial_j'),
+                    z_initial_k: formData.get('z_initial_k'),
+                    z_initial_l: formData.get('z_initial_l'),
+                    z_initial_m: formData.get('z_initial_m'),
+                    z_initial_n: formData.get('z_initial_n'),
+                    z_initial_o: formData.get('z_initial_o'),
                     newton_epsilon: formData.get('newton_epsilon'),
                     sigma: formData.get('sigma'),
                     rho: formData.get('rho'),
