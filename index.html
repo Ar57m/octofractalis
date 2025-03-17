@@ -405,14 +405,37 @@
 
                     <fieldset>
                         <legend>Julia Set Parameters</legend>
-                        <label for="juliaset_c_real">C Real:</label>
-                        <input type="text" id="juliaset_c_real" name="juliaset_c_real" value="-0.8" required class="small-input">
+                        <label for="juliaset_c_r">C Real:</label>
+                        <input type="text" id="juliaset_c_r" name="juliaset_c_r" value="-0.8" required class="small-input">
                         <br>
 
-                        <label for="juliaset_c_imag">C Imaginary:</label>
-                        <input type="text" id="juliaset_c_imag" name="juliaset_c_imag" value="0.16" required class="small-input">
+                        <label for="juliaset_c_i">C I:</label>
+                        <input type="text" id="juliaset_c_i" name="juliaset_c_i" value="0.16" required class="small-input">
                         <br>
 
+                        <label for="juliaset_c_j">C J:</label>
+                        <input type="text" id="juliaset_c_j" name="juliaset_c_j" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="juliaset_c_k">C K:</label>
+                        <input type="text" id="juliaset_c_k" name="juliaset_c_k" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="juliaset_c_l">C L:</label>
+                        <input type="text" id="juliaset_c_l" name="juliaset_c_l" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="juliaset_c_m">C M:</label>
+                        <input type="text" id="juliaset_c_m" name="juliaset_c_m" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="juliaset_c_n">C N:</label>
+                        <input type="text" id="juliaset_c_n" name="juliaset_c_n" value="0.0" required class="small-input">
+                        <br>
+
+                        <label for="juliaset_c_o">C O:</label>
+                        <input type="text" id="juliaset_c_o" name="juliaset_c_o" value="0.0" required class="small-input">
+                        <br>
 
 
                     </fieldset>
@@ -420,19 +443,19 @@
 
                     <fieldset>
                         <legend>Coordinates</legend>
-                        <label for="xmin">X Min (float):</label>
+                        <label for="xmin">X Min:</label>
                         <input type="text" id="xmin" name="xmin" value="-2.0" required class="small-input">
                         <br>
 
-                        <label for="xmax">X Max (float):</label>
+                        <label for="xmax">X Max:</label>
                         <input type="text" id="xmax" name="xmax" value="2.0" required class="small-input">
                         <br>
 
-                        <label for="ymin">Y Min (float):</label>
+                        <label for="ymin">Y Min:</label>
                         <input type="text" id="ymin" name="ymin" value="-2.0" required class="small-input">
                         <br>
 
-                        <label for="ymax">Y Max (float):</label>
+                        <label for="ymax">Y Max:</label>
                         <input type="text" id="ymax" name="ymax" value="2.0" required class="small-input">
                         <br>
                     </fieldset>
@@ -570,8 +593,16 @@
 
         validateInput("escape_radius", 0.0, 1000000000.0, 0.0);
         validateInput("newton_epsilon", 0.0000001, 1.0, 0.000001);
-        validateInput("juliaset_c_real", -100.0, 100.0, -0.8);
-        validateInput("juliaset_c_imag", -100.0, 100.0, 0.16);
+
+        validateInput("juliaset_c_r", -100.0, 100.0, -0.8);
+        validateInput("juliaset_c_i", -100.0, 100.0, 0.16);
+        validateInput("juliaset_c_j", -100.0, 100.0, 0.0);
+        validateInput("juliaset_c_k", -100.0, 100.0, 0.0);
+        validateInput("juliaset_c_l", -100.0, 100.0, 0.0);
+        validateInput("juliaset_c_m", -100.0, 100.0, 0.0);
+        validateInput("juliaset_c_n", -100.0, 100.0, 0.0);
+        validateInput("juliaset_c_o", -100.0, 100.0, 0.0);
+
         validateInput("sigma", -10000.0, 10000.0, 10.0);
         validateInput("rho", -10000.0, 10000.0, 28.0);
         validateInput("beta", -10000.0, 10000.0, 2.666666666);
@@ -871,8 +902,16 @@
                     escape_radius: formData.get('escape_radius'),
                     top_colors: formData.get('top_colors'),
                     max_grains: formData.get('max_grains'),
-                    juliaset_c_real: formData.get('juliaset_c_real'),
-                    juliaset_c_imag: formData.get('juliaset_c_imag'),
+
+                    juliaset_c_r: formData.get('juliaset_c_r'),
+                    juliaset_c_i: formData.get('juliaset_c_i'),
+                    juliaset_c_j: formData.get('juliaset_c_j'),
+                    juliaset_c_k: formData.get('juliaset_c_k'),
+                    juliaset_c_l: formData.get('juliaset_c_l'),
+                    juliaset_c_m: formData.get('juliaset_c_m'),
+                    juliaset_c_n: formData.get('juliaset_c_n'),
+                    juliaset_c_o: formData.get('juliaset_c_o'),
+
                     xmin: formData.get('xmin'),
                     xmax: formData.get('xmax'),
                     ymin: formData.get('ymin'),

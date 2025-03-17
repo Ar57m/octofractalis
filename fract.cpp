@@ -138,33 +138,27 @@ void drawFilledCircle(uint8_t* array, float* depthBuffer, const int rows, const 
 
 
 void setQuaternionOrOctonionValues(const bool juliaset, QuaternionOrOctonion& c, QuaternionOrOctonion& z,
-                    const DefaultType c_real, const DefaultType c_imag,
-                    const DefaultType r_part, const DefaultType i_part,
-                    const DefaultType z_initial_r, const DefaultType z_initial_i,
-                    const DefaultType z_initial_j, const DefaultType z_initial_k,
-                    const DefaultType z_initial_l, const DefaultType z_initial_m,
-                    const DefaultType z_initial_n, const DefaultType z_initial_o
+                    const double* juliaset_c, const DefaultType r_part, const DefaultType i_part,
+                    const double* z_initial
                 ) {
-
-
 
 
 
 #ifndef OCTO
     if (juliaset) {
-        c = QuaternionOrOctonion(c_real, c_imag);
-        z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k);
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3]);
     } else {
         c = QuaternionOrOctonion(r_part, i_part);
-        z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
     }
 #else
     if (juliaset) {
-        c = QuaternionOrOctonion(c_real, c_imag);
-        z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3], juliaset_c[4], juliaset_c[5], juliaset_c[6], juliaset_c[7]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
     } else {
         c = QuaternionOrOctonion(r_part, i_part);
-        z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
     }
 #endif
 
@@ -202,15 +196,18 @@ void generate_attractors(QuaternionOrOctonion* attractors, int n) {
 #ifndef USE_CUDA
 
 void generate_lorenz_trajectory(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
-                        const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-                        const DefaultType z_initial_j, const DefaultType z_initial_k, double* input_array, const uint32_t array_size) {
+                        const int max_iter, const char* expression, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
     
 
     QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
     QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
     QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
-
-    QuaternionOrOctonion point(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
+#ifndef OCTO
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
+#else
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+#endif
+    
     QuaternionOrOctonion dx = 0.0;
     QuaternionOrOctonion dy = 0.0;
     QuaternionOrOctonion dz = 0.0;
@@ -262,11 +259,9 @@ extern "C" {
         const int* array_top_colors_lake, const char* exp, const size_t exp_size,
         const uint16_t width, const uint16_t height, const uint16_t max_iter,
         const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy,
-        const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius,
+        const double* juliaset_c, DefaultType escape_radius,
         const bool fast_mode, const bool juliaset, const bool lake,
-        const int top_colors_outside, const int top_colors_lake,  const DefaultType z_initial_r,
-        const DefaultType z_initial_i, const DefaultType z_initial_j, const DefaultType z_initial_k, const DefaultType z_initial_l, const DefaultType z_initial_m,
-        const DefaultType z_initial_n, const DefaultType z_initial_o,  double* input_array, const uint32_t array_size);
+        const int top_colors_outside, const int top_colors_lake,  const double* z_initial, double* input_array, const uint32_t array_size);
     
     void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside,
         const int* array_top_colors_lake, const char* exp, const size_t exp_size,
@@ -277,10 +272,9 @@ extern "C" {
     
     void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
         const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
-        const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
+        const DefaultType xmin, const DefaultType ymin, const DefaultType dx, const DefaultType dy, const double* juliaset_c,
         const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-        const DefaultType z_initial_r, const DefaultType z_initial_i,const DefaultType z_initial_j, const DefaultType z_initial_k,
-        const DefaultType newton_epsilon, double* input_array, const uint32_t array_size);
+        const double* z_initial, const DefaultType newton_epsilon, double* input_array, const uint32_t array_size);
 
     void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const QuaternionOrOctonion* attractors, const char* exp,
         const size_t exp_size, const uint16_t width, const uint16_t height, const uint16_t max_iter,
@@ -290,8 +284,7 @@ extern "C" {
         const bool fast_mode, int n_points, double* input_array, const uint32_t array_size);
 
     void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
-        const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-        const DefaultType z_initial_j, const DefaultType z_initial_k, double* input_array, const uint32_t array_size);
+        const int max_iter, const char* expression, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size);
 
 
 
@@ -301,11 +294,9 @@ extern "C" {
         const int* array_top_colors_lake, const char* exp,
         const uint16_t width, const uint16_t height, const uint16_t max_iter,
         const double xmin, const double xmax, const double ymin, const double ymax,
-        const double c_real, const double c_imag, double escape_radius,
+        const double* juliaset_c, double escape_radius,
         const bool fast_mode, const bool juliaset, const bool lake,
-        const int top_colors_outside, const int top_colors_lake, const double z_initial_r,
-        const double z_initial_i, const double z_initial_j, const double z_initial_k,
-        const double z_initial_l, const double z_initial_m, const double z_initial_n, const double z_initial_o,
+        const int top_colors_outside, const int top_colors_lake, const double* z_initial,
         double* input_array, const uint32_t array_size)
     {
     
@@ -320,7 +311,7 @@ extern "C" {
     #ifdef USE_CUDA
         // --- GPU Implementation ---
 
-        fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o, input_array, array_size);
+        fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, juliaset_c, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, z_initial, input_array, array_size);
     #else
         // --- CPU Implementation using OpenMP ---
 
@@ -353,8 +344,8 @@ extern "C" {
 
             while (y < height) {
                 y_quat = (static_cast<DefaultType>(y));
-                setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                    ymin + y * dy, z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
+                setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, xmin + x * dx,
+                    ymin + y * dy, z_initial);
 
                 uint16_t iteration = 0;
                 DefaultType temp = 0.0;
@@ -495,8 +486,7 @@ extern "C" {
                 const double xmin, const double xmax, const double ymin, const double ymax,
                 const double zmin, const double zmax, const double sigma, const double rho, const double beta,
                 const double dt, const int top_colors_outside, const int axis, const int point_size,
-                const double z_initial_r, const double z_initial_i, const double z_initial_j, const double z_initial_k, 
-                double* input_array, const uint32_t array_size) {
+                const double* z_initial, double* input_array, const uint32_t array_size) {
         std::signal(SIGINT, signal_handler);
     
 
@@ -511,11 +501,11 @@ extern "C" {
 
         #ifdef USE_CUDA
         generate_lorenz_trajectory_kernel(trajectory.data(), sigma, rho, beta, dt, max_iter,
-            exp, exp_size, z_initial_r, z_initial_i, z_initial_j, z_initial_k, input_array, array_size); // dx+dy*1i+dz*1j
+            exp, exp_size, z_initial, input_array, array_size); // dx+dy*1i+dz*1j
         
         #else
         generate_lorenz_trajectory(trajectory.data(), sigma, rho, beta, dt, max_iter,
-            exp, exp_size, z_initial_r, z_initial_i, z_initial_j, z_initial_k, input_array, array_size); // dx+dy*1i+dz*1j
+            exp, exp_size, z_initial, input_array, array_size); // dx+dy*1i+dz*1j
         
         #endif
 
@@ -645,9 +635,9 @@ extern "C" {
     EXPORT void newton(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp,
                     const uint16_t width, const uint16_t height, const uint16_t max_iter,
                     const double xmin, const double xmax, const double ymin,
-                    const double ymax, const double c_real, const double c_imag,
+                    const double ymax, const double* juliaset_c,
                     const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-                    const double z_initial_r, const double z_initial_i, const double z_initial_j, const double z_initial_k, 
+                    const double* z_initial, 
                     const double newton_epsilon, double* input_array, const uint32_t array_size) {
 
         std::signal(SIGINT, signal_handler);
@@ -660,7 +650,7 @@ extern "C" {
 
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, c_real, c_imag, juliaset, top_colors_outside, top_colors_lake, z_initial_r, z_initial_i, z_initial_j, z_initial_k, newton_epsilon, input_array, array_size);
+            newton_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, juliaset_c, juliaset, top_colors_outside, top_colors_lake, z_initial, newton_epsilon, input_array, array_size);
         #else
             // --- CPU Implementation using OpenMP ---
 
@@ -694,8 +684,8 @@ extern "C" {
     
                 while (y < height) {
                     y_quat = (static_cast<double>(y));
-                    setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, xmin + x * dx,
-                       ymin + y * dy, z_initial_r, z_initial_i, z_initial_j, z_initial_k,0.0,0.0,0.0,0.0);
+                    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, xmin + x * dx,
+                       ymin + y * dy, z_initial);
     
                     uint16_t iteration = 0;
                     double temp = 0.0;

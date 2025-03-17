@@ -9,32 +9,31 @@
 
 
 __device__ inline void setQuaternionOrOctonionValues(const bool juliaset, QuaternionOrOctonion& c, QuaternionOrOctonion& z,
-    const DefaultType c_real, const DefaultType c_imag,
-    const DefaultType r_part, const DefaultType i_part,
-    const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType z_initial_j, const DefaultType z_initial_k,
-    const DefaultType z_initial_l, const DefaultType z_initial_m,
-    const DefaultType z_initial_n, const DefaultType z_initial_o
-    ) {
+                    const double* juliaset_c, const DefaultType r_part, const DefaultType i_part,
+                    const double* z_initial
+                ) {
 
-    #ifndef OCTO
-        if (juliaset) {
-            c = QuaternionOrOctonion(c_real, c_imag);
-            z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k);
-        } else {
-            c = QuaternionOrOctonion(r_part, i_part);
-            z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
-        }
-    #else
-        if (juliaset) {
-            c = QuaternionOrOctonion(c_real, c_imag);
-            z = QuaternionOrOctonion(r_part, i_part, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
-        } else {
-            c = QuaternionOrOctonion(r_part, i_part);
-            z = QuaternionOrOctonion(z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
-        }
-    #endif
+
+#ifndef OCTO
+    if (juliaset) {
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3]);
+    } else {
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
+    }
+#else
+    if (juliaset) {
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3], juliaset_c[4], juliaset_c[5], juliaset_c[6], juliaset_c[7]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+    } else {
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+    }
+#endif
+
 }
+
 
 __device__ inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType temp,
     const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
@@ -78,21 +77,14 @@ __global__ void fractal_kernel(uint8_t* d_output,
                     const uint16_t max_iter,
                     const DefaultType xmin, const DefaultType ymin,
                     const DefaultType dx, const DefaultType dy,
-                    const DefaultType c_real, const DefaultType c_imag,
+                    const double* juliaset_c,
                     DefaultType escape_radius,
                     const bool fast_mode,
                     const bool juliaset,
                     const bool lake,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType z_initial_r,
-                    const DefaultType z_initial_i,
-                    const DefaultType z_initial_j,
-                    const DefaultType z_initial_k,
-                    const DefaultType z_initial_l,
-                    const DefaultType z_initial_m,
-                    const DefaultType z_initial_n,
-                    const DefaultType z_initial_o,
+                    const double* z_initial,
                     double* input_array,
                     const uint32_t array_size)
 {
@@ -139,8 +131,8 @@ __global__ void fractal_kernel(uint8_t* d_output,
 
 
 
-    setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                            z_initial_r, z_initial_i, z_initial_j, z_initial_k, z_initial_l, z_initial_m, z_initial_n, z_initial_o);
+    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, point_x, point_y,
+                            z_initial);
 
 
     DefaultType temp = 0;
@@ -265,14 +257,11 @@ __global__ void newton_kernel(uint8_t* d_output,
                     const uint16_t max_iter,
                     const DefaultType xmin, const DefaultType ymin,
                     const DefaultType dx, const DefaultType dy,
-                    const DefaultType c_real, const DefaultType c_imag,
+                    const double* juliaset_c,
                     const bool juliaset,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType z_initial_r,
-                    const DefaultType z_initial_i,
-                    const DefaultType z_initial_j,
-                    const DefaultType z_initial_k,
+                    const double* z_initial,
                     const DefaultType newton_epsilon,
                     double* input_array,
                     const uint32_t array_size)
@@ -320,8 +309,8 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 
 
-    setQuaternionOrOctonionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                z_initial_r, z_initial_i, z_initial_j, z_initial_k,0.0,0.0,0.0,0.0);
+    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, point_x, point_y,
+                z_initial);
 
 
     DefaultType temp = 0;
@@ -461,15 +450,18 @@ __global__ void magnet_kernel(uint8_t* d_output,
 
 
 __global__ void generate_lorenz_trajectory(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
-                        const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-                        const DefaultType z_initial_j, const DefaultType z_initial_k, double* input_array, const uint32_t array_size) {
+                        const int max_iter, const char* expression, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
     
 
     QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
     QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
     QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    QuaternionOrOctonion point(z_initial_r, z_initial_i, z_initial_j, z_initial_k);
+#ifndef OCTO
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
+#else
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+#endif
     QuaternionOrOctonion dx = 0.0;
     QuaternionOrOctonion dy = 0.0;
     QuaternionOrOctonion dz = 0.0;
@@ -555,12 +547,9 @@ void copyMemory(T* destination, const T* source, size_t count, cudaMemcpyKind di
 extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
-    const DefaultType dy, const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius, const bool fast_mode,
+    const DefaultType dy, const double* juliaset_c, DefaultType escape_radius, const bool fast_mode,
     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType z_initial_r, const DefaultType z_initial_i, const DefaultType z_initial_j, const DefaultType z_initial_k,
-    const DefaultType z_initial_l, const DefaultType z_initial_m,
-    const DefaultType z_initial_n, const DefaultType z_initial_o,
-    double* input_array, const uint32_t array_size) {
+    const double* z_initial, double* input_array, const uint32_t array_size) {
 
 
         cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -569,6 +558,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
         // Note: The count here is the number of elements.
         CudaMemory<uint8_t> d_output(width * height * 3);
         CudaMemory<double> d_input_array(array_size);
+        CudaMemory<double> d_z_initial(8);
+        CudaMemory<double> d_juliaset_c(8);
         CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
         CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
         
@@ -577,6 +568,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     
         // Copy host data to device
         copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_juliaset_c.get(), juliaset_c, 8, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
         copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
@@ -593,21 +586,14 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
                                               d_exp.get(), exp_len,
                                               width, height, max_iter,
                                               xmin, ymin, dx, dy,
-                                              c_real, c_imag,
+                                              d_juliaset_c.get(),
                                               escape_radius,
                                               fast_mode,
                                               juliaset,
                                               lake,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              z_initial_r,
-                                              z_initial_i,
-                                              z_initial_j,
-                                              z_initial_k,
-                                              z_initial_l,
-                                              z_initial_m,
-                                              z_initial_n,
-                                              z_initial_o,
+                                              d_z_initial.get(),
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -687,10 +673,8 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
 extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
-    const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
-    const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType z_initial_r, const DefaultType z_initial_i, const DefaultType z_initial_j, const DefaultType z_initial_k, 
-    const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
+    const DefaultType dy, const double* juliaset_c, const bool juliaset, const int top_colors_outside, const int top_colors_lake,
+    const double* z_initial, const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
 
 
         cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -699,6 +683,8 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
         // Note: The count here is the number of elements.
         CudaMemory<uint8_t> d_output(width * height * 3);
         CudaMemory<double> d_input_array(array_size);
+        CudaMemory<double> d_z_initial(8);
+        CudaMemory<double> d_juliaset_c(8);
         CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
         CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
         
@@ -707,6 +693,8 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
     
         // Copy host data to device
         copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_juliaset_c.get(), juliaset_c, 8, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
         copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
@@ -723,14 +711,11 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
                                               d_exp.get(), exp_len,
                                               width, height, max_iter,
                                               xmin, ymin, dx, dy,
-                                              c_real, c_imag,
+                                              d_juliaset_c.get(),
                                               juliaset,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              z_initial_r,
-                                              z_initial_i,
-                                              z_initial_j,
-                                              z_initial_k,
+                                              d_z_initial.get(),
                                               newton_epsilon,
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
@@ -809,8 +794,7 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
 
 
 extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
-    const int max_iter, const char* exp, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType z_initial_j, const DefaultType z_initial_k, double* input_array, const uint32_t array_size) {
+    const int max_iter, const char* exp, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
 
 
     cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -818,6 +802,7 @@ extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajecto
     // Allocate device memory using the RAII wrapper.
     // Note: The count here is the number of elements.
     CudaMemory<double> d_input_array(array_size);
+    CudaMemory<double> d_z_initial(8);
     CudaMemory<QuaternionOrOctonion> d_trajectory(max_iter);
     
     size_t exp_len = exp_size + 1; // +1 for null terminator
@@ -825,14 +810,14 @@ extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajecto
 
     // Copy host data to device
     copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+    copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
     copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
     copyMemory(d_trajectory.get(), trajectory, max_iter, cudaMemcpyHostToDevice);
     
 
     generate_lorenz_trajectory<<<1, 1>>>(d_trajectory.get(),
                     sigma, rho, beta, dt, max_iter,
-                    d_exp.get(), exp_size, z_initial_r, z_initial_i,
-                    z_initial_j, z_initial_k, d_input_array.get(), array_size);
+                    d_exp.get(), exp_size, d_z_initial.get(), d_input_array.get(), array_size);
 
 
     cudaError_t err = cudaGetLastError();

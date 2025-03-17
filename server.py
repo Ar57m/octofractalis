@@ -54,7 +54,7 @@ def set_current_gen(id):
     global current_client_id
     current_client_id = id
 
-def process_form_data(params, timeout):
+def process_form_data(params, timeout, noserverIsOn=False):
     global all_parameters, stop_gen_event
 
 
@@ -172,8 +172,7 @@ def process_form_data(params, timeout):
     all_parameters["escape_radius"] = float(params.get('escape_radius',0.0))
     all_parameters['top_colors'] = int(params.get('top_colors', 24))
     all_parameters['max_grains'] = int(params.get('max_grains', 3))
-    all_parameters['juliaset_c_real'] = float(params.get('juliaset_c_real', -0.8))
-    all_parameters['juliaset_c_imag'] = float(params.get('juliaset_c_imag', 0.16))
+
 
     all_parameters['use_palette'] = bool(params.get('use_palette', True))
     palette = params.get('palette', './palettes/palette.png')
@@ -215,14 +214,48 @@ def process_form_data(params, timeout):
     print("\nYour coordinates: ", all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'], "\n")
     print(all_parameters['expression'].replace(" ", ""))
 
-    all_parameters["z_initial_r"]= float(params.get('z_initial_r', 0.0))
-    all_parameters["z_initial_i"]= float(params.get('z_initial_i', 0.0))
-    all_parameters['z_initial_j'] = float(params.get('z_initial_j', 0.0))
-    all_parameters['z_initial_k'] = float(params.get('z_initial_k', 0.0))
-    all_parameters["z_initial_l"]= float(params.get('z_initial_l', 0.0))
-    all_parameters["z_initial_m"]= float(params.get('z_initial_m', 0.0))
-    all_parameters['z_initial_n'] = float(params.get('z_initial_n', 0.0))
-    all_parameters['z_initial_o'] = float(params.get('z_initial_o', 0.0))
+    if not noserverIsOn:
+        all_parameters["z_initial"]= [float(params.get('z_initial_r', 0.0)),
+                                    float(params.get('z_initial_i', 0.0)),
+                                    float(params.get('z_initial_j', 0.0)),
+                                    float(params.get('z_initial_k', 0.0)),
+                                    float(params.get('z_initial_l', 0.0)),
+                                    float(params.get('z_initial_m', 0.0)),
+                                    float(params.get('z_initial_n', 0.0)),
+                                    float(params.get('z_initial_o', 0.0))]
+                                    
+        all_parameters['juliaset_c'] = [float(params.get('juliaset_c_r', -0.8)),
+                                    float(params.get('juliaset_c_i', 0.16)),
+                                    float(params.get('juliaset_c_j', 0.0)),
+                                    float(params.get('juliaset_c_k', 0.0)),
+                                    float(params.get('juliaset_c_l', 0.0)),
+                                    float(params.get('juliaset_c_m', 0.0)),
+                                    float(params.get('juliaset_c_n', 0.0)),
+                                    float(params.get('juliaset_c_o', 0.0))]
+
+
+    else:
+        zinitial = params.get('z_initial', [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        juliasetp = params.get('juliaset_c', [-0.8, 0.16, 0.0, 0.6, 0.0, 0.0, 0.0, 0.0])
+
+
+        all_parameters["z_initial"]= [float(zinitial[0]),
+                                    float(zinitial[1]),
+                                    float(zinitial[2]),
+                                    float(zinitial[3]),
+                                    float(zinitial[4]),
+                                    float(zinitial[5]),
+                                    float(zinitial[6]),
+                                    float(zinitial[7])]
+                                    
+        all_parameters["juliaset_c"]= [float(juliasetp[0]),
+                                    float(juliasetp[1]),
+                                    float(juliasetp[2]),
+                                    float(juliasetp[3]),
+                                    float(juliasetp[4]),
+                                    float(juliasetp[5]),
+                                    float(juliasetp[6]),
+                                    float(juliasetp[7])]
 
 
 
@@ -352,8 +385,8 @@ def server(port, timeout):
 
             
             # Fractal generation request
-            required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
-            if all(key in received_params for key in required_keys) and not generating.is_set() :
+            # required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
+            if not generating.is_set() :
                 generating.set()
                 stop_gen_event.clear()
                 set_current_gen(str(received_params.get('tab_id', 0)))
@@ -371,22 +404,22 @@ def server(port, timeout):
                 print("On queue...")
                 while generating.is_set():
                     time.sleep(0.25)
-                if all(key in received_params for key in required_keys):
-                    generating.set()
-                    stop_gen_event.clear()
-                    set_current_gen(str(received_params.get('tab_id', 0)))
-                    try:
-                        fractal_result = ",".join(process_form_data(received_params, timeout))
-                    except Exception as e:
-                        print(f"An Error Occurred: {e}")
-                        fractal_result = ",".join(failed_img)
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json; charset=utf-8')
-                    self.end_headers()
-                    self.wfile.write(fractal_result.encode('utf-8'))
-                    generating.clear()
-                else:
-                    return
+                # if all(key in received_params for key in required_keys):
+                generating.set()
+                stop_gen_event.clear()
+                set_current_gen(str(received_params.get('tab_id', 0)))
+                try:
+                    fractal_result = ",".join(process_form_data(received_params, timeout))
+                except Exception as e:
+                    print(f"An Error Occurred: {e}")
+                    fractal_result = ",".join(failed_img)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(fractal_result.encode('utf-8'))
+                generating.clear()
+
+                # return
             else:
                 self.send_response(400)
                 self.end_headers()
@@ -472,7 +505,7 @@ def main():
 
 
         # Let's Run
-        process_form_data(parameters, args.timeout)
+        process_form_data(parameters, args.timeout, True)
 
         # for i in range(36):
         #     all_parameters['expression'] = f"rotation(z*z+c,pi/{36-(i+1)}, 1k)" #(1/35)*i

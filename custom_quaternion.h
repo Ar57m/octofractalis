@@ -227,7 +227,7 @@ public:
 
 
     HOST_DEVICE QuaternionOrOctonion rotate_in_circle(QuaternionOrOctonion angle, QuaternionOrOctonion axis) const {
-        DefaultType angle_in_radians = angle.mag(); // Magnitude as angle in radians
+        DefaultType angle_in_radians = angle.real;
         DefaultType sin_angle = my_sin(angle_in_radians);
         DefaultType cos_angle = my_cos(angle_in_radians);
 
@@ -270,11 +270,11 @@ public:
     HOST_DEVICE QuaternionOrOctonion rotation(const QuaternionOrOctonion angle, const QuaternionOrOctonion& axis) const {
         QuaternionOrOctonion normalized_axis = axis / axis.mag();
     
-        DefaultType angle_mag = angle.mag();
-        DefaultType half_angle = my_sin(angle_mag / 2.0);
+        DefaultType angle_d = angle.real;
+        DefaultType half_angle = my_sin(angle_d / 2.0);
     
         QuaternionOrOctonion rotation_QuaternionOrOctonion(
-            my_cos(angle_mag / 2.0),
+            my_cos(angle_d / 2.0),
             normalized_axis.imag * half_angle,
             normalized_axis.j * half_angle,
             normalized_axis.k * half_angle
