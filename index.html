@@ -313,38 +313,6 @@
                         <input type="number" id="gradient" name="gradient" min="0" max="256" value="24" required class="small-input">
                         <br>
 
-                        <label for="z_initial_r">Z Initial Real:</label>
-                        <input type="text" id="z_initial_r" name="z_initial_r" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_i">Z Initial I:</label>
-                        <input type="text" id="z_initial_i" name="z_initial_i" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_j">Z Initial J:</label>
-                        <input type="text" id="z_initial_j" name="z_initial_j" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_k">Z Initial K:</label>
-                        <input type="text" id="z_initial_k" name="z_initial_k" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_l">Z Initial L:</label>
-                        <input type="text" id="z_initial_l" name="z_initial_l" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_m">Z Initial M:</label>
-                        <input type="text" id="z_initial_m" name="z_initial_m" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_n">Z Initial N:</label>
-                        <input type="text" id="z_initial_n" name="z_initial_n" value="0.0" required class="small-input">
-                        <br>
-
-                        <label for="z_initial_o">Z Initial O:</label>
-                        <input type="text" id="z_initial_o" name="z_initial_o" value="0.0" required class="small-input">
-                        <br>
-
                         <label for="newton_epsilon">Newton Epsilon:</label>
                         <input type="text" id="newton_epsilon" name="newton_epsilon" value="0.000001" required class="small-input" pattern="0\.[0-9]{1,7}">
                         <br>
@@ -353,10 +321,18 @@
                         <input type="number" id="n_points" name="n_points" min="2" max="10000" value="3" required class="small-input">
                         <br>
 
+                        <legend>Sandpile Parameter</legend>
+                        <label for="max_grains">Max Grains:</label>
+                        <input type="number" id="max_grains" name="max_grains" min="2" max="256" value="32" required class="small-input">
+                        <br>
+
                         <label for="fast_mode">Fast Mode:</label>
                         <input type="checkbox" id="fast_mode" name="fast_mode" checked class="small-input">
                         <br>
-
+                        <br>
+                        <label for="fractalize_image">Fractalize Image:</label>
+                        <input type="file" id="fractalize_image" accept="image/*">
+                        <br>
                     </fieldset>
                         <br>
 
@@ -389,75 +365,85 @@
                     </fieldset>
                         <br>
                         
+
                     <fieldset>
-                        <label for="fractalize_image">Fractalize Image:</label>
-                        <input type="file" id="fractalize_image" accept="image/*">
-                    </fieldset>
+                        <legend>Initial Z Parameters</legend>
+
+
+                        <label for="z_initial_r">Z Initial Real:</label>
+                        <input type="text" id="z_initial_r" name="z_initial_r" value="0.0" data-default="0.0" required class="small-input">
                         <br>
-                        
-                    <fieldset>
-                        <legend>Sandpile Parameter</legend>
-                        <label for="max_grains">Max Grains:</label>
-                        <input type="number" id="max_grains" name="max_grains" min="2" max="256" value="32" required class="small-input">
+
+                        <label for="z_initial_i">Z Initial I:</label>
+                        <input type="text" id="z_initial_i" name="z_initial_i" value="0.0" data-default="0.0" required class="small-input">
                         <br>
+
+                        <label for="z_initial_j">Z Initial J:</label>
+                        <input type="text" id="z_initial_j" name="z_initial_j" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_k">Z Initial K:</label>
+                        <input type="text" id="z_initial_k" name="z_initial_k" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_l">Z Initial L:</label>
+                        <input type="text" id="z_initial_l" name="z_initial_l" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_m">Z Initial M:</label>
+                        <input type="text" id="z_initial_m" name="z_initial_m" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_n">Z Initial N:</label>
+                        <input type="text" id="z_initial_n" name="z_initial_n" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+
+                        <label for="z_initial_o">Z Initial O:</label>
+                        <input type="text" id="z_initial_o" name="z_initial_o" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+                        <button type="button" id="reset_z_initial" class="small-input buttons" onclick="resetFieldsWithData(['z_initial_r', 'z_initial_i', 'z_initial_j', 'z_initial_k', 'z_initial_l', 'z_initial_m', 'z_initial_n', 'z_initial_o'])" aria-label="Reset Coordinates">🔄️</button>
+                        <br>
+
                     </fieldset>
                         <br>
 
                     <fieldset>
                         <legend>Julia Set Parameters</legend>
                         <label for="juliaset_c_r">C Real:</label>
-                        <input type="text" id="juliaset_c_r" name="juliaset_c_r" value="-0.8" required class="small-input">
+                        <input type="text" id="juliaset_c_r" name="juliaset_c_r" value="-0.8" data-default="-0.8" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_i">C I:</label>
-                        <input type="text" id="juliaset_c_i" name="juliaset_c_i" value="0.16" required class="small-input">
+                        <input type="text" id="juliaset_c_i" name="juliaset_c_i" value="0.16" data-default="0.16" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_j">C J:</label>
-                        <input type="text" id="juliaset_c_j" name="juliaset_c_j" value="0.0" required class="small-input">
+                        <input type="text" id="juliaset_c_j" name="juliaset_c_j" value="0.0" data-default="0.0" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_k">C K:</label>
-                        <input type="text" id="juliaset_c_k" name="juliaset_c_k" value="0.0" required class="small-input">
+                        <input type="text" id="juliaset_c_k" name="juliaset_c_k" value="0.0" data-default="0.0" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_l">C L:</label>
-                        <input type="text" id="juliaset_c_l" name="juliaset_c_l" value="0.0" required class="small-input">
+                        <input type="text" id="juliaset_c_l" name="juliaset_c_l" value="0.0" data-default="0.0" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_m">C M:</label>
-                        <input type="text" id="juliaset_c_m" name="juliaset_c_m" value="0.0" required class="small-input">
+                        <input type="text" id="juliaset_c_m" name="juliaset_c_m" value="0.0" data-default="0.0" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_n">C N:</label>
-                        <input type="text" id="juliaset_c_n" name="juliaset_c_n" value="0.0" required class="small-input">
+                        <input type="text" id="juliaset_c_n" name="juliaset_c_n" value="0.0" data-default="0.0" required class="small-input">
                         <br>
 
                         <label for="juliaset_c_o">C O:</label>
-                        <input type="text" id="juliaset_c_o" name="juliaset_c_o" value="0.0" required class="small-input">
+                        <input type="text" id="juliaset_c_o" name="juliaset_c_o" value="0.0" data-default="0.0" required class="small-input">
+                        <br>
+                        <button type="button" id="reset_juliaset_c" class="small-input buttons" onclick="resetFieldsWithData(['juliaset_c_r', 'juliaset_c_i', 'juliaset_c_j', 'juliaset_c_k', 'juliaset_c_l', 'juliaset_c_m', 'juliaset_c_n', 'juliaset_c_o'])" aria-label="Reset Coordinates">🔄️</button>
                         <br>
 
 
-                    </fieldset>
-                        <br>
-
-                    <fieldset>
-                        <legend>Coordinates</legend>
-                        <label for="xmin">X Min:</label>
-                        <input type="text" id="xmin" name="xmin" value="-2.0" required class="small-input">
-                        <br>
-
-                        <label for="xmax">X Max:</label>
-                        <input type="text" id="xmax" name="xmax" value="2.0" required class="small-input">
-                        <br>
-
-                        <label for="ymin">Y Min:</label>
-                        <input type="text" id="ymin" name="ymin" value="-2.0" required class="small-input">
-                        <br>
-
-                        <label for="ymax">Y Max:</label>
-                        <input type="text" id="ymax" name="ymax" value="2.0" required class="small-input">
-                        <br>
                     </fieldset>
                         <br>
 
@@ -472,11 +458,12 @@
                         id="palette" 
                         name="palette" 
                         value="./palettes/palette.png"
+                        data-default="./palettes/palette.png"
                         aria-label="Palette file path">
                         <br>
                         
                         <label for="shift_palette">Shift Colors:</label>
-                        <input type="number" id="shift_palette" name="shift_palette" min="-1024" max="1024" value="0" required class="small-input">
+                        <input type="number" id="shift_palette" name="shift_palette" min="-1024" max="1024" value="0" data-default="0" required class="small-input">
                         <br>
 
 
@@ -488,20 +475,21 @@
                         id="lake_palette" 
                         name="lake_palette" 
                         value="./palettes/lake_palette.png"
+                        data-default="./palettes/lake_palette.png"
                         aria-label="Lake Palette file path">
                         <br>
 
                         <label for="shift_palette_lake">Shift Lake Colors:</label>
-                        <input type="number" id="shift_palette_lake" name="shift_palette_lake" min="-1024" max="1024" value="0" required class="small-input">
+                        <input type="number" id="shift_palette_lake" name="shift_palette_lake" min="-1024" max="1024" value="0" data-default="0" required class="small-input">
                         <br>
                         <label for="quant_level">Quant Level:</label>
-                        <input type="number" id="quant_level" name="quant_level" min="2" max="256" value="16" required class="small-input">
+                        <input type="number" id="quant_level" name="quant_level" min="2" max="256" value="16" data-default="16" required class="small-input">
                         <br>
                             
                         <fieldset>
                             <legend>Random Palette</legend>
                             <label for="colorCount">Color Count:</label>
-                            <input type="number" min="2" max="127" value="16" id="colorCount">
+                            <input type="number" min="2" max="127" value="16" data-default="16" id="colorCount">
                             
                             
                             <select id="mode" aria-label="Color Mode">
@@ -509,6 +497,7 @@
                               <option value="random">Full Random</option>
                             </select>
                             <br>
+                            <button type="button" id="reset_palette" class="small-input buttons" onclick="resetFieldsWithData(['palette', 'shift_palette', 'lake_palette', 'shift_palette_lake', 'quant_level', 'colorCount'])" aria-label="Reset Coordinates">🔄️</button>
                             <button type="button" id="switch_palette" class="small-input buttons" onclick="switchPalette('palette')" aria-label="Switch to Rainbow Palette">🌈</button>
                             <button type="button" id="switch_lake_palette" class="small-input buttons" onclick="switchPalette('lake_palette')" aria-label="Switch to Lake Palette">🏞️</button>
                             <br> 
@@ -523,31 +512,51 @@
                     <fieldset>
                         <legend>Lorenz Parameters</legend>
                         <label for="sigma">Sigma:</label>
-                        <input type="text" id="sigma" name="sigma" value="10.0" required class="small-input">
+                        <input type="text" id="sigma" name="sigma" value="10.0" data-default="10.0" required class="small-input">
                         <br>
                         <label for="rho">Rho:</label>
-                        <input type="text" id="rho" name="rho" value="28.0" required class="small-input">
+                        <input type="text" id="rho" name="rho" value="28.0" data-default="28.0" required class="small-input">
                         <br>
                         <label for="beta">Beta:</label>
-                        <input type="text" id="beta" name="beta" value="2.66666666" required class="small-input">
+                        <input type="text" id="beta" name="beta" value="2.66666666" data-default="2.66666666" required class="small-input">
                         <br>
                         <label for="dt">Dt:</label>
-                        <input type="text" id="dt" name="dt" value="0.01" required class="small-input">
+                        <input type="text" id="dt" name="dt" value="0.01" data-default="0.01" required class="small-input">
                         <br>
                         <label for="rotation_angle">Rotation Angle:</label>
-                        <input type="text" id="rotation_angle" name="rotation_angle" value="0.0" required class="small-input">
+                        <input type="text" id="rotation_angle" name="rotation_angle" value="0.0" data-default="0.0" required class="small-input">
                         <br>
                         <label for="axis">Axis:</label>
-                        <input type="number" id="axis" name="axis" min="-1" max="5" value="-1" required class="small-input">
+                        <input type="number" id="axis" name="axis" min="-1" max="5" value="-1" data-default="-1" required class="small-input">
                         <br>
                         <label for="max_point_size">Max Point Size:</label>
-                        <input type="number" id="max_point_size" name="max_point_size" min="1" max="256" value="1" required class="small-input">
+                        <input type="number" id="max_point_size" name="max_point_size" min="1" max="256" value="1" data-default="1" required class="small-input">
+                        <br>
+                        <button type="button" id="reset_lorenz_params" class="small-input buttons" onclick="resetFieldsWithData(['sigma', 'rho', 'beta', 'dt', 'rotation_angle', 'axis', 'max_point_size'])" aria-label="Reset Coordinates">🔄️</button>
                         <br>
                     </fieldset>
                         <br>
 
                     <fieldset>
-                        <legend>Zoom</legend>
+                        <legend>Coordinates and Zoom</legend>
+                        <label for="xmin">X Min:</label>
+                        <input type="text" id="xmin" name="xmin" value="-2.0" data-default="-2.0" required class="small-input">
+                        <br>
+
+                        <label for="xmax">X Max:</label>
+                        <input type="text" id="xmax" name="xmax" value="2.0" data-default="2.0" required class="small-input">
+                        <br>
+
+                        <label for="ymin">Y Min:</label>
+                        <input type="text" id="ymin" name="ymin" value="-2.0" data-default="-2.0" required class="small-input">
+                        <br>
+
+                        <label for="ymax">Y Max:</label>
+                        <input type="text" id="ymax" name="ymax" value="2.0" data-default="2.0" required class="small-input">
+                        <br>
+                        <button type="button" id="reset_coord" class="small-input buttons" onclick="resetFieldsWithData(['xmin', 'xmax', 'ymin', 'ymax'])" aria-label="Reset Coordinates">🔄️</button>
+                        <br>
+
                         <label for="continue_aim">Zoom or Reset:</label>
                         <input type="checkbox" id="continue_aim" name="continue_aim" class="small-input">
                         <br>
@@ -594,14 +603,14 @@
         validateInput("escape_radius", 0.0, 1000000000.0, 0.0);
         validateInput("newton_epsilon", 0.0000001, 1.0, 0.000001);
 
-        validateInput("juliaset_c_r", -100.0, 100.0, -0.8);
-        validateInput("juliaset_c_i", -100.0, 100.0, 0.16);
-        validateInput("juliaset_c_j", -100.0, 100.0, 0.0);
-        validateInput("juliaset_c_k", -100.0, 100.0, 0.0);
-        validateInput("juliaset_c_l", -100.0, 100.0, 0.0);
-        validateInput("juliaset_c_m", -100.0, 100.0, 0.0);
-        validateInput("juliaset_c_n", -100.0, 100.0, 0.0);
-        validateInput("juliaset_c_o", -100.0, 100.0, 0.0);
+        validateInput("juliaset_c_r", -1000.0, 1000.0, -0.8);
+        validateInput("juliaset_c_i", -1000.0, 1000.0, 0.16);
+        validateInput("juliaset_c_j", -1000.0, 1000.0, 0.0);
+        validateInput("juliaset_c_k", -1000.0, 1000.0, 0.0);
+        validateInput("juliaset_c_l", -1000.0, 1000.0, 0.0);
+        validateInput("juliaset_c_m", -1000.0, 1000.0, 0.0);
+        validateInput("juliaset_c_n", -1000.0, 1000.0, 0.0);
+        validateInput("juliaset_c_o", -1000.0, 1000.0, 0.0);
 
         validateInput("sigma", -10000.0, 10000.0, 10.0);
         validateInput("rho", -10000.0, 10000.0, 28.0);
@@ -633,17 +642,19 @@
 
         let tabId = sessionStorage.getItem('tabId');
         if (!tabId) {
-        tabId = generateUUID();
-        sessionStorage.setItem('tabId', tabId);
+            tabId = generateUUID();
+            sessionStorage.setItem('tabId', tabId);
         }
-
 
         function toggleCollapse(legend) {
             const fieldset = legend.parentElement;
-            const content = fieldset.querySelector('.fractals-section');
             const isActive = fieldset.classList.toggle('active');
-            
-            content.style.display = isActive ? 'grid' : 'none';
+
+            Array.from(fieldset.children).forEach(child => {
+                if (child !== legend) {
+                    child.style.display = isActive ? 'grid' : 'none';
+                }
+            });
         }
 
 
@@ -753,7 +764,16 @@
             }
         }
 
-        
+        function resetFieldsWithData(fieldIds) {
+            fieldIds.forEach(id => {
+                const input = document.getElementById(id);
+                if (input && input.dataset.default !== undefined) {
+                    input.value = input.dataset.default;
+                }
+            });
+        }
+
+
         
         
         
