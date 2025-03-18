@@ -330,7 +330,7 @@ private:
     }
 
     const char* varNames[10] = {"z", "c", "it", "v", "p", "f", "dif", "dx", "dy", "dz"};
-    const char* oVarNames[3] = {"pi", "e", "phi"};
+    const char* oVarNames[5] = {"pi", "e", "phi", "x", "y"};
     
     ASTNode* error_zero = createConstantNode(nodeAllocator, constantDataAllocator, QuaternionOrOctonion(0.0));
 
@@ -676,7 +676,7 @@ private:
         if ( tempPos < expr_size && exprPos == '(' && exprPosBefore != '(' ) {
             pos = tempPos;
             return parseFunction(name);
-        } else if ( containsToken(oVarNames, 3, name) || containsToken(varNames, 10, name) || exprPos == '[' ) {
+        } else if ( containsToken(oVarNames, 5, name) || containsToken(varNames, 10, name) || exprPos == '[' ) {
             pos = tempPos;
             return parseVarOrArray(name);
         } else if (my_isdigit(exprPosBefore) || exprPosBefore == '.' ||  isImaginaryChar(exprPosBefore) ) {
