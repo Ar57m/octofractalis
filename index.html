@@ -320,9 +320,8 @@
                         <label for="n_points">Number of Magnets:</label>
                         <input type="number" id="n_points" name="n_points" min="2" max="10000" value="3" required class="small-input">
                         <br>
-
-                        <legend>Sandpile Parameter</legend>
-                        <label for="max_grains">Max Grains:</label>
+                        
+                        <label for="max_grains">Sandpile Max Grains:</label>
                         <input type="number" id="max_grains" name="max_grains" min="2" max="256" value="32" required class="small-input">
                         <br>
 
@@ -330,8 +329,12 @@
                         <input type="checkbox" id="fast_mode" name="fast_mode" checked class="small-input">
                         <br>
                         <br>
-                        <label for="fractalize_image">Fractalize Image:</label>
-                        <input type="file" id="fractalize_image" accept="image/*">
+                            
+                        <fieldset>
+                            <legend for="fractalize_image">Fractalize Image</legend>
+                            <input type="file" id="fractalize_image" aria-label="Image to apply fractalization." accept="image/*">
+                            <br>
+                        </fieldset>
                         <br>
                     </fieldset>
                         <br>
@@ -485,6 +488,7 @@
                         <label for="quant_level">Quant Level:</label>
                         <input type="number" id="quant_level" name="quant_level" min="2" max="256" value="16" data-default="16" required class="small-input">
                         <br>
+                        <br>
                             
                         <fieldset>
                             <legend>Random Palette</legend>
@@ -538,40 +542,42 @@
                         <br>
 
                     <fieldset>
-                        <legend>Coordinates and Zoom</legend>
+                        <legend>Coordinates</legend>
                         <label for="xmin">X Min:</label>
-                        <input type="text" id="xmin" name="xmin" value="-2.0" data-default="-2.0" required class="small-input">
+                        <input type="text" id="xmin" name="xmin" value="-2.5" data-default="-2.5" required class="small-input">
                         <br>
 
                         <label for="xmax">X Max:</label>
-                        <input type="text" id="xmax" name="xmax" value="2.0" data-default="2.0" required class="small-input">
+                        <input type="text" id="xmax" name="xmax" value="2.5" data-default="2.5" required class="small-input">
                         <br>
 
                         <label for="ymin">Y Min:</label>
-                        <input type="text" id="ymin" name="ymin" value="-2.0" data-default="-2.0" required class="small-input">
+                        <input type="text" id="ymin" name="ymin" value="-2.5" data-default="-2.5" required class="small-input">
                         <br>
 
                         <label for="ymax">Y Max:</label>
-                        <input type="text" id="ymax" name="ymax" value="2.0" data-default="2.0" required class="small-input">
+                        <input type="text" id="ymax" name="ymax" value="2.5" data-default="2.5" required class="small-input">
                         <br>
                         <button type="button" id="reset_coord" class="small-input buttons" onclick="resetFieldsWithData(['xmin', 'xmax', 'ymin', 'ymax'])" aria-label="Reset Coordinates">🔄️</button>
                         <br>
-
-                        <label for="continue_aim">Zoom or Reset:</label>
-                        <input type="checkbox" id="continue_aim" name="continue_aim" class="small-input">
-                        <br>
-
-                        <label for="column_aim">Column:</label>
-                        <input type="number" id="column_aim" name="column_aim" min="1" max="11" value="1" required class="small-input">
-                        <br>
-
-                        <label for="row_aim">Row:</label>
-                        <input type="number" id="row_aim" name="row_aim" min="1" max="11" value="1" required class="small-input">
-                        <br>
-
-                        <label for="grid_length">Grid Length:</label>
-                        <input type="number" id="grid_length" name="grid_length" min="1" max="11" value="1" required class="small-input">
-                        <br>
+                        <fieldset>
+                            <legend>Zooming</legend>
+                            <label for="continue_aim">Zoom:</label>
+                            <input type="checkbox" id="continue_aim" name="continue_aim" class="small-input">
+                            <br>
+    
+                            <label for="column_aim">Column:</label>
+                            <input type="number" id="column_aim" name="column_aim" min="1" max="11" value="1" required class="small-input">
+                            <br>
+    
+                            <label for="row_aim">Row:</label>
+                            <input type="number" id="row_aim" name="row_aim" min="1" max="11" value="1" required class="small-input">
+                            <br>
+    
+                            <label for="grid_length">Grid Length:</label>
+                            <input type="number" id="grid_length" name="grid_length" min="1" max="11" value="1" required class="small-input">
+                            <br>
+                        </fieldset>
                     </fieldset>
                         <br>
 
@@ -624,10 +630,10 @@
         validateInput("z_initial_m", -10000.0, 10000.0, 0.0);
         validateInput("z_initial_n", -10000.0, 10000.0, 0.0);
         validateInput("z_initial_o", -10000.0, 10000.0, 0.0);
-        validateInput("xmin", -10000.0, 10000.0, -2.0);
-        validateInput("xmax", -10000.0, 10000.0, 2.0);
-        validateInput("ymin", -10000.0, 10000.0, -2.0);
-        validateInput("ymax", -10000.0, 10000.0, 2.0);
+        validateInput("xmin", -10000.0, 10000.0, -2.5);
+        validateInput("xmax", -10000.0, 10000.0, 2.5);
+        validateInput("ymin", -10000.0, 10000.0, -2.5);
+        validateInput("ymax", -10000.0, 10000.0, 2.5);
         validateInput("rotation_angle", -10000.0, 10000.0, 0.0);
         
         
@@ -707,6 +713,43 @@
         });
 
 
+        function updateCoordinates() {
+          // Only proceed if zoom mode is enabled
+          if (!document.getElementById('continue_aim').checked) return;
+
+          const gridLength = parseFloat(document.getElementById('grid_length').value);
+          const columnAim = parseFloat(document.getElementById('column_aim').value) - 1;
+          const rowAim = parseFloat(document.getElementById('row_aim').value) - 1;
+        
+          const xminInput = document.getElementById('xmin');
+          const xmaxInput = document.getElementById('xmax');
+          const yminInput = document.getElementById('ymin');
+          const ymaxInput = document.getElementById('ymax');
+        
+          const xmin = parseFloat(xminInput.value);
+          const xmax = parseFloat(xmaxInput.value);
+          const ymin = parseFloat(yminInput.value);
+          const ymax = parseFloat(ymaxInput.value);
+        
+          // Compute the size of each cell based on the current boundaries and grid length
+          const cellWidth = (xmax - xmin) / gridLength;
+          const cellHeight = (ymax - ymin) / gridLength;
+        
+          // Calculate the new boundaries for the selected cell
+          const newXmin = xmin + columnAim * cellWidth;
+          const newXmax = newXmin + cellWidth;
+          const newYmin = ymin + rowAim * cellHeight;
+          const newYmax = newYmin + cellHeight;
+        
+          xminInput.value = newXmin;
+          xmaxInput.value = newXmax;
+          yminInput.value = newYmin;
+          ymaxInput.value = newYmax;
+        }
+        
+        
+
+
         // For the random palette generator
         const elements = {
           colorCount: document.getElementById('colorCount'),
@@ -772,6 +815,8 @@
                 }
             });
         }
+        
+
 
 
         
@@ -872,7 +917,7 @@
                 const cellWidth = img.width / n;
                 const cellHeight = img.height / n;
 
-                ctx.strokeStyle = 'black';
+                ctx.strokeStyle = 'white';
                 ctx.lineWidth = 1;
 
                 for (let i = 1; i < n; i++) {
@@ -895,6 +940,7 @@
         
         // Sending the form data to the python side
         document.getElementById('generateFractal').addEventListener('click', function() {
+            updateCoordinates();
             const form = document.getElementById('fractalForm');
             
 

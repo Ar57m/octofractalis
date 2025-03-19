@@ -188,33 +188,19 @@ def process_form_data(params, timeout, noserverIsOn=False):
     all_parameters['shift_palette'] = int(params.get('shift_palette', 0))
     all_parameters['shift_palette_lake'] = int(params.get('shift_palette_lake',0))
     
-    
-    grid_length = int(params.get('grid_length', 3))
-    column_aim = min(int(params.get('column_aim', 2)), grid_length)
-    row_aim = min(int(params.get('row_aim', 2)), grid_length)
-
-    coordinates = [[column_aim,row_aim,grid_length]]
-    all_parameters['column_aim'] = column_aim
-    all_parameters['row_aim'] = row_aim
-    all_parameters['grid_length'] = grid_length
-    all_parameters['coordinates'] = coordinates
-    all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
 
 
 
-    if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
-        xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
-        all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
-    else:
-        all_parameters['xmin'] = float(params.get('xmin', -2.7))
-        all_parameters['xmax'] = float(params.get('xmax', 2.7))
-        all_parameters['ymin'] = float(params.get('ymin', -2.7))
-        all_parameters['ymax'] = float(params.get('ymax', 2.7))
 
-    print("\nYour coordinates: ", all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'], "\n")
-    print(all_parameters['expression'].replace(" ", ""))
 
     if not noserverIsOn:
+
+        all_parameters['xmin'] = float(params.get('xmin', -2.5))
+        all_parameters['xmax'] = float(params.get('xmax', 2.5))
+        all_parameters['ymin'] = float(params.get('ymin', -2.5))
+        all_parameters['ymax'] = float(params.get('ymax', 2.5))
+
+
         all_parameters["z_initial"]= [float(params.get('z_initial_r', 0.0)),
                                     float(params.get('z_initial_i', 0.0)),
                                     float(params.get('z_initial_j', 0.0)),
@@ -235,6 +221,31 @@ def process_form_data(params, timeout, noserverIsOn=False):
 
 
     else:
+
+        grid_length = int(params.get('grid_length', 3))
+        column_aim = min(int(params.get('column_aim', 2)), grid_length)
+        row_aim = min(int(params.get('row_aim', 2)), grid_length)
+
+        coordinates = [[column_aim,row_aim,grid_length]]
+        all_parameters['column_aim'] = column_aim
+        all_parameters['row_aim'] = row_aim
+        all_parameters['grid_length'] = grid_length
+        all_parameters['coordinates'] = coordinates
+        all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
+
+
+
+        if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
+            xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
+            all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
+        else:
+            all_parameters['xmin'] = float(params.get('xmin', -2.5))
+            all_parameters['xmax'] = float(params.get('xmax', 2.5))
+            all_parameters['ymin'] = float(params.get('ymin', -2.5))
+            all_parameters['ymax'] = float(params.get('ymax', 2.5))
+
+
+
         zinitial = params.get('z_initial', [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         juliasetp = params.get('juliaset_c', [-0.8, 0.16, 0.0, 0.6, 0.0, 0.0, 0.0, 0.0])
 
@@ -258,6 +269,9 @@ def process_form_data(params, timeout, noserverIsOn=False):
                                     float(juliasetp[7])]
 
 
+
+    print("\nYour coordinates: ", all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'], "\n")
+    print(all_parameters['expression'].replace(" ", ""))
 
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', 0.000001))
     all_parameters["sigma"]= float(params.get('sigma', 10.0))
@@ -490,8 +504,10 @@ def main():
     )
 
     stdout = result.stdout
-    # stderr = result.stderr
-    # print(stderr )
+    stderr = result.stderr
+    
+    if stderr:
+        print(f"Error: {stderr}")
 
     parameters = json.loads(stdout)
 
