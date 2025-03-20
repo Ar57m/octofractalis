@@ -223,7 +223,7 @@ def generate(all_parameters):
     expression = all_parameters['expression']
     input_expression = expression
 
-    expression = re.sub(r"[^\x00-\x7F]+", "", expression.replace(" ", ""))
+    expression = re.sub(r"[^\x00-\x7F]+", "", expression.replace(" ", ""))[:511]
     
     
 

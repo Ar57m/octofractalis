@@ -271,7 +271,7 @@ def process_form_data(params, timeout, noserverIsOn=False):
 
 
     print("\nYour coordinates: ", all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'], "\n")
-    print(all_parameters['expression'].replace(" ", ""))
+    print(re.sub(r"[^\x00-\x7F]+", "", all_parameters['expression'].replace(" ", ""))[:511])
 
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', 0.000001))
     all_parameters["sigma"]= float(params.get('sigma', 10.0))

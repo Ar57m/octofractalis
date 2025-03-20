@@ -259,6 +259,21 @@
                 cursor: pointer;
             }
 
+            #tooltip {
+                position: absolute;
+                background-color: #333;
+                color: #fff;
+                padding: 5px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                z-index: 1000;
+                display: none; /* Esconde por padrão */
+            }
+
+
 
         </style>
     </head>
@@ -445,7 +460,7 @@
                         <br>
                         <button type="button" id="reset_juliaset_c" class="small-input buttons" onclick="resetFieldsWithData(['juliaset_c_r', 'juliaset_c_i', 'juliaset_c_j', 'juliaset_c_k', 'juliaset_c_l', 'juliaset_c_m', 'juliaset_c_n', 'juliaset_c_o'])" aria-label="Reset Coordinates">🔄️</button>
                         <br>
-
+                        
 
                     </fieldset>
                         <br>
@@ -462,7 +477,9 @@
                         name="palette" 
                         value="./palettes/palette.png"
                         data-default="./palettes/palette.png"
-                        aria-label="Palette file path">
+                        aria-label="Palette file path"
+                        data-tooltip="Image path file, link or base64.">
+                        
                         <br>
                         
                         <label for="shift_palette">Shift Colors:</label>
@@ -479,7 +496,8 @@
                         name="lake_palette" 
                         value="./palettes/lake_palette.png"
                         data-default="./palettes/lake_palette.png"
-                        aria-label="Lake Palette file path">
+                        aria-label="Lake Palette file path"
+                        data-tooltip="Image path file, link or base64.">
                         <br>
 
                         <label for="shift_palette_lake">Shift Lake Colors:</label>
@@ -590,8 +608,9 @@
             <fieldset>
                 <div id="fractalContainer" class="fractalGallery"></div>
             </fieldset>
+        
         </div>
-
+        <div id="tooltip" class="tooltip"></div>
     <script>
 
 
@@ -746,7 +765,37 @@
           yminInput.value = newYmin;
           ymaxInput.value = newYmax;
         }
-        
+
+
+        const tooltip = document.getElementById("tooltip");
+
+        document.querySelectorAll("input").forEach(input => {
+            input.addEventListener("focus", (e) => {
+                const message = e.target.getAttribute("data-tooltip");
+                if (message) {
+                    tooltip.textContent = message;
+                    tooltip.style.display = "block"; // Garante que offsetHeight funcione corretamente
+                    tooltip.style.opacity = "1";
+
+                    const rect = e.target.getBoundingClientRect();
+
+                    // Posiciona à direita do input, centralizado verticalmente
+                    const topPosition = rect.top + window.scrollY + rect.height / 2 - tooltip.offsetHeight / 2;
+                    const leftPosition = rect.right + window.scrollX + 10;
+
+                    tooltip.style.left = leftPosition + "px";
+                    tooltip.style.top = topPosition + "px";
+                }
+            });
+
+            input.addEventListener("blur", () => {
+                tooltip.style.opacity = "0";
+                tooltip.style.display = "none"; // Esconde totalmente depois
+            });
+        });
+
+
+                
         
 
 
