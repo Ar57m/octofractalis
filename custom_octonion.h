@@ -1,5 +1,5 @@
-#ifndef CUSTOM_QUATERNION_H
-#define CUSTOM_QUATERNION_H
+#ifndef CUSTOM_OCTONION_H
+#define CUSTOM_OCTONION_H
 
 
 
@@ -39,15 +39,23 @@ public:
     DefaultType imag;
     DefaultType j;
     DefaultType k;
+    DefaultType l;
+    DefaultType m;
+    DefaultType n;
+    DefaultType o;
 
 
 
     
-    HOST_DEVICE inline QuaternionOrOctonion(DefaultType r = 0.0, DefaultType i = 0.0, DefaultType j_ = 0.0, DefaultType k_ = 0.0) {
+    HOST_DEVICE inline QuaternionOrOctonion(DefaultType r = 0.0, DefaultType i = 0.0, DefaultType j_ = 0.0, DefaultType k_ = 0.0, DefaultType l_ = 0.0, DefaultType m_ = 0.0, DefaultType n_ = 0.0, DefaultType o_ = 0.0) {
         real = noNan(r);
         imag = noNan(i);
         j = noNan(j_);
         k = noNan(k_);
+        l = noNan(l_);
+        m = noNan(m_);
+        n = noNan(n_);
+        o = noNan(o_);
     }
 
     static constexpr DefaultType  e = 2.7182818284590452353602874713526624977572470937000;
@@ -59,16 +67,20 @@ public:
         imag = noNan(imag);
         j = noNan(j);
         k = noNan(k);
+        l = noNan(l);
+        m = noNan(m);
+        n = noNan(n);
+        o = noNan(o);
         return *this;
     }
 
     // Sum
     HOST_DEVICE inline QuaternionOrOctonion operator+(const QuaternionOrOctonion& other) const {
-        return QuaternionOrOctonion(real + other.real, imag + other.imag, j + other.j, k + other.k);
+        return QuaternionOrOctonion(real + other.real, imag + other.imag, j + other.j, k + other.k, l + other.l, m + other.m, n + other.n, o + other.o);
     }
 
     HOST_DEVICE inline QuaternionOrOctonion operator+(DefaultType value) const{
-        return QuaternionOrOctonion(real + value, imag, j, k);
+        return QuaternionOrOctonion(real + value, imag, j, k, l, m, n, o);
     }
 
     HOST_DEVICE inline QuaternionOrOctonion operator+() const {
@@ -80,6 +92,10 @@ public:
         imag += other.imag;
         j += other.j;
         k += other.k;
+        l += other.l;
+        m += other.m;
+        n += other.n;
+        o += other.o;
         return sanitize();
     }
 
@@ -88,12 +104,12 @@ public:
         return sanitize();
     }
     HOST_DEVICE inline friend QuaternionOrOctonion operator+(DefaultType value, const QuaternionOrOctonion& c) {
-        return QuaternionOrOctonion(c.real + value, c.imag, c.j, c.k);
+        return QuaternionOrOctonion(c.real + value, c.imag, c.j, c.k, c.l, c.m, c.n, c.o);
     }
 
     // Sub
     HOST_DEVICE inline QuaternionOrOctonion operator-(const QuaternionOrOctonion& other) const {
-        return QuaternionOrOctonion(real - other.real, imag - other.imag, j - other.j, k - other.k);
+        return QuaternionOrOctonion(real - other.real, imag - other.imag, j - other.j, k - other.k, l - other.l, m - other.m, n - other.n, o - other.o);
     }
     HOST_DEVICE inline QuaternionOrOctonion operator-(DefaultType value) {
         real -= value; 
@@ -101,7 +117,7 @@ public:
     }
 
     HOST_DEVICE inline QuaternionOrOctonion operator-() const {
-        return QuaternionOrOctonion(-real, -imag, -j, -k);
+        return QuaternionOrOctonion(-real, -imag, -j, -k, -l, -m, -n, -o);
     }
 
     HOST_DEVICE inline QuaternionOrOctonion& operator-=(const QuaternionOrOctonion& other) {
@@ -109,6 +125,10 @@ public:
         imag -= other.imag;
         j -= other.j;
         k -= other.k;
+        l -= other.l;
+        m -= other.m;
+        n -= other.n;
+        o -= other.o;
         return sanitize();
     }
 
@@ -116,42 +136,77 @@ public:
         real -= value;
         return sanitize();
     }
-
     HOST_DEVICE inline friend QuaternionOrOctonion operator-(DefaultType value, const QuaternionOrOctonion& c) {
-        return QuaternionOrOctonion(value - c.real, -c.imag, -c.j, -c.k);
-    } 
-
-    // Mul
+        return QuaternionOrOctonion(value - c.real, -c.imag, -c.j, -c.k, -c.l, -c.m, -c.n, -c.o);
+    }
+    
     HOST_DEVICE inline QuaternionOrOctonion operator*(const QuaternionOrOctonion& other) const {
-            return QuaternionOrOctonion(
-                real * other.real - imag * other.imag - j * other.j - k * other.k,
-                real * other.imag + imag * other.real + j * other.k - k * other.j,
-                real * other.j - imag * other.k + j * other.real + k * other.imag,
-                real * other.k + imag * other.j - j * other.imag + k * other.real
-            );
-    }
+        DefaultType A0 = real * other.real - imag * other.imag - j * other.j - k * other.k;
+        DefaultType A1 = real * other.imag + imag * other.real + j * other.k - k * other.j;
+        DefaultType A2 = real * other.j - imag * other.k + j * other.real + k * other.imag;
+        DefaultType A3 = real * other.k + imag * other.j - j * other.imag + k * other.real;
+        A0 -= (other.l * l + other.m * m + other.n * n + other.o * o);
+        A1 -= (other.l * m - other.m * l - other.n * o + other.o * n);
+        A2 -= (other.l * n + other.m * o - other.n * l - other.o * m);
+        A3 -= (other.l * o - other.m * n + other.n * m - other.o * l);
 
+        DefaultType S0 = other.l * real - other.m * imag - other.n * j - other.o * k;
+        DefaultType S1 = other.l * imag + other.m * real + other.n * k - other.o * j;
+        DefaultType S2 = other.l * j - other.m * k + other.n * real + other.o * imag;
+        DefaultType S3 = other.l * k + other.m * j - other.n * imag + other.o * real;
+
+        S0 += (l * other.real + m * other.imag + n * other.j + o * other.k);
+        S1 += (-l * other.imag + m * other.real - n * other.k + o * other.j);
+        S2 += (-l * other.j + m * other.k + n * other.real - o * other.imag);
+        S3 += (-l * other.k - m * other.j + n * other.imag + o * other.real);
+
+        return QuaternionOrOctonion(A0, A1, A2, A3, S0, S1, S2, S3);
+    }
+    
     HOST_DEVICE inline QuaternionOrOctonion operator*(DefaultType scalar) const {
-        return QuaternionOrOctonion(real * scalar, imag * scalar, j * scalar, k * scalar);
+        return QuaternionOrOctonion(real * scalar, imag * scalar, j * scalar, k * scalar, l * scalar, m * scalar, n * scalar, o * scalar);
     }
+    
+    HOST_DEVICE QuaternionOrOctonion& operator*=(const QuaternionOrOctonion& other) {
+        DefaultType A0 = real * other.real - imag * other.imag - j * other.j - k * other.k;
+        DefaultType A1 = real * other.imag + imag * other.real + j * other.k - k * other.j;
+        DefaultType A2 = real * other.j - imag * other.k + j * other.real + k * other.imag;
+        DefaultType A3 = real * other.k + imag * other.j - j * other.imag + k * other.real;
+        A0 -= (other.l * l + other.m * m + other.n * n + other.o * o);
+        A1 -= (other.l * m - other.m * l - other.n * o + other.o * n);
+        A2 -= (other.l * n + other.m * o - other.n * l - other.o * m);
+        A3 -= (other.l * o - other.m * n + other.n * m - other.o * l);
 
-    HOST_DEVICE QuaternionOrOctonion& operator*=(const QuaternionOrOctonion& other) { 
-        DefaultType real0 = real * other.real - imag * other.imag - j * other.j - k * other.k;
-        DefaultType imag0 = real * other.imag + imag * other.real + j * other.k - k * other.j;
-        DefaultType j0 = real * other.j - imag * other.k + j * other.real + k * other.imag;
-        DefaultType k0 = real * other.k + imag * other.j - j * other.imag + k * other.real;
-        real = real0;
-        imag = imag0;
-        j = j0;
-        k = k0;
+        DefaultType S0 = other.l * real - other.m * imag - other.n * j - other.o * k;
+        DefaultType S1 = other.l * imag + other.m * real + other.n * k - other.o * j;
+        DefaultType S2 = other.l * j - other.m * k + other.n * real + other.o * imag;
+        DefaultType S3 = other.l * k + other.m * j - other.n * imag + other.o * real;
+
+        S0 += (l * other.real + m * other.imag + n * other.j + o * other.k);
+        S1 += (-l * other.imag + m * other.real - n * other.k + o * other.j);
+        S2 += (-l * other.j + m * other.k + n * other.real - o * other.imag);
+        S3 += (-l * other.k - m * other.j + n * other.imag + o * other.real);
+
+        real = A0;
+        imag = A1;
+        j = A2;
+        k = A3;
+        l = S0;
+        m = S1;
+        n = S2;
+        o = S3;
         return sanitize();
     }
-
-    HOST_DEVICE QuaternionOrOctonion& operator*=(DefaultType value) {
-        real *= value;
-        imag *= value;
-        j *= value;
-        k *= value;
+    
+    HOST_DEVICE QuaternionOrOctonion& operator*=(DefaultType scalar) {
+        real *= scalar;
+        imag *= scalar;
+        j *= scalar;
+        k *= scalar;
+        l *= scalar;
+        m *= scalar;
+        n *= scalar;
+        o *= scalar;
         return sanitize();
     }
 
@@ -161,22 +216,24 @@ public:
 
     // Division
     HOST_DEVICE QuaternionOrOctonion operator/(const QuaternionOrOctonion& other) const {
-        DefaultType denom = other.real * other.real + other.imag * other.imag
-                        + other.j * other.j + other.k * other.k;
-        return ((*this * other.conj() ) / denom).sanitize(); 
+        DefaultType denom = other.real * other.real + other.imag * other.imag + other.j * other.j + other.k * other.k + other.l * other.l + other.m * other.m + other.n * other.n + other.o * other.o;
+        return ((*this * other.conj()) / denom).sanitize();
     }
-
+    
     HOST_DEVICE inline QuaternionOrOctonion operator/(DefaultType value) const {
-        return QuaternionOrOctonion(real / value, imag / value, j / value, k / value); 
+        return QuaternionOrOctonion(real / value, imag / value, j / value, k / value, l / value, m / value, n / value, o / value);
     }
+    
     HOST_DEVICE friend QuaternionOrOctonion operator/(DefaultType value, const QuaternionOrOctonion& c) {
-        DefaultType denom = c.real * c.real + c.imag * c.imag + c.j * c.j + c.k * c.k;
-        return QuaternionOrOctonion(
-            (value * c.real) / denom,
-            (-value * c.imag) / denom,
-            (-value * c.j) / denom,
-            (-value * c.k) / denom
-        );
+        DefaultType denom = c.real * c.real + c.imag * c.imag + c.j * c.j + c.k * c.k + c.l * c.l + c.m * c.m + c.n * c.n + c.o * c.o;
+        return QuaternionOrOctonion((value * c.real) / denom,
+                        (-value * c.imag) / denom,
+                        (-value * c.j) / denom,
+                        (-value * c.k) / denom,
+                        (-value * c.l) / denom,
+                        (-value * c.m) / denom,
+                        (-value * c.n) / denom,
+                        (-value * c.o) / denom);
     }
 
 
@@ -207,7 +264,11 @@ public:
             fmod(real, other.real),
             fmod(imag, other.imag),
             fmod(j, other.j),
-            fmod(k, other.k)
+            fmod(k, other.k),
+            fmod(l, other.l),
+            fmod(m, other.m),
+            fmod(n, other.n),
+            fmod(o, other.o)
         );
     }
 
@@ -216,104 +277,239 @@ public:
         imag = 0;
         j = 0;
         k = 0;
+        l = 0;
+        m = 0;
+        n = 0;
+        o = 0;
         return *this;
     }
 
     // Conj
     HOST_DEVICE inline QuaternionOrOctonion conj() const {
-        return QuaternionOrOctonion(real, -imag, -j, -k);
+        return QuaternionOrOctonion(real, -imag, -j, -k, -l, -m, -n, -o);
     }
     
+
 
 
     HOST_DEVICE QuaternionOrOctonion rotate_in_circle(QuaternionOrOctonion angle, QuaternionOrOctonion axis) const {
         DefaultType angle_in_radians = angle.real;
         DefaultType sin_angle = my_sin(angle_in_radians);
         DefaultType cos_angle = my_cos(angle_in_radians);
-
+    
         // QuaternionOrOctonion components
         DefaultType new_r = real, new_i = imag, new_j = j, new_k = k;
-
-        // Identify the rotation plane based on the axis
+        DefaultType new_l = l, new_m = m, new_n = n, new_o = o;
+    
+        // Identify the rotation plane based on the axis magnitude (as an integer selector)
+        // We assume the integer (0 to 27) selects one of the 28 unique pairs (components are indexed as):
+        // 0: real, 1: imag, 2: j, 3: k, 4: l, 5: m, 6: n, 7: o
+        // The order used here is:
+        // (0,1), (0,2), (0,3), (0,4), (0,5), (0,6), (0,7),
+        // (1,2), (1,3), (1,4), (1,5), (1,6), (1,7),
+        // (2,3), (2,4), (2,5), (2,6), (2,7),
+        // (3,4), (3,5), (3,6), (3,7),
+        // (4,5), (4,6), (4,7),
+        // (5,6), (5,7),
+        // (6,7).
         switch (static_cast<int>(axis.mag())) {
-        case 0: // Rotation in the (real, imag) plane
-            new_r = real * cos_angle - imag * sin_angle;
-            new_i = real * sin_angle + imag * cos_angle;
-            break;
-        case 1: // Rotation in the (real, j) plane
-            new_r = real * cos_angle - j * sin_angle;
-            new_j = real * sin_angle + j * cos_angle;
-            break;
-        case 2: // Rotation in the (real, k) plane
-            new_r = real * cos_angle - k * sin_angle;
-            new_k = real * sin_angle + k * cos_angle;
-            break;
-        case 3: // Rotation in the (imag, j) plane
-            new_i = imag * cos_angle - j * sin_angle;
-            new_j = imag * sin_angle + j * cos_angle;
-            break;
-        case 4: // Rotation in the (imag, k) plane
-            new_i = imag * cos_angle - k * sin_angle;
-            new_k = imag * sin_angle + k * cos_angle;
-            break;
-        case 5: // Rotation in the (j, k) plane
-            new_j = j * cos_angle - k * sin_angle;
-            new_k = j * sin_angle + k * cos_angle;
-            break;
-        default: // Invalid axis, return unchanged QuaternionOrOctonion
-            break;
+            case 0: // (real, imag)
+                new_r = real * cos_angle - imag * sin_angle;
+                new_i = real * sin_angle + imag * cos_angle;
+                break;
+            case 1: // (real, j)
+                new_r = real * cos_angle - j * sin_angle;
+                new_j = real * sin_angle + j * cos_angle;
+                break;
+            case 2: // (real, k)
+                new_r = real * cos_angle - k * sin_angle;
+                new_k = real * sin_angle + k * cos_angle;
+                break;
+            case 3: // (real, l)
+                new_r = real * cos_angle - l * sin_angle;
+                new_l = real * sin_angle + l * cos_angle;
+                break;
+            case 4: // (real, m)
+                new_r = real * cos_angle - m * sin_angle;
+                new_m = real * sin_angle + m * cos_angle;
+                break;
+            case 5: // (real, n)
+                new_r = real * cos_angle - n * sin_angle;
+                new_n = real * sin_angle + n * cos_angle;
+                break;
+            case 6: // (real, o)
+                new_r = real * cos_angle - o * sin_angle;
+                new_o = real * sin_angle + o * cos_angle;
+                break;
+            case 7: // (imag, j)
+                new_i = imag * cos_angle - j * sin_angle;
+                new_j = imag * sin_angle + j * cos_angle;
+                break;
+            case 8: // (imag, k)
+                new_i = imag * cos_angle - k * sin_angle;
+                new_k = imag * sin_angle + k * cos_angle;
+                break;
+            case 9: // (imag, l)
+                new_i = imag * cos_angle - l * sin_angle;
+                new_l = imag * sin_angle + l * cos_angle;
+                break;
+            case 10: // (imag, m)
+                new_i = imag * cos_angle - m * sin_angle;
+                new_m = imag * sin_angle + m * cos_angle;
+                break;
+            case 11: // (imag, n)
+                new_i = imag * cos_angle - n * sin_angle;
+                new_n = imag * sin_angle + n * cos_angle;
+                break;
+            case 12: // (imag, o)
+                new_i = imag * cos_angle - o * sin_angle;
+                new_o = imag * sin_angle + o * cos_angle;
+                break;
+            case 13: // (j, k)
+                new_j = j * cos_angle - k * sin_angle;
+                new_k = j * sin_angle + k * cos_angle;
+                break;
+            case 14: // (j, l)
+                new_j = j * cos_angle - l * sin_angle;
+                new_l = j * sin_angle + l * cos_angle;
+                break;
+            case 15: // (j, m)
+                new_j = j * cos_angle - m * sin_angle;
+                new_m = j * sin_angle + m * cos_angle;
+                break;
+            case 16: // (j, n)
+                new_j = j * cos_angle - n * sin_angle;
+                new_n = j * sin_angle + n * cos_angle;
+                break;
+            case 17: // (j, o)
+                new_j = j * cos_angle - o * sin_angle;
+                new_o = j * sin_angle + o * cos_angle;
+                break;
+            case 18: // (k, l)
+                new_k = k * cos_angle - l * sin_angle;
+                new_l = k * sin_angle + l * cos_angle;
+                break;
+            case 19: // (k, m)
+                new_k = k * cos_angle - m * sin_angle;
+                new_m = k * sin_angle + m * cos_angle;
+                break;
+            case 20: // (k, n)
+                new_k = k * cos_angle - n * sin_angle;
+                new_n = k * sin_angle + n * cos_angle;
+                break;
+            case 21: // (k, o)
+                new_k = k * cos_angle - o * sin_angle;
+                new_o = k * sin_angle + o * cos_angle;
+                break;
+            case 22: // (l, m)
+                new_l = l * cos_angle - m * sin_angle;
+                new_m = l * sin_angle + m * cos_angle;
+                break;
+            case 23: // (l, n)
+                new_l = l * cos_angle - n * sin_angle;
+                new_n = l * sin_angle + n * cos_angle;
+                break;
+            case 24: // (l, o)
+                new_l = l * cos_angle - o * sin_angle;
+                new_o = l * sin_angle + o * cos_angle;
+                break;
+            case 25: // (m, n)
+                new_m = m * cos_angle - n * sin_angle;
+                new_n = m * sin_angle + n * cos_angle;
+                break;
+            case 26: // (m, o)
+                new_m = m * cos_angle - o * sin_angle;
+                new_o = m * sin_angle + o * cos_angle;
+                break;
+            case 27: // (n, o)
+                new_n = n * cos_angle - o * sin_angle;
+                new_o = n * sin_angle + o * cos_angle;
+                break;
+            default: // Invalid axis selector, return unchanged QuaternionOrOctonion
+                break;
         }
-
-        return QuaternionOrOctonion(new_r, new_i, new_j, new_k);
+    
+        return QuaternionOrOctonion(new_r, new_i, new_j, new_k, new_l, new_m, new_n, new_o);
     }
     
+
     HOST_DEVICE QuaternionOrOctonion rotation(const QuaternionOrOctonion angle, const QuaternionOrOctonion& axis) const {
         QuaternionOrOctonion normalized_axis = axis / axis.mag();
-    
         DefaultType angle_d = angle.real;
         DefaultType half_angle = my_sin(angle_d / 2.0);
-    
+
         QuaternionOrOctonion rotation_QuaternionOrOctonion(
             my_cos(angle_d / 2.0),
             normalized_axis.imag * half_angle,
             normalized_axis.j * half_angle,
-            normalized_axis.k * half_angle
+            normalized_axis.k * half_angle,
+            normalized_axis.l * half_angle,
+            normalized_axis.m * half_angle,
+            normalized_axis.n * half_angle,
+            normalized_axis.o * half_angle
         );
-    
+
         return rotation_QuaternionOrOctonion * (*this) * rotation_QuaternionOrOctonion.conj();
     }
+
     
-
     HOST_DEVICE inline QuaternionOrOctonion sign() const {
-        return QuaternionOrOctonion(signDefaultType(real),signDefaultType(real),signDefaultType(real),signDefaultType(real));
+        return QuaternionOrOctonion(
+            signDefaultType(real),
+            signDefaultType(imag),
+            signDefaultType(j),
+            signDefaultType(k),
+            signDefaultType(l),
+            signDefaultType(m),
+            signDefaultType(n),
+            signDefaultType(o)
+        );
     }
-
+    
     // abs / remove the sign
     HOST_DEVICE inline QuaternionOrOctonion abs() const {
-        return QuaternionOrOctonion(my_abs(real), my_abs(imag), my_abs(j), my_abs(k));
+        return QuaternionOrOctonion(
+            my_abs(real),
+            my_abs(imag),
+            my_abs(j),
+            my_abs(k),
+            my_abs(l),
+            my_abs(m),
+            my_abs(n),
+            my_abs(o)
+        );
     }
-
+    
     // magnitude
     HOST_DEVICE inline DefaultType mag() const {
-        return noNan(my_sqrt(real * real + imag * imag + j * j + k * k)); 
+        return noNan(my_sqrt(
+            real * real + imag * imag + j * j + k * k + l * l + m * m + n * n + o * o
+        ));
     }
     
     HOST_DEVICE inline DefaultType magSquared() const {
-        return noNan(real * real + imag * imag + j * j + k * k); 
+        return noNan(
+            real * real + imag * imag + j * j + k * k + l * l + m * m + n * n + o * o
+        );
     }
     
     HOST_DEVICE inline QuaternionOrOctonion c_mag() const {
-        return QuaternionOrOctonion(my_sqrt(real * real + imag * imag + j * j + k * k), 0.0);
+        return QuaternionOrOctonion(
+            my_sqrt(real * real + imag * imag + j * j + k * k + l * l + m * m + n * n + o * o), 0.0
+        );
     }
-
+    
     HOST_DEVICE inline DefaultType imag_mag() const {
-        return noNan(my_sqrt(imag * imag + j * j + k * k));
+        return noNan(my_sqrt(
+            imag * imag + j * j + k * k + l * l + m * m + n * n + o * o
+        ));
     }
+    
 
     // sqrt
     HOST_DEVICE QuaternionOrOctonion sqrt() const {
         DefaultType magnitude = mag();
-        if (j == 0 && k == 0 ) {
+        if (isImag() ) {
             magnitude = my_sqrt(magnitude);
             DefaultType angle = my_atan2(imag, real) / 2.0;
             return QuaternionOrOctonion(magnitude * my_cos(angle), magnitude * my_sin(angle));
@@ -323,7 +519,12 @@ public:
             return QuaternionOrOctonion(my_sqrt( magnitude / 2.0),
                     (imag / imag_mag),
                     (j / imag_mag),
-                    (k / imag_mag));
+                    (k / imag_mag),
+                    (l / imag_mag),
+                    (m / imag_mag),
+                    (n / imag_mag),
+                    (o / imag_mag)
+                );
         }
     }
 
@@ -352,7 +553,11 @@ public:
             my_log(mag),
             theta * imag,
             theta * j,
-            theta * k
+            theta * k,
+            theta * l,
+            theta * m,
+            theta * n,
+            theta * o
         );
     }
 
@@ -374,7 +579,11 @@ public:
             cosVecMag,
             expReal * imag,
             expReal * j,
-            expReal * k
+            expReal * k,
+            expReal * l,
+            expReal * m,
+            expReal * n,
+            expReal * o
         );
     }
     
@@ -402,23 +611,30 @@ public:
 
 
     HOST_DEVICE inline bool isZero() const {
-        return real == 0 && imag == 0 && j == 0 && k == 0;
+        return real == 0 && imag == 0 && j == 0 && k == 0 && l == 0 && m == 0 && n == 0 && o == 0;
     }
-
+    
     HOST_DEVICE inline bool isReal() const {
-        return (imag == 0 && j == 0 && k == 0);
+        return (imag == 0 && j == 0 && k == 0 && l == 0 && m == 0 && n == 0 && o == 0);
     }
 
-
+    HOST_DEVICE inline bool isImag() const {
+        return (j == 0 && k == 0 && l == 0 && m == 0 && n == 0 && o == 0);
+    }
+    
     HOST_DEVICE DefaultType mseScore(const QuaternionOrOctonion& other) const {
         // Calculate Mean Squared Error (MSE) of the components
-        DefaultType mse = noNan( (real - other.real) * (real - other.real)); // Difference in real parts
-        mse = noNan( mse + (imag - other.imag) * (imag - other.imag)); // Difference in imag parts
-        mse = noNan( mse + (j - other.j) * (j - other.j));       // Difference in j parts
-        mse = noNan( mse + (k - other.k) * (k - other.k));       // Difference in k parts
-
+        DefaultType mse = noNan((real - other.real) * (real - other.real)); // Difference in real parts
+        mse = noNan(mse + (imag - other.imag) * (imag - other.imag)); // Difference in imag parts
+        mse = noNan(mse + (j - other.j) * (j - other.j)); // Difference in j parts
+        mse = noNan(mse + (k - other.k) * (k - other.k)); // Difference in k parts
+        mse = noNan(mse + (l - other.l) * (l - other.l)); // Difference in l parts
+        mse = noNan(mse + (m - other.m) * (m - other.m)); // Difference in m parts
+        mse = noNan(mse + (n - other.n) * (n - other.n)); // Difference in n parts
+        mse = noNan(mse + (o - other.o) * (o - other.o)); // Difference in o parts
+    
         // Normalize the score to prevent extremely large values
-        return mse / 4.0; // Average over the 4 components
+        return mse / 8.0; // Average over the 8 components
     }
     
     HOST_DEVICE DefaultType cosSim(const QuaternionOrOctonion& other) const {
@@ -428,8 +644,10 @@ public:
         if (normThis == 0 || normOther == 0) {
             return 0.0;
         }
-        return (real * other.real + imag * other.imag + j * other.j + k * other.k) / (normThis * normOther);
+        return (real * other.real + imag * other.imag + j * other.j + k * other.k +
+                l * other.l + m * other.m + n * other.n + o * other.o) / (normThis * normOther);
     }
+    
     
 
 
@@ -437,23 +655,23 @@ public:
 
     // Sin
     HOST_DEVICE QuaternionOrOctonion sin() const {
-        if (j == 0 && k == 0 ) {
-            return QuaternionOrOctonion(my_sin(real) * my_cosh(imag), my_cos(real) * my_sinh(imag));
+        if (isImag()) {
+            return QuaternionOrOctonion(my_sin(real) * my_cosh(imag), my_cos(real) * my_sinh(imag), 0.0, 0.0);
         } else {
             DefaultType imag_magnitude = imag_mag();
             DefaultType scale = my_cos(real) * my_sinh(imag_magnitude) / imag_magnitude;
-            return QuaternionOrOctonion(my_sin(real) * my_cosh(imag_magnitude), imag * scale, j * scale, k * scale);
+            return QuaternionOrOctonion(my_sin(real) * my_cosh(imag_magnitude), imag * scale, j * scale, k * scale, l * scale, m * scale, n * scale, o * scale);
         }
     }
 
     // Cos
     HOST_DEVICE QuaternionOrOctonion cos() const {
-        if (j == 0 && k == 0 ) {
-            return QuaternionOrOctonion(my_cos(real) * my_cosh(imag), -my_sin(real) * my_sinh(imag));
+        if (isImag()) {
+            return QuaternionOrOctonion(my_cos(real) * my_cosh(imag), -my_sin(real) * my_sinh(imag), 0.0, 0.0);
         } else {
             DefaultType imag_magnitude = imag_mag();
             DefaultType scale = -my_sin(real) * noNan(my_sinh(imag_magnitude) / imag_magnitude);
-            return QuaternionOrOctonion(my_cos(real) * my_cosh(imag_magnitude), imag * scale, j * scale, k * scale);
+            return QuaternionOrOctonion(my_cos(real) * my_cosh(imag_magnitude), imag * scale, j * scale, k * scale, l * scale, m * scale, n * scale, o * scale);
         }
     }
 
@@ -464,35 +682,26 @@ public:
 
     // Sinh
     HOST_DEVICE QuaternionOrOctonion sinh() const {
-        if (j == 0 && k == 0 ) {
-            return QuaternionOrOctonion(my_sinh(real) * my_cos(imag), my_cosh(real) * my_sin(imag));
+        if (isImag()) {
+            return QuaternionOrOctonion(my_sinh(real) * my_cos(imag), my_cosh(real) * my_sin(imag), 0.0, 0.0);
         } else {
             DefaultType imag_magnitude = imag_mag();
             DefaultType scale = my_cosh(real) * noNan(my_sin(imag_magnitude) / imag_magnitude);
-            return QuaternionOrOctonion(
-                my_sinh(real) * my_cos(imag_magnitude),
-                imag * scale,
-                j * scale,
-                k * scale
-            );
+            return QuaternionOrOctonion(my_sinh(real) * my_cos(imag_magnitude), imag * scale, j * scale, k * scale, l * scale, m * scale, n * scale, o * scale);
         }
     }
-    
+
     // Cosh
     HOST_DEVICE QuaternionOrOctonion cosh() const {
-        if (j == 0 && k == 0 ) {
-            return QuaternionOrOctonion(my_cosh(real) * my_cos(imag), my_sinh(real) * my_sin(imag));
+        if (isImag()) {
+            return QuaternionOrOctonion(my_cosh(real) * my_cos(imag), my_sinh(real) * my_sin(imag), 0.0, 0.0);
         } else {
             DefaultType imag_magnitude = imag_mag();
             DefaultType scale = my_sinh(real) * noNan(my_sin(imag_magnitude) / imag_magnitude);
-            return QuaternionOrOctonion(
-                my_cosh(real) * my_cos(imag_magnitude),
-                imag * scale,
-                j * scale,
-                k * scale
-            );
+            return QuaternionOrOctonion(my_cosh(real) * my_cos(imag_magnitude), imag * scale, j * scale, k * scale, l * scale, m * scale, n * scale, o * scale);
         }
     }
+
 
     // Tanh
     HOST_DEVICE QuaternionOrOctonion tanh() const {
@@ -520,7 +729,7 @@ public:
     }
 
     HOST_DEVICE QuaternionOrOctonion round() const {
-        return QuaternionOrOctonion(my_round(real), my_round(imag), my_round(j), my_round(k));
+        return QuaternionOrOctonion(my_round(real), my_round(imag), my_round(j), my_round(k), my_round(l), my_round(m), my_round(n), my_round(o));
     }
 
 
@@ -731,9 +940,14 @@ public:
         os << "(" << real 
            << (imag >= 0.0 ? " +" : " -") << my_abs(imag) << "i"
            << (j >= 0.0 ? " +" : " -") << my_abs(j) << "j"
-           << (k >= 0.0 ? " +" : " -") << my_abs(k) << "k)";
+           << (k >= 0.0 ? " +" : " -") << my_abs(k) << "k"
+           << (l >= 0.0 ? " +" : " -") << my_abs(l) << "l"
+           << (m >= 0.0 ? " +" : " -") << my_abs(m) << "m"
+           << (n >= 0.0 ? " +" : " -") << my_abs(n) << "n"
+           << (o >= 0.0 ? " +" : " -") << my_abs(o) << "o)";
         return os.str();
     }
+    
 
     friend std::ostream& operator<<(std::ostream& os, const QuaternionOrOctonion& c) {
         os << c.to_string();

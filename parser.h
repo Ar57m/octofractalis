@@ -6,18 +6,24 @@
 #include <functional>
 #include <memory>
 #include <algorithm>
-#include "custom_quaternion.h"
 
+
+
+#ifndef OCTO
+    #include "custom_quaternion.h"
+#else
+    #include "custom_octonion.h"
+#endif
 
 
 
 
 struct ConstantNodeData {
-    Quaternion value;
+    QuaternionOrOctonion value;
 };
 
 struct VariableNodeData {
-    Quaternion* valuePtr;
+    QuaternionOrOctonion* valuePtr;
 };
 
 struct ArrayAccessNodeData {
@@ -28,20 +34,20 @@ struct ArrayAccessNodeData {
 
 struct UnaryFunctionNodeData {
     const struct ASTNode* operand;
-    Quaternion (*func)(const Quaternion&);
+    QuaternionOrOctonion (*func)(const QuaternionOrOctonion&);
 };
 
 struct BinaryFunctionNodeData {
     const struct ASTNode* operand1;
     const struct ASTNode* operand2;
-    Quaternion (*func)(const Quaternion&, const Quaternion&);
+    QuaternionOrOctonion (*func)(const QuaternionOrOctonion&, const QuaternionOrOctonion&);
 };
 
 struct TernaryFunctionNodeData {
     const struct ASTNode* operand1;
     const struct ASTNode* operand2;
     const struct ASTNode* operand3;
-    Quaternion (*func)(const Quaternion&, const Quaternion&, const Quaternion&);
+    QuaternionOrOctonion (*func)(const QuaternionOrOctonion&, const QuaternionOrOctonion&, const QuaternionOrOctonion&);
 };
 
 // AST Node structure with GPU-friendly qualifiers.
@@ -55,46 +61,46 @@ struct ASTNode {
         TERNARY_FUNCTION
     } type;
     void* data;
-    typedef Quaternion (*EvaluatorFunction)(const ASTNode* node);
+    typedef QuaternionOrOctonion (*EvaluatorFunction)(const ASTNode* node);
     EvaluatorFunction evaluator;
 
     HOST_DEVICE ASTNode(NodeType t, void* d, EvaluatorFunction evalFunc)
         : type(t), data(d), evaluator(evalFunc) {}
 
-    HOST_DEVICE Quaternion evaluate() const {
+    HOST_DEVICE QuaternionOrOctonion evaluate() const {
         return evaluator(this);
     }
 };
 
 // Evaluation Functions marked as __host__ __device__
-HOST_DEVICE Quaternion evaluateConstantNode(const ASTNode* node) {
+HOST_DEVICE QuaternionOrOctonion evaluateConstantNode(const ASTNode* node) {
     ConstantNodeData* data = static_cast<ConstantNodeData*>(node->data);
     return data->value;
 }
 
-HOST_DEVICE Quaternion evaluateVariableNode(const ASTNode* node) {
+HOST_DEVICE QuaternionOrOctonion evaluateVariableNode(const ASTNode* node) {
     const VariableNodeData* data = static_cast<const VariableNodeData*>(node->data);
     return *(data->valuePtr);
 } 
 
-HOST_DEVICE Quaternion evaluateArrayAccessNode(const ASTNode* node) {
+HOST_DEVICE QuaternionOrOctonion evaluateArrayAccessNode(const ASTNode* node) {
     ArrayAccessNodeData* data = static_cast<ArrayAccessNodeData*>(node->data);
     // Use fabs (which is device friendly) for floating point absolute value.
     uint32_t evaluatedIndex = static_cast<uint32_t>(fabs(data->indexNode->evaluate().real));
-    return (evaluatedIndex < data->size) ? Quaternion(data->array[evaluatedIndex]) : Quaternion(0);
+    return (evaluatedIndex < data->size) ? QuaternionOrOctonion(data->array[evaluatedIndex]) : QuaternionOrOctonion(0);
 }
 
-HOST_DEVICE Quaternion evaluateUnaryFunctionNode(const ASTNode* node) {
+HOST_DEVICE QuaternionOrOctonion evaluateUnaryFunctionNode(const ASTNode* node) {
     UnaryFunctionNodeData* data = static_cast<UnaryFunctionNodeData*>(node->data);
     return data->func(data->operand->evaluate());
 }
 
-HOST_DEVICE Quaternion evaluateBinaryFunctionNode(const ASTNode* node) {
+HOST_DEVICE QuaternionOrOctonion evaluateBinaryFunctionNode(const ASTNode* node) {
     BinaryFunctionNodeData* data = static_cast<BinaryFunctionNodeData*>(node->data);
     return data->func(data->operand1->evaluate(), data->operand2->evaluate());
 }
 
-HOST_DEVICE Quaternion evaluateTernaryFunctionNode(const ASTNode* node) {
+HOST_DEVICE QuaternionOrOctonion evaluateTernaryFunctionNode(const ASTNode* node) {
     TernaryFunctionNodeData* data = static_cast<TernaryFunctionNodeData*>(node->data);
     return data->func(data->operand1->evaluate(), data->operand2->evaluate(), data->operand3->evaluate());
 }
@@ -142,7 +148,7 @@ constexpr int MAX_EXPR_SIZE = 512;
 HOST_DEVICE ASTNode* createConstantNode(
     StackAllocator<ASTNode, AST_NODE_BUFFER_SIZE>& allocator, 
     StackAllocator<ConstantNodeData, CONSTANT_NODE_DATA_BUFFER_SIZE>& dataAllocator, 
-    const Quaternion& val
+    const QuaternionOrOctonion& val
 ) {
     ConstantNodeData* data = dataAllocator.allocate();
     if (!data) return nullptr;
@@ -155,7 +161,7 @@ HOST_DEVICE ASTNode* createConstantNode(
 HOST_DEVICE ASTNode* createVariableNode(
     StackAllocator<ASTNode, AST_NODE_BUFFER_SIZE>& allocator, 
     StackAllocator<VariableNodeData, VARIABLE_NODE_DATA_BUFFER_SIZE>& dataAllocator, 
-    Quaternion* valuePtr
+    QuaternionOrOctonion* valuePtr
 ) { 
     VariableNodeData* data = dataAllocator.allocate();
     if (!data) return nullptr;
@@ -183,7 +189,7 @@ HOST_DEVICE ASTNode* createArrayAccessNode(
 HOST_DEVICE ASTNode* createUnaryFunctionNode(
     StackAllocator<ASTNode, AST_NODE_BUFFER_SIZE>& allocator, 
     StackAllocator<UnaryFunctionNodeData, UNARY_FUNCTION_NODE_DATA_BUFFER_SIZE>& dataAllocator, 
-    ASTNode* operand, Quaternion (*func)(const Quaternion&)
+    ASTNode* operand, QuaternionOrOctonion (*func)(const QuaternionOrOctonion&)
 ) {
     UnaryFunctionNodeData* data = dataAllocator.allocate();
     if (!data) return nullptr;
@@ -197,7 +203,7 @@ HOST_DEVICE ASTNode* createUnaryFunctionNode(
 HOST_DEVICE ASTNode* createBinaryFunctionNode(
     StackAllocator<ASTNode, AST_NODE_BUFFER_SIZE>& allocator, 
     StackAllocator<BinaryFunctionNodeData, BINARY_FUNCTION_NODE_DATA_BUFFER_SIZE>& dataAllocator, 
-    ASTNode* operand1, ASTNode* operand2, Quaternion (*func)(const Quaternion&, const Quaternion&)
+    ASTNode* operand1, ASTNode* operand2, QuaternionOrOctonion (*func)(const QuaternionOrOctonion&, const QuaternionOrOctonion&)
 ) {
     BinaryFunctionNodeData* data = dataAllocator.allocate();
     if (!data) return nullptr;
@@ -213,7 +219,7 @@ HOST_DEVICE ASTNode* createTernaryFunctionNode(
     StackAllocator<ASTNode, AST_NODE_BUFFER_SIZE>& allocator, 
     StackAllocator<TernaryFunctionNodeData, TERNARY_FUNCTION_NODE_DATA_BUFFER_SIZE>& dataAllocator, 
     ASTNode* operand1, ASTNode* operand2, ASTNode* operand3, 
-    Quaternion (*func)(const Quaternion&, const Quaternion&, const Quaternion&)
+    QuaternionOrOctonion (*func)(const QuaternionOrOctonion&, const QuaternionOrOctonion&, const QuaternionOrOctonion&)
 ) {
     TernaryFunctionNodeData* data = dataAllocator.allocate();
     if (!data) return nullptr;
@@ -239,7 +245,7 @@ HOST_DEVICE int my_strcmp(const char* s1, const char* s2) {
 // Example VariableEntry and ArrayEntry structures.
 struct VariableEntry {
     const char* name;
-    Quaternion* value;
+    QuaternionOrOctonion* value;
 };
 
 struct ArrayEntry {
@@ -315,12 +321,18 @@ private:
 
 
     HOST_DEVICE static constexpr bool isImaginaryChar(const char c) {
+        #ifdef OCTO
+        return (c > 'h' && c < 'p');
+        #else
         return (c > 'h' && c < 'l');
+        #endif
+        
     }
 
-    const char* tokens[10] = {"z", "c", "It", "v", "l", "f", "dif", "dx", "dy", "dz"};
+    const char* varNames[10] = {"z", "c", "it", "v", "p", "f", "dif", "dx", "dy", "dz"};
+    const char* oVarNames[5] = {"pi", "e", "phi", "x", "y"};
     
-    ASTNode* error_zero = createConstantNode(nodeAllocator, constantDataAllocator, Quaternion(0.0));
+    ASTNode* error_zero = createConstantNode(nodeAllocator, constantDataAllocator, QuaternionOrOctonion(0.0));
 
     HOST_DEVICE int my_strlen(const char* s) {
         int len = 0;
@@ -346,10 +358,6 @@ private:
 
 
     HOST_DEVICE DefaultType my_atof(const char* str) {
-        // Skip any leading whitespace.
-        while (*str == ' ' || *str == '\t' || *str == '\n') {
-            str++;
-        }
         
         // Process optional sign.
         int sign = 1;
@@ -415,6 +423,14 @@ private:
     HOST_DEVICE bool isIdentifierChar(char c) {
         return ((c > 64 && c < 91 ) || //A-Z
                 (c > 96 && c < 123 ) ); //a-z
+    }
+    
+    HOST_DEVICE bool containsToken(const char* tokens[], int tokenCount, const char* target) {
+        for (int i = 0; i < tokenCount; ++i) {
+            if (my_strcmp(tokens[i], target) == 0)
+                return true;
+        }
+        return false;
     }
 
     // Check that the token found at position pos is a standalone token.
@@ -538,7 +554,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, right,
-                        [](const Quaternion& a, const Quaternion& b) { return a + b; }
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a + b; }
                     );
                     break;
                 }
@@ -548,7 +564,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, right,
-                        [](const Quaternion& a, const Quaternion& b) { return a - b; }
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a - b; }
                     );
                     break;
                 }
@@ -567,7 +583,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a * b; });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a * b; });
                     break;
     
                 case '/':
@@ -575,7 +591,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a / b; });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a / b; });
                     break;
     
                 case '%':
@@ -583,7 +599,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a % b; });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a % b; });
                     break;
     
                 case '^':
@@ -591,7 +607,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.pow(b); });
                     break;
 
                 case '=':
@@ -599,7 +615,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a == b); });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return QuaternionOrOctonion(a == b); });
                     break;
                     
                 case '&':
@@ -607,7 +623,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a.cosSim(b)); });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return QuaternionOrOctonion(a.cosSim(b)); });
                     break;
                     
                 case '>':
@@ -615,7 +631,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a > b); });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return QuaternionOrOctonion(a > b); });
                     break;
                     
                 case '<':
@@ -623,7 +639,7 @@ private:
                     node = createBinaryFunctionNode(
                         nodeAllocator, binaryDataAllocator,
                         node, parseFactor(),
-                        [](const Quaternion& a, const Quaternion& b) { return Quaternion(a < b); });
+                        [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return QuaternionOrOctonion(a < b); });
                     break;
                 
                 default:
@@ -642,26 +658,105 @@ private:
             case '-':
                 ++pos;
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, parseFactor(), 
-                [](const Quaternion& a) { return -a; });
+                [](const QuaternionOrOctonion& a) { return -a; });
                 break;
         }
+        char name[128] = {0};
+        size_t nameIndex = 0;
+        const char exprPosBefore = expr[pos];
+        size_t tempPos = pos;
         
-        const char exprpos = expr[pos];
-        if ( isIdentifierChar(exprpos) && !isImaginaryChar(exprpos) ) {
-            return parseVariableOrFunction();
-        } else if (my_isdigit(exprpos) || exprpos == '.' ||  isImaginaryChar(exprpos) ) {
+
+        while (tempPos < expr_size && isIdentifierChar(expr[tempPos]) && nameIndex < sizeof(name) - 1) {
+            name[nameIndex++] = expr[tempPos++];
+        }
+        name[nameIndex] = '\0';
+        const char exprPos = expr[tempPos];
+        
+        if ( tempPos < expr_size && exprPos == '(' && exprPosBefore != '(' ) {
+            pos = tempPos;
+            return parseFunction(name);
+        } else if ( containsToken(oVarNames, 5, name) || containsToken(varNames, 10, name) || exprPos == '[' ) {
+            pos = tempPos;
+            return parseVarOrArray(name);
+        } else if (my_isdigit(exprPosBefore) || exprPosBefore == '.' ||  isImaginaryChar(exprPosBefore) ) {
             return parseNumber();
-        } else if (exprpos == '(') {
+        } else if (exprPos == '(') {
+            pos = tempPos;
             ++pos;
             ASTNode* node = parseExpression();
             if (expr[pos] != ')') return error_zero;
             ++pos;
             return node;
         }
+        
         return error_zero;
     }
 
-
+    #ifdef OCTO
+    HOST_DEVICE ASTNode* parseNumber() {
+        char number[256];
+        int num_index = 0;
+        DefaultType realPart = 0.0, imagPart = 0.0, jPart = 0.0, kPart = 0.0, lPart = 0.0, mPart = 0.0, nPart = 0.0, oPart = 0.0;
+        char identifier = '\0';
+        char exprpos = expr[pos];
+        bool imag = isImaginaryChar(exprpos);
+    
+        while (pos < expr_size && (my_isdigit(exprpos) || exprpos == '.' || imag)) {
+            if (imag) {
+                identifier = expr[pos++];
+                break;
+            } else {
+                number[num_index++] = expr[pos++];
+            }
+            exprpos = expr[pos];
+            imag = isImaginaryChar(exprpos);
+        }
+        number[num_index] = '\0';
+    
+        // If no number was found, replace with "0.0" using a simple loop.
+        if (num_index == 0) {
+            const char* defaultStr = "0.0";
+            int i = 0;
+            while (defaultStr[i] != '\0' && i < (int)sizeof(number) - 1) {
+                number[i] = defaultStr[i];
+                i++;
+            }
+            number[i] = '\0';
+        }
+        
+        const DefaultType parsedValue = (identifier != '\0' && my_strcmp(number, "0.0") == 0) ? 1.0 : my_atof(number);
+        
+        switch (identifier) {
+            case 'i':
+                imagPart = parsedValue;
+                break;
+            case 'j':
+                jPart = parsedValue;
+                break;
+            case 'k':
+                kPart = parsedValue;
+                break;
+            case 'l':
+                lPart = parsedValue;
+                break;
+            case 'm':
+                mPart = parsedValue;
+                break;
+            case 'n':
+                nPart = parsedValue;
+                break;
+            case 'o':
+                oPart = parsedValue;
+                break;
+            default:
+                realPart = parsedValue;
+                break;
+        }
+        
+        return createConstantNode(nodeAllocator, constantDataAllocator, QuaternionOrOctonion(realPart, imagPart, jPart, kPart, lPart, mPart, nPart, oPart));
+    }
+    #else
     HOST_DEVICE ASTNode* parseNumber() {
         char number[256];
         int num_index = 0;
@@ -709,120 +804,106 @@ private:
                 realPart = parsedValue;
                 break;
         }
-        
-        return createConstantNode(nodeAllocator, constantDataAllocator, Quaternion(realPart, imagPart, jPart, kPart));
+        return createConstantNode(nodeAllocator, constantDataAllocator, QuaternionOrOctonion(realPart, imagPart, jPart, kPart));
     }
 
-    HOST_DEVICE ASTNode* parseVariableOrFunction() {
-        char name[128] = {};
-        size_t nameIndex = 0;
-    
-        // Collect alphabetic characters to form the identifier.
-        while (pos < expr_size && isIdentifierChar(expr[pos]) && nameIndex < sizeof(name) - 1) {
-            name[nameIndex++] = expr[pos++];
-        }
-        name[nameIndex] = '\0'; // Null terminate the identifier
-    
-        // First try to find a variable with the given name.
-        const VariableEntry* varEntry = findVariable(name,varEntries,numVars);
+    #endif
+
+    HOST_DEVICE ASTNode* parseVarOrArray(const char* name) {
+
+        const VariableEntry* varEntry = findVariable(name, varEntries, numVars);
         if (varEntry != nullptr) {
             return createVariableNode(nodeAllocator, variableDataAllocator, varEntry->value);
         }
         
-        // If not a plain variable, check if it might be a function or an array.
-        if (pos < expr_size) {
-            if (expr[pos] == '(') {
-                // It’s a function call, so parse as such.
-                return parseFunction(name);
-            } else if (expr[pos] == '[') {
-                // Check if it is a defined array.
-                const ArrayEntry* arrEntry = findArray(name,arrEntries,numArrays);
-                if (arrEntry != nullptr) {
-                    ++pos; // Skip the '[' character.
-                    ASTNode* idx = parseExpression();
-                    if (pos < expr_size && expr[pos] == ']') {
-                        ++pos; // Skip the ']' character.
-                        return createArrayAccessNode(nodeAllocator, arrayDataAllocator, arrEntry->array, arrEntry->size, idx);
-                    }
+        // If not a plain variable, check if it is an array access.
+        if (pos < expr_size && expr[pos] == '[') {
+            const ArrayEntry* arrEntry = findArray(name, arrEntries, numArrays);
+            if (arrEntry != nullptr) {
+                ++pos; // Skip the '[' character.
+                ASTNode* indexNode = parseExpression();
+                if (pos < expr_size && expr[pos] == ']') {
+                    ++pos; // Skip the ']' character.
+                    return createArrayAccessNode(nodeAllocator, arrayDataAllocator, arrEntry->array, arrEntry->size, indexNode);
                 }
             }
         }
+        
         return error_zero;
     }
-
 
     // Helper for unary functions:
     HOST_DEVICE ASTNode* parseUnaryFunction(unsigned int hash, ASTNode* arg, const size_t old_pos) {
         switch (hash) {
             case str2int("sqrt"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.sqrt(); });
+                    [](const QuaternionOrOctonion& a) { return a.sqrt(); });
             case str2int("log"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.log(); });
+                    [](const QuaternionOrOctonion& a) { return a.log(); });
             case str2int("sin"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.sin(); });
+                    [](const QuaternionOrOctonion& a) { return a.sin(); });
             case str2int("cos"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.cos(); });
+                    [](const QuaternionOrOctonion& a) { return a.cos(); });
             case str2int("tan"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.tan(); });
+                    [](const QuaternionOrOctonion& a) { return a.tan(); });
             case str2int("sinh"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.sinh(); });
+                    [](const QuaternionOrOctonion& a) { return a.sinh(); });
             case str2int("cosh"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.cosh(); });
+                    [](const QuaternionOrOctonion& a) { return a.cosh(); });
             case str2int("tanh"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.tanh(); });
+                    [](const QuaternionOrOctonion& a) { return a.tanh(); });
             case str2int("arg"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.arg()); });
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.arg()); });
             case str2int("conj"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.conj()); });
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.conj()); });
             case str2int("mag"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.mag()); });
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.mag()); });
             case str2int("abs"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.abs(); });
+                    [](const QuaternionOrOctonion& a) { return a.abs(); });
             case str2int("exp"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.exp(); });
+                    [](const QuaternionOrOctonion& a) { return a.exp(); });
             case str2int("re"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.real); });
-            case str2int("Im"):
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.real); });
+            case str2int("im"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(0.0, a.imag, a.j, a.k); });
-            case str2int("I"):
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(0.0, a.imag, a.j, a.k); });
+            case str2int("i"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.imag); });
-            case str2int("J"):
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.imag); });
+            case str2int("j"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.j); });
-            case str2int("K"):
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.j); });
+            case str2int("k"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return Quaternion(a.k); });
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.k); });
             case str2int("round"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.round(); });
+                    [](const QuaternionOrOctonion& a) { return a.round(); });
             case str2int("sign"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.sign(); });
+                    [](const QuaternionOrOctonion& a) { return a.sign(); });
             case str2int("gamma"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.gamma(); });
+                    [](const QuaternionOrOctonion& a) { return a.gamma(); });
             case str2int("zeta"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.zeta(); });
+                    [](const QuaternionOrOctonion& a) { return a.zeta(); });
             case str2int("airy"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
-                    [](const Quaternion& a) { return a.airy(); });
+                    [](const QuaternionOrOctonion& a) { return a.airy(); });
             case str2int("diff"):
             {
                 // Backup the current expression into old_expr using a simple loop.
@@ -836,7 +917,7 @@ private:
                 
                 pos = old_pos;
                 eraseBeforePos(pos);
-                replaceTokens(tokens, 10);
+                replaceTokens(varNames, 10);
                 expr_size = my_strlen(expr);
                 pos = 0;
                 ASTNode* arg2 = parseExpression();
@@ -852,7 +933,7 @@ private:
                 return createBinaryFunctionNode(
                     nodeAllocator, binaryDataAllocator,
                     arg2, arg,
-                    [](const Quaternion& a, const Quaternion& b) { return (a - b) / 1e-6; }
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return (a - b) / 1e-6; }
                 );
             }
 
@@ -866,28 +947,28 @@ private:
         switch (hash) {
             case str2int("logn"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.logn(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.logn(b); });
             case str2int("pow"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.pow(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.pow(b); });
             case str2int("root"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.root(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.root(b); });
             case str2int("max"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.maximum(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.maximum(b); });
             case str2int("min"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.minimum(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.minimum(b); });
             case str2int("circle"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.circle(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.circle(b); });
             case str2int("square"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.square(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.square(b); });
             case str2int("triangle"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const Quaternion& a, const Quaternion& b) { return a.triangle(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.triangle(b); });
             default:
                 return nullptr;
         }
@@ -896,36 +977,36 @@ private:
     // Helper for ternary functions:
     HOST_DEVICE ASTNode* parseTernaryFunction(unsigned int hash, ASTNode* arg1, ASTNode* arg2, ASTNode* arg3) {
         switch (hash) {
-            case str2int("If"):
+            case str2int("if"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
-                    [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
                         return abs(a.real) > 1e-9 ? b : c;
                     });
             #ifndef USE_CUDA
             case str2int("rand"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
-                    [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
                         return a.generateRandom(b,c);
                     });
             #endif
             case str2int("rotate"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
-                    [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
                         return a.rotate_in_circle(b, c);
                     });
             case str2int("rotation"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
-                    [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
                         return a.rotation(b, c);
                     });
             case str2int("ellipsoid"):
                 return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
                     arg1, arg2, arg3,
-                    [](const Quaternion& a, const Quaternion& b, const Quaternion& c) {
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
                         return a.ellipsoid(b,c);
                     });
             default:

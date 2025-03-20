@@ -3,26 +3,37 @@
 #include <stdexcept>
 #include <cuda_runtime.h>
 
-#include "custom_quaternion.h" 
 #include "parser.h"
 
 
 
 
-__device__ inline void setQuaternionValues(const bool juliaset, Quaternion& c, Quaternion& z,
-    const DefaultType c_real, const DefaultType c_imag,
-    const DefaultType r_part, const DefaultType i_part,
-    const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType quaternion_j = 0.0, const DefaultType quaternion_k = 0.0) {
+__device__ inline void setQuaternionOrOctonionValues(const bool juliaset, QuaternionOrOctonion& c, QuaternionOrOctonion& z,
+                    const double* juliaset_c, const DefaultType r_part, const DefaultType i_part,
+                    const double* z_initial
+                ) {
 
+
+#ifndef OCTO
     if (juliaset) {
-        c = Quaternion(c_real, c_imag);
-        z = Quaternion(r_part, i_part, quaternion_j, quaternion_k);
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3]);
     } else {
-        c = Quaternion(r_part, i_part);
-        z = Quaternion(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
     }
+#else
+    if (juliaset) {
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3], juliaset_c[4], juliaset_c[5], juliaset_c[6], juliaset_c[7]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+    } else {
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+    }
+#endif
+
 }
+
 
 __device__ inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType temp,
     const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
@@ -66,17 +77,14 @@ __global__ void fractal_kernel(uint8_t* d_output,
                     const uint16_t max_iter,
                     const DefaultType xmin, const DefaultType ymin,
                     const DefaultType dx, const DefaultType dy,
-                    const DefaultType c_real, const DefaultType c_imag,
+                    const double* juliaset_c,
                     DefaultType escape_radius,
                     const bool fast_mode,
                     const bool juliaset,
                     const bool lake,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType quaternion_j,
-                    const DefaultType quaternion_k,
-                    const DefaultType z_initial_r,
-                    const DefaultType z_initial_i,
+                    const double* z_initial,
                     double* input_array,
                     const uint32_t array_size)
 {
@@ -88,17 +96,17 @@ __global__ void fractal_kernel(uint8_t* d_output,
     DefaultType point_x = xmin + x * dx;
     DefaultType point_y = ymin + y * dy;
 
-    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    Quaternion z , c, last_it_z;
+    QuaternionOrOctonion z , c, last_it_z;
     uint16_t iteration = 0;
 
 
-    Quaternion it_quat(0.0);
-    Quaternion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
-    Quaternion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
 
     
     ArrayEntry arrEntries[1] = {
@@ -110,10 +118,10 @@ __global__ void fractal_kernel(uint8_t* d_output,
     VariableEntry varEntries[8] = {
         {"z", &z},
         {"c", &c},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
-        {"It", &it_quat},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
         {"y", &y_quat},
         {"x", &x_quat}
     };
@@ -123,8 +131,8 @@ __global__ void fractal_kernel(uint8_t* d_output,
 
 
 
-    setQuaternionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                            z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, point_x, point_y,
+                            z_initial);
 
 
     DefaultType temp = 0;
@@ -132,7 +140,7 @@ __global__ void fractal_kernel(uint8_t* d_output,
     
 
     while ( not_escaped && iteration < max_iter) {
-        it_quat = Quaternion(static_cast<DefaultType>(iteration));
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
         
         last_it_z = ast->evaluate();
         if (last_it_z == z && fast_mode) break;
@@ -164,8 +172,8 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
                     DefaultType escape_radius,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType quaternion_j,
-                    const DefaultType quaternion_k,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     double* input_array,
                     const uint32_t array_size)
 {
@@ -177,15 +185,15 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
     DefaultType point_x = xmin + x * dx;
     DefaultType point_y = ymin + y * dy;
 
-    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    Quaternion v, l, temp;
-    Quaternion it_quat(0.0);
-    Quaternion x_quat(static_cast<DefaultType>(x));
-    Quaternion y_quat(0.0);
-    Quaternion k_q = 0.0;
+    QuaternionOrOctonion v, p, temp;
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x));
+    QuaternionOrOctonion y_quat(0.0);
+
     int k = 0;
 
     ArrayEntry arrEntries[1] = {
@@ -195,12 +203,12 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
 
     VariableEntry varEntries[9] = {
         {"v", &v},
-        {"l", &l},
+        {"p", &p},
         {"c", &temp},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
-        {"It", &k_q},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
         {"y", &y_quat},
         {"x", &x_quat}
     };
@@ -208,33 +216,33 @@ __global__ void lyapunov_kernel(uint8_t* d_output,
     const size_t numVars = 9;
     Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
     const ASTNode* ast = parser.parse();
-    const Quaternion a(0.5 + point_x * 0.5, complex_a, quaternion_j, quaternion_k);
-    const Quaternion b(0.5 + point_y * 0.5, complex_b, quaternion_j, quaternion_k);
-    l = Quaternion(0.0, 0.0);
-    v = Quaternion(0.5, 0.0);
+    const QuaternionOrOctonion a(0.5 + point_x * 0.5, complex_a, z_initial_j, z_initial_k);
+    const QuaternionOrOctonion b(0.5 + point_y * 0.5, complex_b, z_initial_j, z_initial_k);
+    p = QuaternionOrOctonion(0.0, 0.0);
+    v = QuaternionOrOctonion(0.5, 0.0);
 
     k = 0;
     y_quat = (static_cast<DefaultType>(y));
 
 
-    DefaultType l_mag = 0.0;
+    DefaultType p_mag = 0.0;
 
     while (k < max_iter) {
-        it_quat = Quaternion(static_cast<DefaultType>(k));
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(k));
         if (k % 12 < 6) {
             v = b * v * (1.0 - v);
             temp = b;
-            l += (ast->evaluate());
+            p += (ast->evaluate());
         } else { //     log(mag(c*(1-2*v)))
             v = a * v * (1.0 - v);
             temp = a;
-            l += (ast->evaluate());
+            p += (ast->evaluate());
         }
-        l_mag = l.mag();
-        if (l_mag > escape_radius) break;
+        p_mag = p.mag();
+        if (p_mag > escape_radius) break;
         ++k;
     }
-    update_output( d_output, d_array_top_colors_outside, d_array_top_colors_lake, l_mag, width,
+    update_output( d_output, d_array_top_colors_outside, d_array_top_colors_lake, p_mag, width,
     0, x, y, false, top_colors_outside, top_colors_lake, false, true);
 
 }
@@ -249,14 +257,11 @@ __global__ void newton_kernel(uint8_t* d_output,
                     const uint16_t max_iter,
                     const DefaultType xmin, const DefaultType ymin,
                     const DefaultType dx, const DefaultType dy,
-                    const DefaultType c_real, const DefaultType c_imag,
+                    const double* juliaset_c,
                     const bool juliaset,
                     const int top_colors_outside,
                     const int top_colors_lake,
-                    const DefaultType quaternion_j,
-                    const DefaultType quaternion_k,
-                    const DefaultType z_initial_r,
-                    const DefaultType z_initial_i,
+                    const double* z_initial,
                     const DefaultType newton_epsilon,
                     double* input_array,
                     const uint32_t array_size)
@@ -269,17 +274,17 @@ __global__ void newton_kernel(uint8_t* d_output,
     DefaultType point_x = xmin + x * dx;
     DefaultType point_y = ymin + y * dy;
 
-    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    Quaternion z , c, last_it_z;
+    QuaternionOrOctonion z , c, last_it_z;
     uint16_t iteration = 0;
 
 
-    Quaternion it_quat(0.0);
-    Quaternion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
-    Quaternion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
 
 
     ArrayEntry arrEntries[1] = {
@@ -291,10 +296,10 @@ __global__ void newton_kernel(uint8_t* d_output,
     VariableEntry varEntries[8] = {
         {"z", &z},
         {"c", &c},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
-        {"It", &it_quat},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
         {"y", &y_quat},
         {"x", &x_quat}
     };
@@ -304,8 +309,8 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 
 
-    setQuaternionValues(juliaset, c, z, c_real, c_imag, point_x, point_y,
-                z_initial_r, z_initial_i, quaternion_j, quaternion_k);
+    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, point_x, point_y,
+                z_initial);
 
 
     DefaultType temp = 0;
@@ -313,20 +318,20 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 
     while ( not_escaped && iteration < max_iter) {
-        it_quat = Quaternion(static_cast<DefaultType>(iteration));
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
 
-        const Quaternion last_z = z;
+        const QuaternionOrOctonion last_z = z;
         const DefaultType h(newton_epsilon);
         
         z += h;
-        const Quaternion next_z = ast->evaluate();
+        const QuaternionOrOctonion next_z = ast->evaluate();
         z = last_z;
         z = ast->evaluate();
         
         temp = z.mag();
         
         if ( temp < 1e-13 ) break;
-        const Quaternion znew = ( next_z - z )/(h); 
+        const QuaternionOrOctonion znew = ( next_z - z )/(h); 
         z = last_z - ( z/znew );
         ++iteration;
     }
@@ -338,7 +343,7 @@ __global__ void newton_kernel(uint8_t* d_output,
 
 __global__ void magnet_kernel(uint8_t* d_output,
                     const int* d_array_top_colors_outside,
-                    const Quaternion* attractors,
+                    const QuaternionOrOctonion* attractors,
                     const char* d_exp, const size_t exp_size, 
                     const uint16_t width,
                     const uint16_t height,
@@ -347,8 +352,8 @@ __global__ void magnet_kernel(uint8_t* d_output,
                     const DefaultType dx, const DefaultType dy,
                     const DefaultType v_real, const DefaultType v_imag,
                     DefaultType escape_radius,
-                    const DefaultType quaternion_j,
-                    const DefaultType quaternion_k,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
                     const bool fast_mode,
                     const int n_points,
                     double* input_array,
@@ -362,18 +367,18 @@ __global__ void magnet_kernel(uint8_t* d_output,
     DefaultType point_x = xmin + x * dx;
     DefaultType point_y = ymin + y * dy;
 
-    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    Quaternion z, velocity, force, dif;
+    QuaternionOrOctonion z, velocity, force, dif;
     const DefaultType damping = 0.1;
     uint16_t iteration = 0;
 
 
-    Quaternion it_quat(0.0);
-    Quaternion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
-    Quaternion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
 
     
     ArrayEntry arrEntries[1] = {
@@ -390,10 +395,10 @@ __global__ void magnet_kernel(uint8_t* d_output,
         {"v", &velocity},
         {"f", &force},
         {"dif", &dif},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
-        {"It", &it_quat},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
         {"y", &y_quat},
         {"x", &x_quat}
     };
@@ -404,9 +409,9 @@ __global__ void magnet_kernel(uint8_t* d_output,
     const DefaultType r0 = 0.1;
 
 
-    Quaternion last_it_z;
-    z = Quaternion(point_x, point_y, quaternion_j, quaternion_k);
-    velocity = Quaternion(v_real, v_imag);
+    QuaternionOrOctonion last_it_z;
+    z = QuaternionOrOctonion(point_x, point_y, z_initial_j, z_initial_k);
+    velocity = QuaternionOrOctonion(v_real, v_imag);
 
 
     DefaultType temp = 0;
@@ -415,8 +420,8 @@ __global__ void magnet_kernel(uint8_t* d_output,
     
 
     while (iteration < max_iter) {
-        it_quat = Quaternion(static_cast<DefaultType>(iteration));
-        force = Quaternion(0);
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
+        force = QuaternionOrOctonion(0);
 
         for (int i = 0; i < n_points; ++i) {
             dif = attractors[i] - z;
@@ -444,21 +449,24 @@ __global__ void magnet_kernel(uint8_t* d_output,
 }
 
 
-__global__ void generate_lorenz_trajectory(Quaternion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
-                        const int max_iter, const char* expression, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-                        const DefaultType quaternion_j, const DefaultType quaternion_k, double* input_array, const uint32_t array_size) {
+__global__ void generate_lorenz_trajectory(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+                        const int max_iter, const char* expression, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
     
 
-    Quaternion pi(3.1415926535897932384626433832795028841971693993751);
-    Quaternion phi(1.6180339887498948482045868343656381177203091798057);
-    Quaternion e(2.7182818284590452353602874713526624977572470937000);
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
 
-    Quaternion point(z_initial_r, z_initial_i, quaternion_j, quaternion_k);
-    Quaternion dx = 0.0;
-    Quaternion dy = 0.0;
-    Quaternion dz = 0.0;
-    Quaternion it_quat = 0.0;
-    const Quaternion dt_q = 0.0;
+#ifndef OCTO
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
+#else
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+#endif
+    QuaternionOrOctonion dx = 0.0;
+    QuaternionOrOctonion dy = 0.0;
+    QuaternionOrOctonion dz = 0.0;
+    QuaternionOrOctonion it_quat = 0.0;
+    const QuaternionOrOctonion dt_q = 0.0;
 
     ArrayEntry arrEntries[1] = {
         {"array", input_array, array_size}
@@ -467,14 +475,14 @@ __global__ void generate_lorenz_trajectory(Quaternion* trajectory, const Default
 
     VariableEntry varEntries[9] = {
         {"z", &point},
-        {"phi", const_cast<Quaternion*>(&phi)},
-        {"pi", const_cast<Quaternion*>(&pi)},
-        {"e", const_cast<Quaternion*>(&e)},
-        {"It", &it_quat},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
         {"dx", &dx},
         {"dy", &dy},
         {"dz", &dz},
-        {"dt", const_cast<Quaternion*>(&dt_q)}
+        {"dt", const_cast<QuaternionOrOctonion*>(&dt_q)}
     };
     
     const size_t numVars = 9;
@@ -539,10 +547,9 @@ void copyMemory(T* destination, const T* source, size_t count, cudaMemcpyKind di
 extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
-    const DefaultType dy, const DefaultType c_real, const DefaultType c_imag, DefaultType escape_radius, const bool fast_mode,
+    const DefaultType dy, const double* juliaset_c, DefaultType escape_radius, const bool fast_mode,
     const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType quaternion_j, const DefaultType quaternion_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
-    double* input_array, const uint32_t array_size) {
+    const double* z_initial, double* input_array, const uint32_t array_size) {
 
 
         cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -551,6 +558,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
         // Note: The count here is the number of elements.
         CudaMemory<uint8_t> d_output(width * height * 3);
         CudaMemory<double> d_input_array(array_size);
+        CudaMemory<double> d_z_initial(8);
+        CudaMemory<double> d_juliaset_c(8);
         CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
         CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
         
@@ -559,6 +568,8 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     
         // Copy host data to device
         copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_juliaset_c.get(), juliaset_c, 8, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
         copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
@@ -575,17 +586,14 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
                                               d_exp.get(), exp_len,
                                               width, height, max_iter,
                                               xmin, ymin, dx, dy,
-                                              c_real, c_imag,
+                                              d_juliaset_c.get(),
                                               escape_radius,
                                               fast_mode,
                                               juliaset,
                                               lake,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              quaternion_j,
-                                              quaternion_k,
-                                              z_initial_r,
-                                              z_initial_i,
+                                              d_z_initial.get(),
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -607,7 +615,7 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
     const DefaultType dy, DefaultType complex_a, DefaultType complex_b,
-    const DefaultType quaternion_j, const DefaultType quaternion_k, DefaultType escape_radius, 
+    const DefaultType z_initial_j, const DefaultType z_initial_k, DefaultType escape_radius, 
     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
     // Increase the device stack size if needed.
@@ -643,8 +651,8 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
                                            escape_radius,
                                            top_colors_outside,
                                            top_colors_lake,
-                                           quaternion_j,
-                                           quaternion_k,
+                                           z_initial_j,
+                                           z_initial_k,
                                            d_input_array.get(), array_size);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -665,10 +673,8 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
 extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
     const uint16_t width, const uint16_t height, const uint16_t max_iter,
     const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
-    const DefaultType dy, const DefaultType c_real, const DefaultType c_imag,
-    const bool juliaset, const int top_colors_outside, const int top_colors_lake,
-    const DefaultType quaternion_j, const DefaultType quaternion_k, const DefaultType z_initial_r, const DefaultType z_initial_i, 
-    const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
+    const DefaultType dy, const double* juliaset_c, const bool juliaset, const int top_colors_outside, const int top_colors_lake,
+    const double* z_initial, const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
 
 
         cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -677,6 +683,8 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
         // Note: The count here is the number of elements.
         CudaMemory<uint8_t> d_output(width * height * 3);
         CudaMemory<double> d_input_array(array_size);
+        CudaMemory<double> d_z_initial(8);
+        CudaMemory<double> d_juliaset_c(8);
         CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
         CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
         
@@ -685,6 +693,8 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
     
         // Copy host data to device
         copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_juliaset_c.get(), juliaset_c, 8, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
         copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
         copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
@@ -701,14 +711,11 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
                                               d_exp.get(), exp_len,
                                               width, height, max_iter,
                                               xmin, ymin, dx, dy,
-                                              c_real, c_imag,
+                                              d_juliaset_c.get(),
                                               juliaset,
                                               top_colors_outside,
                                               top_colors_lake,
-                                              quaternion_j,
-                                              quaternion_k,
-                                              z_initial_r,
-                                              z_initial_i,
+                                              d_z_initial.get(),
                                               newton_epsilon,
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
@@ -726,11 +733,11 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
 
 
 
-extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const Quaternion* attractors,
+extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const QuaternionOrOctonion* attractors,
     const char* exp, const size_t exp_size, const uint16_t width, const uint16_t height,
     const uint16_t max_iter, const DefaultType xmin, const DefaultType ymin,
     const DefaultType dx, const DefaultType dy, const DefaultType v_real, const DefaultType v_imag,
-    DefaultType escape_radius, const DefaultType quaternion_j, const DefaultType quaternion_k, 
+    DefaultType escape_radius, const DefaultType z_initial_j, const DefaultType z_initial_k, 
     const bool fast_mode, const int n_points, double* input_array, const uint32_t array_size) {
 
 
@@ -741,7 +748,7 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
         CudaMemory<uint8_t> d_output(width * height * 3);
         CudaMemory<double> d_input_array(array_size);
         CudaMemory<int> d_array_top_colors_outside(n_points);
-        CudaMemory<Quaternion> d_attractors(n_points);
+        CudaMemory<QuaternionOrOctonion> d_attractors(n_points);
         
         size_t exp_len = exp_size + 1; // +1 for null terminator
         CudaMemory<char> d_exp(exp_len);
@@ -766,8 +773,8 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
                                               xmin, ymin, dx, dy,
                                               v_real, v_imag,
                                               escape_radius,
-                                              quaternion_j,
-                                              quaternion_k,
+                                              z_initial_j,
+                                              z_initial_k,
                                               fast_mode, n_points,
                                               d_input_array.get(), array_size);
         cudaError_t err = cudaGetLastError();
@@ -786,9 +793,8 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
 
 
 
-extern "C" void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
-    const int max_iter, const char* exp, const size_t exp_size, const DefaultType z_initial_r, const DefaultType z_initial_i,
-    const DefaultType quaternion_j, const DefaultType quaternion_k, double* input_array, const uint32_t array_size) {
+extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+    const int max_iter, const char* exp, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
 
 
     cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
@@ -796,21 +802,22 @@ extern "C" void generate_lorenz_trajectory_kernel(Quaternion* trajectory, const 
     // Allocate device memory using the RAII wrapper.
     // Note: The count here is the number of elements.
     CudaMemory<double> d_input_array(array_size);
-    CudaMemory<Quaternion> d_trajectory(max_iter);
+    CudaMemory<double> d_z_initial(8);
+    CudaMemory<QuaternionOrOctonion> d_trajectory(max_iter);
     
     size_t exp_len = exp_size + 1; // +1 for null terminator
     CudaMemory<char> d_exp(exp_len);
 
     // Copy host data to device
     copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+    copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
     copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
     copyMemory(d_trajectory.get(), trajectory, max_iter, cudaMemcpyHostToDevice);
     
 
     generate_lorenz_trajectory<<<1, 1>>>(d_trajectory.get(),
                     sigma, rho, beta, dt, max_iter,
-                    d_exp.get(), exp_size, z_initial_r, z_initial_i,
-                    quaternion_j, quaternion_k, d_input_array.get(), array_size);
+                    d_exp.get(), exp_size, d_z_initial.get(), d_input_array.get(), array_size);
 
 
     cudaError_t err = cudaGetLastError();

@@ -54,7 +54,7 @@ def set_current_gen(id):
     global current_client_id
     current_client_id = id
 
-def process_form_data(params, timeout):
+def process_form_data(params, timeout, noserverIsOn=False):
     global all_parameters, stop_gen_event
 
 
@@ -172,8 +172,7 @@ def process_form_data(params, timeout):
     all_parameters["escape_radius"] = float(params.get('escape_radius',0.0))
     all_parameters['top_colors'] = int(params.get('top_colors', 24))
     all_parameters['max_grains'] = int(params.get('max_grains', 3))
-    all_parameters['juliaset_c_real'] = float(params.get('juliaset_c_real', -0.8))
-    all_parameters['juliaset_c_imag'] = float(params.get('juliaset_c_imag', 0.16))
+
 
     all_parameters['use_palette'] = bool(params.get('use_palette', True))
     palette = params.get('palette', './palettes/palette.png')
@@ -189,35 +188,91 @@ def process_form_data(params, timeout):
     all_parameters['shift_palette'] = int(params.get('shift_palette', 0))
     all_parameters['shift_palette_lake'] = int(params.get('shift_palette_lake',0))
     
-    
-    grid_length = int(params.get('grid_length', 3))
-    column_aim = min(int(params.get('column_aim', 2)), grid_length)
-    row_aim = min(int(params.get('row_aim', 2)), grid_length)
 
-    coordinates = [[column_aim,row_aim,grid_length]]
-    all_parameters['column_aim'] = column_aim
-    all_parameters['row_aim'] = row_aim
-    all_parameters['grid_length'] = grid_length
-    all_parameters['coordinates'] = coordinates
-    all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
 
-    all_parameters['quaternion_j'] = float(params.get('quaternion_j', 0.0))
-    all_parameters['quaternion_k'] = float(params.get('quaternion_k', 0.0))
 
-    if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
-        xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
-        all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
+
+
+    if not noserverIsOn:
+
+        all_parameters['xmin'] = float(params.get('xmin', -2.5))
+        all_parameters['xmax'] = float(params.get('xmax', 2.5))
+        all_parameters['ymin'] = float(params.get('ymin', -2.5))
+        all_parameters['ymax'] = float(params.get('ymax', 2.5))
+
+
+        all_parameters["z_initial"]= [float(params.get('z_initial_r', 0.0)),
+                                    float(params.get('z_initial_i', 0.0)),
+                                    float(params.get('z_initial_j', 0.0)),
+                                    float(params.get('z_initial_k', 0.0)),
+                                    float(params.get('z_initial_l', 0.0)),
+                                    float(params.get('z_initial_m', 0.0)),
+                                    float(params.get('z_initial_n', 0.0)),
+                                    float(params.get('z_initial_o', 0.0))]
+                                    
+        all_parameters['juliaset_c'] = [float(params.get('juliaset_c_r', -0.8)),
+                                    float(params.get('juliaset_c_i', 0.16)),
+                                    float(params.get('juliaset_c_j', 0.0)),
+                                    float(params.get('juliaset_c_k', 0.0)),
+                                    float(params.get('juliaset_c_l', 0.0)),
+                                    float(params.get('juliaset_c_m', 0.0)),
+                                    float(params.get('juliaset_c_n', 0.0)),
+                                    float(params.get('juliaset_c_o', 0.0))]
+
+
     else:
-        all_parameters['xmin'] = float(params.get('xmin', -2.7))
-        all_parameters['xmax'] = float(params.get('xmax', 2.7))
-        all_parameters['ymin'] = float(params.get('ymin', -2.7))
-        all_parameters['ymax'] = float(params.get('ymax', 2.7))
+
+        grid_length = int(params.get('grid_length', 3))
+        column_aim = min(int(params.get('column_aim', 2)), grid_length)
+        row_aim = min(int(params.get('row_aim', 2)), grid_length)
+
+        coordinates = [[column_aim,row_aim,grid_length]]
+        all_parameters['column_aim'] = column_aim
+        all_parameters['row_aim'] = row_aim
+        all_parameters['grid_length'] = grid_length
+        all_parameters['coordinates'] = coordinates
+        all_parameters['continue_aim'] = bool(params.get('continue_aim', False))
+
+
+
+        if all_parameters['continue_aim'] and all_parameters['grid_length'] != 1:
+            xmin, xmax, ymin, ymax = divide_in_squares(coordinates, all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'])
+            all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'] = xmin, xmax, ymin, ymax
+        else:
+            all_parameters['xmin'] = float(params.get('xmin', -2.5))
+            all_parameters['xmax'] = float(params.get('xmax', 2.5))
+            all_parameters['ymin'] = float(params.get('ymin', -2.5))
+            all_parameters['ymax'] = float(params.get('ymax', 2.5))
+
+
+
+        zinitial = params.get('z_initial', [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        juliasetp = params.get('juliaset_c', [-0.8, 0.16, 0.0, 0.6, 0.0, 0.0, 0.0, 0.0])
+
+
+        all_parameters["z_initial"]= [float(zinitial[0]),
+                                    float(zinitial[1]),
+                                    float(zinitial[2]),
+                                    float(zinitial[3]),
+                                    float(zinitial[4]),
+                                    float(zinitial[5]),
+                                    float(zinitial[6]),
+                                    float(zinitial[7])]
+                                    
+        all_parameters["juliaset_c"]= [float(juliasetp[0]),
+                                    float(juliasetp[1]),
+                                    float(juliasetp[2]),
+                                    float(juliasetp[3]),
+                                    float(juliasetp[4]),
+                                    float(juliasetp[5]),
+                                    float(juliasetp[6]),
+                                    float(juliasetp[7])]
+
+
 
     print("\nYour coordinates: ", all_parameters['xmin'], all_parameters['xmax'], all_parameters['ymin'], all_parameters['ymax'], "\n")
-    print(all_parameters['expression'].replace(" ", ""))
+    print(re.sub(r"[^\x00-\x7F]+", "", all_parameters['expression'].replace(" ", ""))[:511])
 
-    all_parameters["z_initial_r"]= float(params.get('z_initial_r', 0.0))
-    all_parameters["z_initial_i"]= float(params.get('z_initial_i', 0.0))
     all_parameters["newton_epsilon"]= float(params.get('newton_epsilon', 0.000001))
     all_parameters["sigma"]= float(params.get('sigma', 10.0))
     all_parameters["rho"]= float(params.get('rho', 28.0))
@@ -344,8 +399,8 @@ def server(port, timeout):
 
             
             # Fractal generation request
-            required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
-            if all(key in received_params for key in required_keys) and not generating.is_set() :
+            # required_keys = ['width', 'height', 'max_iter', 'top_colors', 'max_grains', 'juliaset_c_real', 'juliaset_c_imag', 'xmin', 'xmax', 'ymin', 'ymax', 'palette', 'lake_palette']
+            if not generating.is_set() :
                 generating.set()
                 stop_gen_event.clear()
                 set_current_gen(str(received_params.get('tab_id', 0)))
@@ -363,22 +418,22 @@ def server(port, timeout):
                 print("On queue...")
                 while generating.is_set():
                     time.sleep(0.25)
-                if all(key in received_params for key in required_keys):
-                    generating.set()
-                    stop_gen_event.clear()
-                    set_current_gen(str(received_params.get('tab_id', 0)))
-                    try:
-                        fractal_result = ",".join(process_form_data(received_params, timeout))
-                    except Exception as e:
-                        print(f"An Error Occurred: {e}")
-                        fractal_result = ",".join(failed_img)
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json; charset=utf-8')
-                    self.end_headers()
-                    self.wfile.write(fractal_result.encode('utf-8'))
-                    generating.clear()
-                else:
-                    return
+                # if all(key in received_params for key in required_keys):
+                generating.set()
+                stop_gen_event.clear()
+                set_current_gen(str(received_params.get('tab_id', 0)))
+                try:
+                    fractal_result = ",".join(process_form_data(received_params, timeout))
+                except Exception as e:
+                    print(f"An Error Occurred: {e}")
+                    fractal_result = ",".join(failed_img)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(fractal_result.encode('utf-8'))
+                generating.clear()
+
+                # return
             else:
                 self.send_response(400)
                 self.end_headers()
@@ -449,8 +504,10 @@ def main():
     )
 
     stdout = result.stdout
-    # stderr = result.stderr
-    # print(stderr )
+    stderr = result.stderr
+    
+    if stderr:
+        print(f"Error: {stderr}")
 
     parameters = json.loads(stdout)
 
@@ -464,7 +521,7 @@ def main():
 
 
         # Let's Run
-        process_form_data(parameters, args.timeout)
+        process_form_data(parameters, args.timeout, True)
 
         # for i in range(36):
         #     all_parameters['expression'] = f"rotation(z*z+c,pi/{36-(i+1)}, 1k)" #(1/35)*i
