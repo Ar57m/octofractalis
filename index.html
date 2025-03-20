@@ -270,7 +270,7 @@
                 opacity: 0;
                 transition: opacity 0.2s ease;
                 z-index: 1000;
-                display: none; /* Esconde por padrão */
+                display: none;
             }
 
 
@@ -774,12 +774,11 @@
                 const message = e.target.getAttribute("data-tooltip");
                 if (message) {
                     tooltip.textContent = message;
-                    tooltip.style.display = "block"; // Garante que offsetHeight funcione corretamente
+                    tooltip.style.display = "block";
                     tooltip.style.opacity = "1";
 
                     const rect = e.target.getBoundingClientRect();
 
-                    // Posiciona à direita do input, centralizado verticalmente
                     const topPosition = rect.top + window.scrollY + rect.height / 2 - tooltip.offsetHeight / 2;
                     const leftPosition = rect.right + window.scrollX + 10;
 
@@ -790,7 +789,7 @@
 
             input.addEventListener("blur", () => {
                 tooltip.style.opacity = "0";
-                tooltip.style.display = "none"; // Esconde totalmente depois
+                tooltip.style.display = "none";
             });
         });
 
