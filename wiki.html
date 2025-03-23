@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Wiki - Fractal Documentation</title>
+  <style>
+    :root {
+      --bg-color: #1a1a1a;
+      --text-color: #ffffff;
+      --accent: #2dd4bf;
+      --section-bg: #2d2d2d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 15px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .glossary {
+      background: var(--section-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      justify-items: center;
+    }
+
+    .glossary a {
+      color: var(--accent);
+      text-decoration: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      width: 100%;
+      text-align: center;
+      font-size: 0.95rem;
+      border: 1px solid rgba(45, 212, 191, 0.3);
+    }
+
+    .glossary a:hover {
+      background: rgba(45, 212, 191, 0.1);
+      transform: translateY(-2px);
+    }
+
+    section {
+      background: var(--section-bg);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      border-radius: 12px;
+      scroll-margin-top: 15px;
+      word-wrap: break-word;
+    }
+
+    h1, h2 {
+      color: var(--accent);
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      font-size: 1rem;
+      line-height: 1.5;
+      margin: 0 0 1rem;
+    }
+
+    .back-to-top {
+      display: block;
+      margin-top: 1.2rem;
+      color: #888;
+      font-size: 0.9rem;
+      text-align: right;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+
+      .glossary {
+        padding: 1rem;
+      }
+
+      .glossary-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .glossary a {
+        padding: 12px 10px;
+        font-size: 0.9rem;
+      }
+
+      section {
+        padding: 1.2rem;
+        margin: 1.2rem 0;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+        margin-bottom: 1.2rem;
+      }
+
+      h2 {
+        font-size: 1.3rem;
+      }
+
+      .back-to-top {
+        font-size: 0.85rem;
+      }
+    }
+
+    @media (max-width: 360px) {
+      h1 {
+        font-size: 1.6rem;
+      }
+      
+      h2 {
+        font-size: 1.2rem;
+      }
+      
+      p {
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Fractal Framework Documentation</h1>
+
+  <div class="glossary">
+    <h2>Quick Navigation</h2>
+    <div class="glossary-grid">
+      <a href="#compilation">Compilation</a>
+      <a href="#running">Running</a>
+      <a href="#variables">Variables</a>
+      <a href="#functions">Operators/Functions</a>
+      <a href="#fractals">Fractal Types</a>
+      <a href="#parameters">Other Parameters</a>
+    </div>
+  </div>
+
+  <!-- Sections remain same as before -->
+  <section id="compilation">
+    <h2>Compilation</h2>
+    <p>This fractal generator is cross-platform and should work on most systems. It has been tested on the following environments:</p>
+    <ul>
+      <li>Android (via <strong>Termux</strong>)</li>
+      <li>Linux (Debian, Ubuntu)</li>
+      <li>Windows 11 (with <strong>w64devkit</strong>)</li>
+    </ul>
+  
+    <h3>Installation Requirements</h3>
+    <p>Before building the generator, ensure you have the required Python packages:</p>
+    <pre><code>pip install numpy opencv-python</code></pre>
+  
+    <p><strong>Note for Termux users:</strong> Additional steps are needed to support OpenCV:</p>
+    <pre><code>apt install x11-repo && apt update
+  apt install opencv
+  apt install opencv-python</code></pre>
+  
+    <h3>GPU and Performance Flags</h3>
+    <p>The generator supports optional flags to enhance performance:</p>
+    <ul>
+      <li><code>--cuda</code>: Enables GPU acceleration on NVIDIA GPUs for faster computation.</li>
+      <li><code>--f32</code>: Uses <code>float32</code> precision in most operations, which may improve speed on some systems.</li>
+      <li><code>--octo</code>: Activates <strong>Octonion</strong> math for fractal generation.</li>
+    </ul>
+  
+    <h3>Build Instructions</h3>
+    <p>Clone the repository and run the build script:</p>
+    <pre><code>git clone https://github.com/Ar57m/another_fractal_generator
+  cd another_fractal_generator
+  bash build.sh</code></pre>
+  
+    <p><strong>Note:</strong> The <code>build.sh</code> script compiles the generator. Once compiled, you can run the Python script directly to start generating fractals.</p>
+  
+    <a href="#" class="back-to-top">↑ Back to Top</a>
+  </section>
+  
+
+
+  <section id="running">
+    <h2>Running</h2>
+    <p>Runtime parameters can be adjusted dynamically through the configuration interface. Monitor system resources during execution for optimal performance.</p>
+    <a href="#" class="back-to-top">↑ Back to Top</a>
+  </section>
+
+  <section id="variables">
+    <h2>Variables</h2>
+    <p>This section describes the core variables used in the fractal generator. These variables control the mathematical computations, rendering, and dynamics of fractal generation, including support for Quaternion and Octonion math.</p>
+  
+    <ul>
+      <li><strong>z</strong> – The primary dynamic variable. It holds the current point in the fractal space being iterated. Found in <em>all fractal generation loops</em>, especially in <strong>fractal</strong>, <strong>magnet</strong>, and <strong>newton</strong>. Its value evolves per iteration.</li>
+  
+      <li><strong>c</strong> – A constant that modifies how <strong>z</strong> evolves. Used in both Mandelbrot and Julia set calculations. Set based on whether Julia set mode is active.</li>
+  
+      <li><strong>it</strong> – Represents the current iteration count, encapsulated as a quaternion/octonion. Passed to the parser for use in custom expressions.</li>
+
+      <li><strong>f</strong> – Represents force in <strong>magnet</strong> mode, calculated based on attractor points and applied to <strong>v</strong> (velocity).</li>
+  
+      <li><strong>dif</strong> – The difference between <strong>z</strong> and an attractor, used to calculate <strong>f</strong>. Essential in simulating gravitational-like interactions.</li>  
+
+      <li><strong>v</strong> – Used mainly in <strong>magnet</strong> and <strong>lyapunov</strong> functions to represent velocity or a varying parameter during iteration. Often affected by forces or multipliers.</li>
+  
+      <li><strong>p</strong> – An accumulator variable used in <strong>lyapunov</strong> to sum results of certain expressions over iterations, e.g., for Lyapunov exponents.</li>
+  
+
+  
+      <li><strong>dx</strong>, <strong>dy</strong>, <strong>dz</strong> – Represent pixel-to-coordinate scaling in the X, Y, and Z dimensions. Determine spatial resolution. Found only on <strong>lorenz</strong>.</li>
+  
+      <li><strong>pi</strong>, <strong>e</strong>, <strong>phi</strong> – Mathematical constants:
+        <ul>
+          <li><strong>pi</strong> ≈ 3.14159</li>
+          <li><strong>e</strong> ≈ 2.71828</li>
+          <li><strong>phi</strong> ≈ 1.61803 (golden ratio)</li>
+        </ul>
+        These constants are registered with the parser and can be used in user-defined expressions.
+      </li>
+  
+      <li><strong>x</strong>, '<strong>y</strong> – Represent pixel coordinates, passed to the parser as variables. Used in calculations that depend on screen position or spatial layout, necessary to fractalize an image.</li>
+    </ul>
+  
+    <p>All these variables are dynamically tied to a parser, enabling customizable fractal expressions using mathematical operations over quaternions or octonions. Their use varies slightly depending on the specific fractal mode selected (e.g., standard fractal(mandelbrot algorithm), Newton, Lyapunov, Magnet, Lorenz).</p>
+  
+    <a href="#" class="back-to-top">↑ Back to Top</a>
+  </section>
+  
+
+  <section id="functions">
+    <h2>Operators/Operands</h2>
+    <dl>
+      <dt><strong><br>+ (Unary)</strong></dt>
+      <dd>Returns the factor unchanged. For example, writing <strong>+x</strong> simply yields <strong>x</strong>.</dd>
+  
+      <dt><strong><br>- (Unary)</strong></dt>
+      <dd>Negates the following factor, returning its additive inverse. For example, <strong>-x</strong> produces the negative of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>+ (Binary)</strong></dt>
+      <dd>Adds two operands. For example, <strong>a + b</strong> computes the sum of <strong>a</strong> and <strong>b</strong>.</dd>
+  
+      <dt><strong><br>- (Binary)</strong></dt>
+      <dd>Subtracts the right operand from the left. For example, <strong>a - b</strong> calculates the difference.</dd>
+  
+      <dt><strong><br>*</strong></dt>
+      <dd>Multiplies two operands. For example, <strong>a * b</strong> computes their product.</dd>
+  
+      <dt><strong><br>/</strong></dt>
+      <dd>Divides the left operand by the right operand. For example, <strong>a / b</strong> yields the quotient.</dd>
+  
+      <dt><strong><br>%</strong></dt>
+      <dd>Calculates the remainder when the left operand is divided by the right operand. For instance, <strong>a % b</strong> returns the fmod for each component.<br>
+      For example:<br>
+      (4+6i+8j+10k)%(3+3i+3j+3k) returns (1+0i+2j+1k)
+      </dd>
+  
+      <dt><strong><br>^</strong></dt>
+      <dd>Raises the left operand to the power of the right operand. For example, <strong>a ^ b</strong> computes <strong>a</strong> raised to <strong>b</strong>.</dd>
+  
+      <dt><strong><br>=</strong></dt>
+      <dd>Tests **approximate equality** between two operands by comparing their components with a small tolerance (MSE &lt; 1e-9). Returns <strong>1</strong> if they are nearly equal, otherwise <strong>0</strong>. The result is returned as a quaternion/octonion with only the real part set. <br>
+      Example: <strong>a = b</strong> returns <strong>1</strong> (as a quaternion) if <strong>a</strong> and <strong>b</strong> are almost equal, otherwise <strong>0</strong>.</dd>
+      
+  
+      <dt><strong><br>&amp;</strong></dt>
+      <dd>Computes the cosine similarity between two operands, returning a real value. For example, <strong>a &amp; b</strong> calculates the cosine similarity.</dd>
+  
+      <dt><strong><br>&gt;</strong></dt>
+      <dd>Compares the **magnitudes** of two operands. Returns <strong>1</strong> (as a quaternion/octonion) if the left operand’s magnitude is greater than the right’s, otherwise <strong>0</strong>. <br>
+      Example: <strong>a &gt; b</strong> checks if the magnitude of <strong>a</strong> is greater than <strong>b</strong>.</dd>
+      
+      <dt><strong><br>&lt;</strong></dt>
+      <dd>Compares the **magnitudes** of two operands. Returns <strong>1</strong> (as a quaternion/octonion) if the left operand’s magnitude is less than the right’s, otherwise <strong>0</strong>. <br>
+      Example: <strong>a &lt; b</strong> checks if the magnitude of <strong>a</strong> is less than <strong>b</strong>.</dd>
+      
+    </dl>
+
+
+    <h2>Functions</h2>
+    <p>The fractal generator’s parser supports a wide range of functions for quaternion/octonion math. These functions are called using the syntax <strong>functionName(arg1, arg2, arg3)</strong>. Below is a list of each supported function along with a short description and an example of how to use it.</p>
+  
+    <dl>
+      <dt><strong><br>abs(x)</strong></dt>
+      <dd>Returns a new quaternion/octonion whose components are the absolute values of those in <strong>x</strong>.</dd>
+  
+      <dt><strong><br>airy(x)</strong></dt>
+      <dd>Computes the Airy function of <strong>x</strong> using a series expansion.</dd>
+  
+      <dt><strong><br>arg(x)</strong></dt>
+      <dd>Returns the argument (phase) of <strong>x</strong>, computed from its real and imaginary magnitude using atan2.</dd>
+  
+      <dt><strong><br>circle(x, radius)</strong></dt>
+      <dd>Uses the angle from <strong>x</strong> to generate a point on a circle of the specified <strong>radius</strong>. (Result: (<strong>cos(angle)*radius, sin(angle)*radius</strong>)).</dd>
+  
+      <dt><strong><br>conj(x)</strong></dt>
+      <dd>Returns the conjugate of <strong>x</strong> by negating its imaginary components.</dd>
+  
+      <dt><strong><br>cos(x)</strong></dt>
+      <dd>Computes the cosine of <strong>x</strong> using quaternion/octonion cosine formulas.</dd>
+  
+      <dt><strong><br>cosh(x)</strong></dt>
+      <dd>Computes the hyperbolic cosine of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>diff(f(x))</strong></dt>
+      <dd>Computes the numerical derivative of the expression <strong>f(x)</strong> using a finite difference approximation.</dd>
+  
+      <dt><strong><br>exp(x)</strong></dt>
+      <dd>Returns the exponential (<strong>e^x</strong>) of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>i(x)</strong></dt>
+      <dd>Extracts the first imaginary component (often labeled as <strong>imag</strong>) of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>if(cond, a, b)</strong></dt>
+      <dd>A ternary function that returns <strong>a</strong> if the condition <strong>cond</strong> is met (typically by checking if the absolute of the real part is bigger than 1e-9) and <strong>b</strong> otherwise.</dd>
+  
+      <dt><strong><br>im(x)</strong></dt>
+      <dd>Returns a quaternion/octonion composed of the imaginary components of <strong>x</strong> (excluding its real part).</dd>
+  
+      <dt><strong><br>j(x)</strong></dt>
+      <dd>Extracts the <strong>j</strong> component from <strong>x</strong>.</dd>
+  
+      <dt><strong><br>k(x)</strong></dt>
+      <dd>Extracts the <strong>k</strong> component from <strong>x</strong>.</dd>
+  
+      <dt><strong><br>l(x)</strong></dt>
+      <dd>(Octonion only) Extracts the <strong>l</strong> component from <strong>x</strong>.</dd>
+  
+      <dt><strong><br>log(x)</strong></dt>
+      <dd>Returns the natural logarithm (base <strong>e</strong>) of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>logn(x, base)</strong></dt>
+      <dd>Computes the logarithm of <strong>x</strong> with the specified <strong>base</strong>.</dd>
+  
+      <dt><strong><br>m(x)</strong></dt>
+      <dd>(Octonion only) Extracts the <strong>m</strong> component from <strong>x</strong>.</dd>
+  
+      <dt><strong><br>mag(x)</strong></dt>
+      <dd>Returns the magnitude (norm) of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>max(x, y)</strong></dt>
+      <dd>Returns the value with the larger magnitude between <strong>x</strong> and <strong>y</strong>.</dd>
+  
+      <dt><strong><br>min(x, y)</strong></dt>
+      <dd>Returns the value with the smaller magnitude between <strong>x</strong> and <strong>y</strong>.</dd>
+  
+      <dt><strong><br>n(x)</strong></dt>
+      <dd>(Octonion only) Extracts the <strong>n</strong> component from <strong>x</strong>.</dd>
+  
+      <dt><strong><br>o(x)</strong></dt>
+      <dd>(Octonion only) Extracts the <strong>o</strong> component from <strong>x</strong>.</dd>
+  
+      <dt><strong><br>pow(x, y)</strong></dt>
+      <dd>Raises <strong>x</strong> to the power of <strong>y</strong>. The same as doing <strong>(x^y)</strong>.</dd>
+  
+      <dt><strong><br>rand(a, b, seed)</strong></dt>
+      <dd>(CPU only) Generates a random quaternion/octonion within the range defined by <strong>a</strong> and <strong>b</strong>, using <strong>seed</strong> for initialization.</dd>
+  
+      <dt><strong><br>re(x)</strong></dt>
+      <dd>Returns the real component of <strong>x</strong> as a quaternion/octonion.</dd>
+  
+      <dt><strong><br>root(x, n)</strong></dt>
+      <dd>Computes the <strong>n</strong>th root of <strong>x</strong>, equivalent to <strong>pow(x, 1/n)</strong>.</dd>
+  
+      <dt><strong><br>rotate(x, angle, axis)</strong></dt>
+      <dd>Rotates <strong>x</strong> by a given <strong>angle</strong> around the specified <strong>axis</strong>(an integer) (using circular rotation).<br>
+      For quaternions these are the axis:<br>
+      0: (real, imag)<br>1: (real, j)<br>2: (real, k)<br>3: (imag, j)<br>4: (imag, k)<br>5: (j, k)<br><br>
+      For octonions:<br>
+      0: (real, imag)<br>1: (real, j)<br>2: (real, k)<br>3: (real, l)<br>4: (real, m)<br>5: (real, n)<br>6: (real, o)<br>7: (imag, j)<br>8: (imag, k)<br>9: (imag, l)<br>10: (imag, m)<br>11: (imag, n)<br>12: (imag, o)<br>13: (j, k)<br>14: (j, l)<br>15: (j, m)<br>16: (j, n)<br>17: (j, o)<br>18: (k, l)<br>19: (k, m)<br>20: (k, n)<br>21: (k, o)<br>22: (l, m)<br>23: (l, n)<br>24: (l, o)<br>25: (m, n)<br>26: (m, o)<br>27: (n, o)<br>
+      </dd>
+  
+      <dt><strong><br>rotation(x, angle, axis)</strong></dt>
+      <dd>Performs a rotation of <strong>x</strong> using an alternative rotation algorithm. Parameters are similar to <strong>rotate</strong>.</dd>
+  
+      <dt><strong><br>round(x)</strong></dt>
+      <dd>Rounds each component of <strong>x</strong> to the nearest integer.</dd>
+  
+      <dt><strong><br>sign(x)</strong></dt>
+      <dd>Returns the sign of each component of <strong>x</strong> while preserving its quaternion/octonion structure.</dd>
+  
+      <dt><strong><br>sin(x)</strong></dt>
+      <dd>Computes the sine of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>sinh(x)</strong></dt>
+      <dd>Computes the hyperbolic sine of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>sqrt(x)</strong></dt>
+      <dd>Returns the square root of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>square(x, sideLength)</strong></dt>
+      <dd>Generates a square projection based on the angle of <strong>x</strong> and the specified <strong>sideLength</strong>.</dd>
+  
+      <dt><strong><br>tan(x)</strong></dt>
+      <dd>Computes the tangent of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>tanh(x)</strong></dt>
+      <dd>Computes the hyperbolic tangent of <strong>x</strong>.</dd>
+  
+      <dt><strong><br>triangle(x, sideLength)</strong></dt>
+      <dd>Creates a triangle projection based on <strong>x</strong> with the specified <strong>sideLength</strong>.</dd>
+  
+      <dt><strong><br>zeta(x)</strong></dt>
+      <dd>Computes the Riemann zeta function of <strong>x</strong> using a series expansion.</dd>
+    </dl>
+  
+    <p><br>For example, to raise a quaternion to a power, you would write: <strong>pow(base, exponent)</strong>.</p>
+    <a href="#" class="back-to-top">↑ Back to Top</a>
+  </section>
+  
+
+  <section id="fractals">
+    <h2>Fractal Types</h2>
+    <p>blah</p>
+    <a href="#" class="back-to-top">↑ Back to Top</a>
+  </section>
+
+  <section id="parameters">
+    <h2>Other Parameters</h2>
+    <p>blah/p>
+    <a href="#" class="back-to-top">↑ Back to Top</a>
+  </section>
+  <script>
+    // Restore scroll position on load
+    window.addEventListener('load', () => {
+      const savedPos = localStorage.getItem('wikiScrollPos');
+      if (savedPos !== null) {
+        window.scrollTo(0, parseInt(savedPos, 10));
+      }
+    });
+  
+    // Save scroll position on scroll
+    window.addEventListener('scroll', () => {
+      // You might want to debounce this for performance in a production app
+      localStorage.setItem('wikiScrollPos', window.scrollY);
+    });
+  </script>
+</body>
+
+
+</html>

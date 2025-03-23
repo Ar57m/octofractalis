@@ -4,6 +4,12 @@
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Another Fractal Generator</title>
         <style>
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #ffffff;
+                --container-bg: #2d2d2d;
+                --fieldset-bg: #222222;
+            }
             h1 {
                 text-align: center;
                 background: linear-gradient(135deg, #ff00ea, #00fff2);
@@ -24,6 +30,7 @@
                 margin: 0;
                 padding: 20px;
                 box-sizing: border-box;
+                transition: background 0.3s, color 0.3s;
             }
             .container {
                 background: #222;
@@ -274,11 +281,69 @@
             }
 
 
+            /* Floating button styling */
+            .floating-btn {
+                position: fixed;
+                text-align: center;
+                width: 19px;
+                height: 19px;
+                top: 20px;
+                right: 19px;
+                background: #4d002a;
+                color: white;
+                padding: 14px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 17px;
+                z-index: 1000;
+            }
+            /* Tab panel styling */
+            .tab-panel {
+                position: fixed;
+                top: 10%;
+                right: 10%;
+                width: 300px;
+                height: 400px;
+                background: #f9f9f9;
+                border: 1px solid #ccc;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                display: flex;
+                flex-direction: column;
+                z-index: 999;
+            }
+            .tab-header {
+                background: #4d002a;
+                color: white;
+                padding: 10px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .tab-content {
+                padding: 0;
+                overflow-y: auto;
+                flex: 1;
+            }
+
+            .wiki-iframe {
+                border: none;
+                width: 100%;
+                height: 100%;
+            }
+
+
+            .tab-panel {
+                background: #1e1e1e;          /* Darker background for the panel */
+                border-color: #333;           /* Dark border */
+                box-shadow: 0 0 10px rgba(255,255,255,0.1);  /* Lighter shadow effect */
+            }
+
 
         </style>
     </head>
     <body>
         <div class="container">
+            
             <h1>Another Fractal Generator</h1>
             <form id="fractalForm">
                 <fieldset class="collapsible">
@@ -611,6 +676,8 @@
         
         </div>
         <div id="tooltip" class="tooltip"></div>
+        <div class="floating-btn" id="openTab">❔</div>
+        <div id="tabContainer"></div>
     <script>
 
 
@@ -1157,7 +1224,76 @@
             });
         });
 
-        
+    const tabContainer = document.getElementById('tabContainer');
+    const openTabBtn = document.getElementById('openTab');
+
+    const body = document.body;
+    
+    // Function to create a tab panel that loads wiki.html via iframe
+    function createTab() {
+      // Create tab panel element
+      const tabPanel = document.createElement('div');
+      tabPanel.className = 'tab-panel';
+      tabPanel.id = 'wikiTab';
+      
+      // Create header with close button (x emoji)
+      const header = document.createElement('div');
+      header.className = 'tab-header';
+      header.innerHTML = '<span>Wiki</span><span id="closeTab" style="cursor:pointer;">❌</span>';
+      
+      // Create content area with an iframe that loads wiki.html
+      const contentArea = document.createElement('div');
+      contentArea.className = 'tab-content';
+      const iframe = document.createElement('iframe');
+      iframe.className = 'wiki-iframe';
+      iframe.src = 'wiki.html';  // Ensure wiki.html is in the same directory
+      contentArea.appendChild(iframe);
+      
+      tabPanel.appendChild(header);
+      tabPanel.appendChild(contentArea);
+      tabContainer.appendChild(tabPanel);
+      
+      // Save state that the tab is open
+      localStorage.setItem('wikiTabOpen', 'true');
+      
+      // Close tab event when clicking the close button
+      header.querySelector('#closeTab').addEventListener('click', () => {
+        closeTab();
+      });
+    }
+    
+    // Function to close the tab
+    function closeTab() {
+      const tabPanel = document.getElementById('wikiTab');
+      if (tabPanel) {
+        tabPanel.remove();
+        localStorage.setItem('wikiTabOpen', 'false');
+      }
+    }
+    
+    // On page load, check if the wiki tab was open previously and restore it
+    window.addEventListener('load', () => {
+      if (localStorage.getItem('wikiTabOpen') === 'true') {
+        createTab();
+      }
+      
+    });
+    
+    // Open tab on button click
+    openTabBtn.addEventListener('click', () => {
+      if (!document.getElementById('wikiTab')) {
+        createTab();
+      }
+    });
+
+    // Close the wiki tab when clicking outside of it
+    document.addEventListener('click', (event) => {
+      const tabPanel = document.getElementById('wikiTab');
+      // If the tab is open and the click is outside the tab panel and not on the open button, close the tab
+      if (tabPanel && !tabPanel.contains(event.target) && event.target !== openTabBtn) {
+        closeTab();
+      }
+    });
     </script>
     </body>
 </html>

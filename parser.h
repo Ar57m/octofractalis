@@ -889,6 +889,20 @@ private:
             case str2int("k"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
                     [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.k); });
+            #ifdef OCTO
+            case str2int("l"):
+                return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.l); });
+            case str2int("m"):
+                return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.m); });
+            case str2int("n"):
+                return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.n); });
+            case str2int("o"):
+                return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
+                    [](const QuaternionOrOctonion& a) { return QuaternionOrOctonion(a.o); });
+            #endif
             case str2int("round"):
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, arg,
                     [](const QuaternionOrOctonion& a) { return a.round(); });
