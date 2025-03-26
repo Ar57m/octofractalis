@@ -31,7 +31,7 @@ private:
     }
 
     HOST_DEVICE inline DefaultType signDefaultType(DefaultType value) const {
-        return (0 < value) ? -1.0 : 1.0;
+        return (value > 0) - (value < 0);
     }
 
 public:
@@ -285,7 +285,7 @@ public:
     
 
     HOST_DEVICE inline QuaternionOrOctonion sign() const {
-        return QuaternionOrOctonion(signDefaultType(real),signDefaultType(real),signDefaultType(real),signDefaultType(real));
+        return QuaternionOrOctonion(signDefaultType(real),signDefaultType(imag),signDefaultType(j),signDefaultType(k));
     }
 
     // abs / remove the sign

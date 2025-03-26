@@ -31,7 +31,7 @@ private:
     }
 
     HOST_DEVICE inline DefaultType signDefaultType(DefaultType value) const {
-        return (0 < value) ? -1.0 : 1.0;
+        return (value > 0) - (value < 0);
     }
 
 public:
