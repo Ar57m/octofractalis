@@ -161,9 +161,8 @@
     <div class="glossary-grid">
       <a href="#compilation">Compilation</a>
       <a href="#running">Running</a>
-      <a href="#variables">Variables</a>
-      <a href="#functions">Operators/Functions</a>
       <a href="#fractals">Fractal Types</a>
+      <a href="#functions">Operators/Functions</a>
       <a href="#parameters">Other Parameters</a>
     </div>
   </div>
@@ -171,7 +170,9 @@
   <!-- Sections remain same as before -->
   <section id="compilation">
     <h2>Compilation</h2>
-    <p>This fractal generator is cross-platform and should work on most systems. It has been tested on the following environments:</p>
+    
+    <p>This <a href="https://github.com/Ar57m/another_fractal_generator" target="_blank" rel="noopener noreferrer">fractal generator</a>
+      is cross-platform and should work on most systems. It has been tested on the following environments:</p>
     <ul>
       <li>Android (via <strong>Termux</strong>)</li>
       <li>Linux (Debian, Ubuntu)</li>
@@ -214,42 +215,122 @@
     <a href="#" class="back-to-top">↑ Back to Top</a>
   </section>
 
-  <section id="variables">
-    <h2>Variables</h2>
-    <p>This section describes the core variables used in the fractal generator. These variables control the mathematical computations, rendering, and dynamics of fractal generation, including support for Quaternion and Octonion math.</p>
-  
-    <ul>
-      <li><strong>z</strong> – The primary dynamic variable. It holds the current point in the fractal space being iterated. Found in <em>all fractal generation loops</em>, especially in <strong>fractal</strong>, <strong>magnet</strong>, and <strong>newton</strong>. Its value evolves per iteration.</li>
-  
-      <li><strong>c</strong> – A constant that modifies how <strong>z</strong> evolves. Used in both Mandelbrot and Julia set calculations. Set based on whether Julia set mode is active.</li>
-  
-      <li><strong>it</strong> – Represents the current iteration count, encapsulated as a quaternion/octonion. Passed to the parser for use in custom expressions.</li>
 
-      <li><strong>f</strong> – Represents force in <strong>magnet</strong> mode, calculated based on attractor points and applied to <strong>v</strong> (velocity).</li>
+  </section>
+  <section id="fractal-types">
+    <h2>Fractal Types</h2>
+    <dl>
+      <dt><strong>Mandelbrot</strong></dt>
+      <dd>
+        Uses the classic iteration z = z² + c to determine escape.<br>
+        <em>Variables used:</em> <br>
+        • <strong>z</strong>: the dynamic point in the fractal space.<br>
+        • <strong>c</strong>: calculated from the pixel coordinates (x, y) and used as a constant.<br>
+        • <strong>it</strong>: the iteration count driving the loop.<br>
+        • <strong>x</strong> and <strong>y</strong>: pixel coordinates.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Fast Mode, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Palette settings and Coordinates.<br>
+        <em>Note:</em> Escape radius when set to zero it's actually using 2.
+      </dd>
   
-      <li><strong>dif</strong> – The difference between <strong>z</strong> and an attractor, used to calculate <strong>f</strong>. Essential in simulating gravitational-like interactions.</li>  
-
-      <li><strong>v</strong> – Used mainly in <strong>magnet</strong> and <strong>lyapunov</strong> functions to represent velocity or a varying parameter during iteration. Often affected by forces or multipliers.</li>
+      <dt><strong><br>Julia Set</strong></dt>
+      <dd>
+        Similar to Mandelbrot but with a fixed <strong>c</strong> provided externally.<br>
+        <em>Variables used:</em> <br>
+        • <strong>z</strong>: updated at each iteration.<br>
+        • <strong>c</strong>: fixed constant defining the set.<br>
+        • <strong>it</strong>: iteration counter.<br>
+        • <strong>x</strong> and <strong>y</strong>: pixel coordinates.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Fast Mode, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Julia Set Parameters, Palette settings and Coordinates.<br>
+        <em>Note:</em> Escape radius when set to zero it's actually using 2.
+      </dd>
   
-      <li><strong>p</strong> – An accumulator variable used in <strong>lyapunov</strong> to sum results of certain expressions over iterations, e.g., for Lyapunov exponents.</li>
+      <dt><strong><br>Newton</strong></dt>
+      <dd>
+        Applies Newton’s method to find roots of complex functions.<br>
+        <em>Variables used:</em> <br>
+        • <strong>z</strong>: the current estimate of the root.<br>
+        • <strong>c</strong>: used when in Julia mode (Newton JuliaSet variant).<br>
+        • <strong>it</strong>: counts iterations for convergence.<br>
+        • <strong>x</strong> and <strong>y</strong>: serve as pixel coordinates.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Newton Epsilon, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Palette settings and Coordinates.
+      </dd>
   
-
+      <dt><strong><br>Newton Julia Set</strong></dt>
+      <dd>
+        A hybrid of Newton’s method and the Julia set, where a fixed <strong>c</strong> is used.<br>
+        <em>Variables used:</em> <br>
+        • <strong>z</strong>: iteratively updated using Newton’s method.<br>
+        • <strong>c</strong>: fixed as in Julia mode.<br>
+        • <strong>it</strong>, <strong>x</strong>, and <strong>y</strong>: track iterations and pixel positions.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Newton Epsilon, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Julia Set Parameters, Palette settings and Coordinates.
+      </dd>
   
-      <li><strong>dx</strong>, <strong>dy</strong>, <strong>dz</strong> – Represent pixel-to-coordinate scaling in the X, Y, and Z dimensions. Determine spatial resolution. Found only on <strong>lorenz</strong>.</li>
+      <dt><strong><br>Magnet Pendulum</strong></dt>
+      <dd>
+        Simulates a chaotic pendulum influenced by multiple magnets.<br>
+        <em>Variables used:</em> <br>
+        • <strong>z</strong>: current position in space.<br>
+        • <strong>v</strong>: the velocity of the pendulum.<br>
+        • <strong>f</strong>: the force acting on the pendulum, computed from attractor influences.<br>
+        • <strong>dif</strong>: the difference between <strong>z</strong> and an attractor.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Number of Magnets, Fast Mode, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Palette settings and Coordinates.<br>
+        <em>Note:</em> Start with the equation <strong>z+v</strong> and gradient 0; Escape radius when set to zero it's actually using 9.
+      </dd>
   
-      <li><strong>pi</strong>, <strong>e</strong>, <strong>phi</strong> – Mathematical constants:
-        <ul>
-          <li><strong>pi</strong> ≈ 3.14159</li>
-          <li><strong>e</strong> ≈ 2.71828</li>
-          <li><strong>phi</strong> ≈ 1.61803 (golden ratio)</li>
-        </ul>
-        These constants are registered with the parser and can be used in user-defined expressions.
-      </li>
+      <dt><strong><br>Lorenz Attractor</strong></dt>
+      <dd>
+        Generates trajectories based on the Lorenz system’s differential equations.<br>
+        <em>Variables used:</em> <br>
+        • <strong>z</strong>: represents the current point in the trajectory.<br>
+        • <strong>it</strong>: the iteration count.<br>
+        • <strong>dx</strong>, <strong>dy</strong>, <strong>dz</strong>: control the spatial resolution and scaling.<br>
+        • <strong>dt</strong>: the time step for integration.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Palette settings, Lorenz Parameters and Coordinates.<br>
+        <em>Note:</em> Start with the equation <strong>dx+dy*i+dz*j</strong>, coordinates at [-30, 30, -30, 30], z initial[0.05 ,1.0] and Max Iterations are used as the number of points.
+      </dd>
   
-      <li><strong>x</strong>, '<strong>y</strong> – Represent pixel coordinates, passed to the parser as variables. Used in calculations that depend on screen position or spatial layout, necessary to fractalize an image.</li>
-    </ul>
+      <dt><strong><br>Lyapunov</strong></dt>
+      <dd>
+        Computes fractals based on Lyapunov exponents to illustrate regions of stability and chaos.<br>
+        <em>Variables used:</em> <br>
+        • <strong>v</strong>: a variable representing an iterative value that alternates in function.<br>
+        • <strong>p</strong>: an accumulator that sums expression results over iterations.<br>
+        • <strong>c</strong>: used to switch between different operations during iterations.<br>
+        • <strong>it</strong>, <strong>x</strong>, and <strong>y</strong>: track iteration and pixel positions.<br>
+        • Also constants like <strong>phi</strong>, <strong>pi</strong>, and <strong>e</strong> can be used.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Fractalize Image.<br>
+        • General Parameters, Initial Z Parameters, Palette settings and Coordinates.<br>
+        <em>Note:</em> Try starting with the equation <strong>log(mag(c*(1-2*v)))</strong>, coordinates at [-8, 8, -8, 8]; Escape radius when set to zero it's actually using 400.
+      </dd>
   
-    <p>All these variables are dynamically tied to a parser, enabling customizable fractal expressions using mathematical operations over quaternions or octonions. Their use varies slightly depending on the specific fractal mode selected (e.g., standard fractal(mandelbrot algorithm), Newton, Lyapunov, Magnet, Lorenz).</p>
+      <dt><strong><br>Sandpile</strong></dt>
+      <dd>
+        Models self-organized criticality where grains topple once a threshold is exceeded.<br>
+        <em>Note:</em> This fractal type does not use the custom equation parser; it directly simulates grain distribution and toppling.<br><br>
+        <em>Parameters used:</em><br>
+        • Gradient, Sandpile Max Grains, Fractalize Image.<br>
+        • General Parameters(except Escape Radius and Prime Array Size) and Palette settings(except lake).
+      </dd>
+    </dl>
   
     <a href="#" class="back-to-top">↑ Back to Top</a>
   </section>
@@ -304,7 +385,7 @@
     </dl>
 
 
-    <h2>Functions</h2>
+    <h2><br><br>Functions</h2>
     <p>The fractal generator’s parser supports a wide range of functions for quaternion/octonion math. These functions are called using the syntax <strong>functionName(arg1, arg2, arg3)</strong>. Below is a list of each supported function along with a short description and an example of how to use it.</p>
   
     <dl>
@@ -431,20 +512,14 @@
       <dd>Computes the Riemann zeta function of <strong>x</strong> using a series expansion.</dd>
     </dl>
   
-    <p><br>For example, to raise a quaternion to a power, you would write: <strong>pow(base, exponent)</strong>.</p>
+    <p><br>For example, to raise a quaternion to a power, you would write: <strong>pow(base, exponent)</strong> or <strong>(base^exponent)</strong>.</p>
     <a href="#" class="back-to-top">↑ Back to Top</a>
   </section>
   
 
-  <section id="fractals">
-    <h2>Fractal Types</h2>
-    <p>blah</p>
-    <a href="#" class="back-to-top">↑ Back to Top</a>
-  </section>
-
   <section id="parameters">
     <h2>Other Parameters</h2>
-    <p>blah/p>
+    <p>blah</p>
     <a href="#" class="back-to-top">↑ Back to Top</a>
   </section>
   <script>
