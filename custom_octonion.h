@@ -907,36 +907,10 @@ public:
         
         return sum;
     }
-    #ifndef USE_CUDA
 
-    QuaternionOrOctonion generateRandom(const QuaternionOrOctonion& max, const QuaternionOrOctonion& seed) const {
-        // Use the real part of the seed as the base for generating the random number
-        unsigned int finalSeed = static_cast<unsigned int>(my_abs(seed.real));
 
-        // Validate and correct the magnitude range
-        DefaultType minMag = mag();
-        DefaultType maxMag = max.mag();
-        if (minMag > maxMag) {
-            my_swap(minMag, maxMag); // Ensure minMag <= maxMag
-        }
 
-        // Handle edge cases where the range is invalid or zero
-        if (minMag == maxMag) {
-            return minMag; // No range, return the only possible value
-        }
 
-        // Select random seed and initialize random number generator
-        std::mt19937 generator;
-        if (finalSeed < 1) {
-            std::random_device device;
-            generator.seed(device()); // Use a non-deterministic seed if `finalSeed` is invalid
-        } else {
-            generator.seed(finalSeed); // Use the provided seed
-        }
-
-        std::uniform_real_distribution<DefaultType> distribution(minMag, maxMag);
-        return QuaternionOrOctonion(distribution(generator));
-    }
 
 
 
@@ -1053,6 +1027,41 @@ public:
     }
 
 
+
+
+
+
+
+    #ifndef USE_CUDA
+
+    QuaternionOrOctonion generateRandom(const QuaternionOrOctonion& max, const QuaternionOrOctonion& seed) const {
+        // Use the real part of the seed as the base for generating the random number
+        unsigned int finalSeed = static_cast<unsigned int>(my_abs(seed.real));
+
+        // Validate and correct the magnitude range
+        DefaultType minMag = mag();
+        DefaultType maxMag = max.mag();
+        if (minMag > maxMag) {
+            my_swap(minMag, maxMag); // Ensure minMag <= maxMag
+        }
+
+        // Handle edge cases where the range is invalid or zero
+        if (minMag == maxMag) {
+            return minMag; // No range, return the only possible value
+        }
+
+        // Select random seed and initialize random number generator
+        std::mt19937 generator;
+        if (finalSeed < 1) {
+            std::random_device device;
+            generator.seed(device()); // Use a non-deterministic seed if `finalSeed` is invalid
+        } else {
+            generator.seed(finalSeed); // Use the provided seed
+        }
+
+        std::uniform_real_distribution<DefaultType> distribution(minMag, maxMag);
+        return QuaternionOrOctonion(distribution(generator));
+    }
 
 
 
