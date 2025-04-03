@@ -34,6 +34,15 @@ private:
         return (value > 0) - (value < 0);
     }
 
+    HOST_DEVICE inline DefaultType combineDistances(DefaultType baseDist, const QuaternionOrOctonion& q) const {
+        DefaultType totalMag = q.mag();
+        DefaultType base2dMag = my_sqrt(q.real * q.real + q.imag * q.imag);
+        DefaultType extraSq = (totalMag * totalMag) - (base2dMag * base2dMag);
+        DefaultType extraDist = (extraSq > 0) ? my_sqrt(extraSq) : 0;
+
+        return my_sqrt(baseDist * baseDist + extraDist * extraDist);
+    }
+
 public:
     DefaultType real;
     DefaultType imag;
@@ -734,33 +743,27 @@ public:
 
 
 
-
-    HOST_DEVICE QuaternionOrOctonion circle(const QuaternionOrOctonion radius) const {
-        DefaultType angle = my_atan2(imag, real);
-        DefaultType rad = radius.mag();
-        return QuaternionOrOctonion(my_cos(angle) * rad, my_sin(angle) * rad);
+    HOST_DEVICE DefaultType dot(const QuaternionOrOctonion& other) const {
+        return real * other.real + imag * other.imag + 
+               j * other.j + k * other.k + 
+               l * other.l + m * other.m + 
+               n * other.n + o * other.o;
     }
 
-    HOST_DEVICE QuaternionOrOctonion square(const QuaternionOrOctonion sideLength) const {
-        DefaultType side = sideLength.mag()/2.0;
-        DefaultType x_proj = (real > 0) ? side : -side;
-        DefaultType y_proj = (imag > 0) ? side : -side;
-        return QuaternionOrOctonion(x_proj, y_proj);
+    HOST_DEVICE QuaternionOrOctonion c_dot(const QuaternionOrOctonion& other) const {
+        return QuaternionOrOctonion(
+            real * other.real,
+            imag * other.imag,
+            j * other.j,
+            k * other.k,
+            l * other.l,
+            m * other.m,
+            n * other.n,
+            o * other.o
+        );
     }
-
-    HOST_DEVICE QuaternionOrOctonion triangle(const QuaternionOrOctonion sideLength) const {
-        DefaultType side = sideLength.mag();
-        DefaultType height = my_sqrt(3) / 2 * side;
-        DefaultType x_proj = (real > 0) ? side / 2 : -side / 2;
-        DefaultType y_proj = (imag > 0) ? height / 3 : -height / 3;
-        return QuaternionOrOctonion(x_proj, y_proj);
-    }
-
-    HOST_DEVICE QuaternionOrOctonion ellipsoid(QuaternionOrOctonion radiusX, QuaternionOrOctonion radiusY) const {
-        DefaultType angle = my_atan2(imag, real);
-        return QuaternionOrOctonion(my_cos(angle) * radiusX.mag(), my_sin(angle) * radiusY.mag());
-    }
-
+    
+    
 
 
     HOST_DEVICE QuaternionOrOctonion gamma() const {
@@ -934,6 +937,125 @@ public:
         std::uniform_real_distribution<DefaultType> distribution(minMag, maxMag);
         return QuaternionOrOctonion(distribution(generator));
     }
+
+
+
+    HOST_DEVICE inline QuaternionOrOctonion lerp(const QuaternionOrOctonion& other, QuaternionOrOctonion t_q) const {
+        const DefaultType t = t_q.mag();
+        
+        DefaultType dot = real * other.real + imag * other.imag +
+                          j * other.j + k * other.k +
+                          l * other.l + m * other.m +
+                          n * other.n + o * other.o;
+        QuaternionOrOctonion target = other;
+        if(dot < 0.0) {
+            target = -other;
+        }
+        
+        QuaternionOrOctonion result;
+        result.real = real + t * (target.real - real);
+        result.imag = imag + t * (target.imag - imag);
+        result.j    = j    + t * (target.j    - j);
+        result.k    = k    + t * (target.k    - k);
+        result.l    = l    + t * (target.l    - l);
+        result.m    = m    + t * (target.m    - m);
+        result.n    = n    + t * (target.n    - n);
+        result.o    = o    + t * (target.o    - o);
+        
+        return result;
+    }
+
+
+
+    HOST_DEVICE QuaternionOrOctonion circle(const QuaternionOrOctonion& q) const {
+
+        DefaultType r = this->mag();
+        DefaultType base2d = my_sqrt(q.real * q.real + q.imag * q.imag);
+        DefaultType baseDist = my_abs(base2d - r);
+
+        DefaultType combinedDist = combineDistances(baseDist, q);
+        return QuaternionOrOctonion(combinedDist);
+    }
+
+    HOST_DEVICE QuaternionOrOctonion rect(const QuaternionOrOctonion& q) const {
+
+        DefaultType dx = my_abs(q.real) - this->real;
+        DefaultType dy = my_abs(q.imag) - this->imag;
+
+        DefaultType outsideX = (dx > 0) ? dx : 0;
+        DefaultType outsideY = (dy > 0) ? dy : 0;
+        DefaultType outsideDist = my_sqrt(outsideX * outsideX + outsideY * outsideY);
+        
+        DefaultType baseDist = (dx < 0 && dy < 0) ? 0 : outsideDist;
+
+        DefaultType combinedDist = combineDistances(baseDist, q);
+        
+        return QuaternionOrOctonion(combinedDist);
+    }
+
+    HOST_DEVICE QuaternionOrOctonion line( const QuaternionOrOctonion& p1,
+                                                const QuaternionOrOctonion& q) const{
+        const QuaternionOrOctonion p0 = *this;
+        QuaternionOrOctonion v = p1 - p0;
+        DefaultType len2 = v.dot( v);
+        if (len2 == 0)
+            return (q - p0).mag();
+        DefaultType t = (q - p0).dot( v) / len2;
+        t = (t < 0) ? 0 : ((t > 1) ? 1 : t);
+        QuaternionOrOctonion projection = p0 + v * t;
+        return QuaternionOrOctonion((q - projection).mag() );
+    }
+
+    HOST_DEVICE QuaternionOrOctonion triangle(const QuaternionOrOctonion& q) const {
+        const DefaultType s = this->mag();
+        const DefaultType ko = my_sqrt(3.0);
+        
+        DefaultType baseReal = q.real;
+        DefaultType baseImag = q.imag;
+        
+        baseImag += s / (2 * ko);
+        
+        baseReal = my_abs(baseReal);
+        
+        baseReal -= s / 2.0;
+        baseImag -= s / (2 * ko);
+        
+
+        if (baseReal + ko * baseImag > 0) {
+            DefaultType tempReal = baseReal - ko * baseImag;
+            DefaultType tempImag = -ko * baseReal - baseImag;
+            baseReal = tempReal / 2.0;
+            baseImag = tempImag / 2.0;
+        }
+        
+        DefaultType baseDist = my_sqrt(baseReal * baseReal + baseImag * baseImag);
+        
+        DefaultType combinedDist = combineDistances(baseDist, q);
+        
+        return QuaternionOrOctonion(combinedDist);
+    }
+
+
+    HOST_DEVICE QuaternionOrOctonion ellipsoid(const QuaternionOrOctonion& radiusY,
+                                                const QuaternionOrOctonion& q) const {
+        DefaultType a = this->mag();
+        DefaultType b = radiusY.mag();
+        
+        DefaultType baseReal = q.real / a;
+        DefaultType baseImag = q.imag / b;
+        DefaultType k = my_sqrt(baseReal * baseReal + baseImag * baseImag);
+        
+        DefaultType baseDist = my_abs(k - 1.0) * ((a < b) ? a : b);
+        
+        DefaultType combinedDist = combineDistances(baseDist, q);
+        
+        return QuaternionOrOctonion(combinedDist);
+    }
+
+
+
+
+
     
     std::string to_string() const {
         std::ostringstream os;

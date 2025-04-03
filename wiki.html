@@ -397,8 +397,10 @@
       <dt><strong><br>arg(x)</strong></dt>
       <dd>Returns the argument (phase) of <strong>x</strong>, computed from its real and imaginary magnitude using atan2.</dd>
   
-      <dt><strong><br>circle(x, radius)</strong></dt>
-      <dd>Uses the angle from <strong>x</strong> to generate a point on a circle of the specified <strong>radius</strong>. (Result: (<strong>cos(angle)*radius, sin(angle)*radius</strong>)).</dd>
+      <dt><strong><br>circle(r, q)</strong></dt>
+      <dd>
+        Computes the distance from a point <code>q</code> to the circumference of a circle with the radius <strong>r</strong>.
+      </dd>
   
       <dt><strong><br>conj(x)</strong></dt>
       <dd>Returns the conjugate of <strong>x</strong> by negating its imaginary components.</dd>
@@ -410,7 +412,25 @@
       <dd>Computes the hyperbolic cosine of <strong>x</strong>.</dd>
   
       <dt><strong><br>diff(f(x))</strong></dt>
-      <dd>Computes the numerical derivative of the expression <strong>f(x)</strong> using a finite difference approximation.</dd>
+      <dd>Computes the numerical derivative of the expression inside it using a finite difference approximation.</dd>
+
+      <dt><strong><br>dot(a, b)</strong></dt>
+      <dd>
+        Computes the dot product between two <strong>QuaternionOrOctonion</strong> objects, <strong>a</strong> and <strong>b</strong>. 
+        This function multiplies corresponding components (including the real part and all imaginary parts) 
+        and sums the products to return a scalar value. 
+        It is used as the fundamental inner product in Euclidean space ℝⁿ.
+      </dd>
+
+      <dt><strong><br>ellipsoid(a, b, q)</strong></dt>
+      <dd>
+        Approximates the distance from the point <strong>q</strong> to an axis-aligned ellipsoid 
+        (or ellipse in 2D) whose radii are defined by the magnitudes of <strong>a</strong> (for x-direction) 
+        and <strong>b</strong> (for y-direction). 
+        The function first scales the 2D components of <strong>q</strong> into “ellipse space” and measures 
+        the radial difference from the unit circle. 
+        It then combines this 2D distance with any extra dimensional contributions.
+      </dd>
   
       <dt><strong><br>exp(x)</strong></dt>
       <dd>Returns the exponential (<strong>e^x</strong>) of <strong>x</strong>.</dd>
@@ -432,7 +452,25 @@
   
       <dt><strong><br>l(x)</strong></dt>
       <dd>(Octonion only) Extracts the <strong>l</strong> component from <strong>x</strong>.</dd>
-  
+
+      <dt><strong><br>line(p0, p1, q)</strong></dt>
+      <dd>
+        Calculates the shortest distance from the point <strong>q</strong> to a line segment 
+        defined by the current object (<strong>p0</strong>) and the endpoint <strong>p1</strong>. 
+        The function computes the projection of the vector (<strong>p1 - p0</strong>) onto the vector (<strong>q - p0</strong>), 
+        clamps the projection within the segment, and returns the distance from <strong>q</strong> to the closest point. 
+        All operations (subtraction, dot product, scaling) are performed in the full vector space (e.g., ℝ⁸ for octonions), 
+        so extra dimensions are naturally taken into account.
+      </dd>
+
+      <dt><strong><br>lerp(a, b, t)</strong></dt>
+      <dd>
+        Performs a linear interpolation between two <strong>Quaternion/Octonion</strong> values, 
+        <strong>a</strong> and <strong>b</strong>, based on the parameter <strong>t</strong> (typically in the range [0, 1]). 
+        The function computes the result as <strong>a * (1 - t) + b * t</strong>. 
+        For multidimensional objects, this interpolation is performed on each component.
+      </dd>
+
       <dt><strong><br>log(x)</strong></dt>
       <dd>Returns the natural logarithm (base <strong>e</strong>) of <strong>x</strong>.</dd>
   
@@ -465,6 +503,15 @@
   
       <dt><strong><br>re(x)</strong></dt>
       <dd>Returns the real component of <strong>x</strong> as a quaternion/octonion.</dd>
+
+      <dt><strong><br>rect(s, q)</strong></dt>
+      <dd>
+        Determines the distance from <strong>q</strong> to a rectangle (or box) whose half-width and half-height 
+        are given by the <strong>real</strong> and <strong>imag</strong> components of <strong>s</strong>.
+        The function computes a 2D distance using standard SDF logic (how far <strong>q</strong> is outside the rectangle) 
+        and then combines this with any extra distance from additional dimensions. 
+        When <strong>q</strong> is purely 2D, the result is the usual SDF for a rectangle.
+      </dd>
   
       <dt><strong><br>root(x, n)</strong></dt>
       <dd>Computes the <strong>n</strong>th root of <strong>x</strong>, equivalent to <strong>pow(x, 1/n)</strong>.</dd>
@@ -495,18 +542,20 @@
       <dt><strong><br>sqrt(x)</strong></dt>
       <dd>Returns the square root of <strong>x</strong>.</dd>
   
-      <dt><strong><br>square(x, sideLength)</strong></dt>
-      <dd>Generates a square projection based on the angle of <strong>x</strong> and the specified <strong>sideLength</strong>.</dd>
-  
       <dt><strong><br>tan(x)</strong></dt>
       <dd>Computes the tangent of <strong>x</strong>.</dd>
   
       <dt><strong><br>tanh(x)</strong></dt>
       <dd>Computes the hyperbolic tangent of <strong>x</strong>.</dd>
   
-      <dt><strong><br>triangle(x, sideLength)</strong></dt>
-      <dd>Creates a triangle projection based on <strong>x</strong> with the specified <strong>sideLength</strong>.</dd>
-  
+      <dt><strong><br>triangle(s, q)</strong></dt>
+      <dd>
+        Computes a distance value from the point <strong>q</strong> to the edges of an equilateral triangle. 
+        The triangle’s size is determined by <strong>mag(s)</strong> (used as the side length), 
+        and the 2D projection is computed using the first two components (<strong>real</strong> and <strong>imag</strong>). 
+        If extra dimensions are present, their contribution is combined in quadrature with the 2D distance.
+      </dd>
+
       <dt><strong><br>zeta(x)</strong></dt>
       <dd>Computes the Riemann zeta function of <strong>x</strong> using a series expansion.</dd>
     </dl>

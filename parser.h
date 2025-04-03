@@ -649,8 +649,12 @@ private:
         return node;
     }
 
+
     HOST_DEVICE ASTNode* parseFactor() {
-        switch (expr[pos]) {
+        const char exprPosBefore = expr[pos];
+        size_t tempPos = pos;
+        
+        switch (exprPosBefore) {
             case '+':
                 ++pos;
                 return parseFactor();
@@ -660,12 +664,17 @@ private:
                 return createUnaryFunctionNode(nodeAllocator, unaryDataAllocator, parseFactor(), 
                 [](const QuaternionOrOctonion& a) { return -a; });
                 break;
+            case '(':
+                ++pos;
+                ASTNode* node = parseExpression();
+                if (expr[pos] != ')') return error_zero;
+                ++pos;
+                return node;
+                break;
         }
+        
         char name[128] = {0};
         size_t nameIndex = 0;
-        const char exprPosBefore = expr[pos];
-        size_t tempPos = pos;
-        
 
         while (tempPos < expr_size && isIdentifierChar(expr[tempPos]) && nameIndex < sizeof(name) - 1) {
             name[nameIndex++] = expr[tempPos++];
@@ -673,7 +682,7 @@ private:
         name[nameIndex] = '\0';
         const char exprPos = expr[tempPos];
         
-        if ( tempPos < expr_size && exprPos == '(' && exprPosBefore != '(' ) {
+        if ( tempPos < expr_size && exprPos == '(' ) {
             pos = tempPos;
             return parseFunction(name);
         } else if ( containsToken(oVarNames, 5, name) || containsToken(varNames, 10, name) || exprPos == '[' ) {
@@ -681,18 +690,12 @@ private:
             return parseVarOrArray(name);
         } else if (my_isdigit(exprPosBefore) || exprPosBefore == '.' ||  isImaginaryChar(exprPosBefore) ) {
             return parseNumber();
-        } else if (exprPos == '(') {
-            pos = tempPos;
-            ++pos;
-            ASTNode* node = parseExpression();
-            if (expr[pos] != ')') return error_zero;
-            ++pos;
-            return node;
         }
+            
         
         return error_zero;
-    }
-
+    } 
+    
     #ifdef OCTO
     HOST_DEVICE ASTNode* parseNumber() {
         char number[256];
@@ -977,12 +980,15 @@ private:
             case str2int("circle"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
                     arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.circle(b); });
-            case str2int("square"):
+            case str2int("rect"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
-                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.square(b); });
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.rect(b); });
             case str2int("triangle"):
                 return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
                     arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.triangle(b); });
+            case str2int("dot"):
+                return createBinaryFunctionNode(nodeAllocator, binaryDataAllocator,
+                    arg1, arg2, [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b) { return a.c_dot(b); });
             default:
                 return nullptr;
         }
@@ -1022,6 +1028,18 @@ private:
                     arg1, arg2, arg3,
                     [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
                         return a.ellipsoid(b,c);
+                    });
+            case str2int("line"):
+                return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
+                    arg1, arg2, arg3,
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
+                        return a.line(b,c);
+                    });
+            case str2int("lerp"):
+                return createTernaryFunctionNode(nodeAllocator, ternaryDataAllocator,
+                    arg1, arg2, arg3,
+                    [](const QuaternionOrOctonion& a, const QuaternionOrOctonion& b, const QuaternionOrOctonion& c) {
+                        return a.lerp(b,c);
                     });
             default:
                 return nullptr;
