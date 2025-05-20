@@ -19,7 +19,7 @@ __device__ inline void setQuaternionOrOctonionValues(const bool juliaset, Quater
         c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3]);
         z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3]);
     } else {
-        c = QuaternionOrOctonion(r_part, i_part);
+        c = QuaternionOrOctonion(r_part, i_part, juliaset_c[2], juliaset_c[3]);
         z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
     }
 #else
@@ -27,7 +27,7 @@ __device__ inline void setQuaternionOrOctonionValues(const bool juliaset, Quater
         c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3], juliaset_c[4], juliaset_c[5], juliaset_c[6], juliaset_c[7]);
         z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
     } else {
-        c = QuaternionOrOctonion(r_part, i_part);
+        c = QuaternionOrOctonion(r_part, i_part, juliaset_c[2], juliaset_c[3], juliaset_c[4], juliaset_c[5], juliaset_c[6], juliaset_c[7]);
         z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
     }
 #endif
