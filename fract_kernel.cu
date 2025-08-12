@@ -552,7 +552,7 @@ extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors
     const double* z_initial, double* input_array, const uint32_t array_size) {
 
 
-        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+        cudaDeviceSetLimit(cudaLimitStackSize, 34816);
 
         // Allocate device memory using the RAII wrapper.
         // Note: The count here is the number of elements.
@@ -619,7 +619,7 @@ extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_color
     const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
 
     // Increase the device stack size if needed.
-    cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+    cudaDeviceSetLimit(cudaLimitStackSize, 34816);
 
     // Allocate device memory using our RAII wrapper.
     CudaMemory<uint8_t> d_output(width * height * 3);
@@ -677,7 +677,7 @@ extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_
     const double* z_initial, const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
 
 
-        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+        cudaDeviceSetLimit(cudaLimitStackSize, 34816);
 
         // Allocate device memory using the RAII wrapper.
         // Note: The count here is the number of elements.
@@ -741,7 +741,7 @@ extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_
     const bool fast_mode, const int n_points, double* input_array, const uint32_t array_size) {
 
 
-        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+        cudaDeviceSetLimit(cudaLimitStackSize, 34816);
 
         // Allocate device memory using the RAII wrapper.
         // Note: The count here is the number of elements.
@@ -797,7 +797,7 @@ extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajecto
     const int max_iter, const char* exp, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
 
 
-    cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+    cudaDeviceSetLimit(cudaLimitStackSize, 34816);
 
     // Allocate device memory using the RAII wrapper.
     // Note: The count here is the number of elements.

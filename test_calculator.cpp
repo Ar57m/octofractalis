@@ -34,7 +34,7 @@ int main() {
 
     
     while (true) {
-        char expression[512] = {};
+        char expression[256] = {};
 
         std::cout << "\nEnter expression (or type 'exit' to quit):\n";
         std::cin.getline(expression, sizeof(expression));
@@ -52,7 +52,7 @@ int main() {
             break;
         }
 
-        char exprBody[510] = {};
+        char exprBody[254] = {};
         if (j > 2) {
             std::memcpy(exprBody, expression + 2, j - 2);
             exprBody[j - 2] = '\0';
