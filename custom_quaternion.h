@@ -27,7 +27,7 @@ private:
     // }
     
     HOST_DEVICE inline DefaultType noNan(DefaultType value) const {
-        return ( my_abs(value) < Max_flt) ? value : 0.0;
+        return ( my_abs(value) < Max_flt) ? value : Max_flt;
     }
 
     HOST_DEVICE inline DefaultType signDefaultType(DefaultType value) const {
@@ -864,4 +864,5 @@ public:
 
 
 #endif
+
 
