@@ -89,8 +89,8 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
     const int index = (y * width + x) * 3;
     int it = 0;
     
-    if (not_escaped && lake) {
-        it = array_top_colors_lake[static_cast<int>(std::round((temp / (temp + 1.0)) * top_colors_lake))];
+    if (not_escaped) {
+        it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * top_colors_lake))] : array_top_colors_lake[0];
     } else if (lya) {
         it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
     } else {
@@ -807,6 +807,7 @@ extern "C" {
     //     }
     // }
 }
+
 
 
 
