@@ -348,20 +348,20 @@ struct ArrayEntry {
 };
 
 template <int Dim>
-HOST_DEVICE int findVariableIndex(const char* name,
+HOST_DEVICE inline int findVariableIndex(const char* name,
                                   const VariableEntry<Dim>* varEntries,
                                   size_t numVars) {
     for (size_t i = 0; i < numVars; ++i) {
         if (ExprTools::my_strcmp(varEntries[i].name, name) == 0)
-            return (int)i;
+            return static_cast<int>(i);
     }
     return -1;
 }
 
-HOST_DEVICE int findArrayIndex(const char* name, const ArrayEntry* arrEntries, size_t numArrays) {
+HOST_DEVICE inline int findArrayIndex(const char* name, const ArrayEntry* arrEntries, size_t numArrays) {
     for (size_t i = 0; i < numArrays; ++i) {
         if (ExprTools::my_strcmp(arrEntries[i].name, name) == 0)
-            return (int)i;
+            return static_cast<int>(i);
     }
     return -1;
 }
@@ -770,168 +770,97 @@ private:
         emitConstant(Hypercomplex<Dim>(0.0));
     }
 
+    HOST_DEVICE void parseNumber(bool isNegative) {
+        const int MAX_NUM_LEN = 63;
+        char number[MAX_NUM_LEN + 1];
+        int idx = 0;
 
-    // HOST_DEVICE void parseNumber(bool isNegative) {
-    //     const int MAX_NUM_LEN = 63;
-    //     char number[MAX_NUM_LEN + 1];
-    //     int idx = 0;
-    
-    //     DefaultType r=0, i=0, j=0, k=0;
-    //     #ifdef OCTO
-    //         DefaultType l=0, m=0, n=0, o=0;
-    //     #endif
-    
-    //     char ident = '\0';
-    
-    //     while (pos < expr_size) {
-    //         char c = expr[pos];
-            
-    //         // 1. Handle Imaginary Units
-    //         if (ExprTools::isImaginaryChar(c)) { 
-    //             ident = c; 
-    //             ++pos; 
-    //             break; 
-    //         }
-    
-    //         // 2. Handle Digits, Decimals, and Exponents
-    //         if (ExprTools::my_isdigit(c) || c == '.' || c == 'e' || c == 'E') {
-    //             if (idx < MAX_NUM_LEN) number[idx++] = c;
-    //             ++pos;
-    
-    //             // CRITICAL: If we just consumed 'e' or 'E', check if the NEXT char is a sign
-    //             if ((c == 'e' || c == 'E') && pos < expr_size) {
-    //                 char next = expr[pos];
-    //                 if (next == '+' || next == '-') {
-    //                     // Only consume the sign if it's followed by a digit (scientific notation)
-    //                     if (pos + 1 < expr_size && ExprTools::my_isdigit(expr[pos+1])) {
-    //                         if (idx < MAX_NUM_LEN) number[idx++] = next;
-    //                         ++pos;
-    //                     }
-    //                 }
-    //             }
-    //             continue; 
-    //         }
-            
-    //         break; // Not a number character
-    //     }
-    
-    //     number[idx] = '\0';
-        
-    //     // Ensure my_atof handles scientific notation strings correctly!
-    //     DefaultType val = (idx == 0) ? 1.0 : ExprTools::my_atof(number);
-    //     if (isNegative) val = -val;
-    
-    //     // Apply value to the correct component
-    //     switch (ident) {
-    //         case 'i': i = val; break;
-    //         case 'j': j = val; break;
-    //         case 'k': k = val; break;
-    //         #ifdef OCTO
-    //             case 'l': l = val; break;
-    //             case 'm': m = val; break;
-    //             case 'n': n = val; break;
-    //             case 'o': o = val; break;
-    //         #endif
-    //         default: r = val; break;
-    //     }
-    
-    //     #ifdef OCTO
-    //         emitConstant(Hypercomplex<Dim>(r, i, j, k, l, m, n, o));
-    //     #else
-    //         emitConstant(Hypercomplex<Dim>(r, i, j, k));
-    //     #endif
-    // }
-HOST_DEVICE void parseNumber(bool isNegative) {
-    const int MAX_NUM_LEN = 63;
-    char number[MAX_NUM_LEN + 1];
-    int idx = 0;
+        Hypercomplex<Dim> constVal;          // all components zero
+        char ident = '\0';                   // imaginary unit, if any
 
-    Hypercomplex<Dim> constVal;          // all components zero
-    char ident = '\0';                   // imaginary unit, if any
+        while (pos < expr_size) {
+            char c = expr[pos];
 
-    while (pos < expr_size) {
-        char c = expr[pos];
+            // --- Check for a valid imaginary unit for this Dim ---
+            bool isImagUnit = false;
+            if constexpr (Dim == 2) {
+                isImagUnit = (c == 'i');
+            } else if constexpr (Dim == 4) {
+                isImagUnit = (c == 'i' || c == 'j' || c == 'k');
+            } else if constexpr (Dim == 8) {
+                isImagUnit = (c >= 'i' && c <= 'o');  // i,j,k,l,m,n,o
+            }
+            if (isImagUnit) {
+                ident = c;
+                ++pos;
+                break;
+            }
 
-        // --- Check for a valid imaginary unit for this Dim ---
-        bool isImagUnit = false;
-        if constexpr (Dim == 2) {
-            isImagUnit = (c == 'i');
-        } else if constexpr (Dim == 4) {
-            isImagUnit = (c == 'i' || c == 'j' || c == 'k');
-        } else if constexpr (Dim == 8) {
-            isImagUnit = (c >= 'i' && c <= 'o');  // i,j,k,l,m,n,o
-        }
-        if (isImagUnit) {
-            ident = c;
-            ++pos;
-            break;
-        }
+            // --- Parse number (digits, decimal point, scientific notation) ---
+            if (ExprTools::my_isdigit(c) || c == '.' || c == 'e' || c == 'E') {
+                if (idx < MAX_NUM_LEN) number[idx++] = c;
+                ++pos;
 
-        // --- Parse number (digits, decimal point, scientific notation) ---
-        if (ExprTools::my_isdigit(c) || c == '.' || c == 'e' || c == 'E') {
-            if (idx < MAX_NUM_LEN) number[idx++] = c;
-            ++pos;
-
-            // consume optional sign after 'e'/'E'
-            if ((c == 'e' || c == 'E') && pos < expr_size) {
-                char next = expr[pos];
-                if (next == '+' || next == '-') {
-                    if (pos + 1 < expr_size && ExprTools::my_isdigit(expr[pos+1])) {
-                        if (idx < MAX_NUM_LEN) number[idx++] = next;
-                        ++pos;
+                // consume optional sign after 'e'/'E'
+                if ((c == 'e' || c == 'E') && pos < expr_size) {
+                    char next = expr[pos];
+                    if (next == '+' || next == '-') {
+                        if (pos + 1 < expr_size && ExprTools::my_isdigit(expr[pos+1])) {
+                            if (idx < MAX_NUM_LEN) number[idx++] = next;
+                            ++pos;
+                        }
                     }
                 }
+                continue;
             }
-            continue;
+
+            break;   // not part of a number or imaginary unit
         }
 
-        break;   // not part of a number or imaginary unit
+        number[idx] = '\0';
+        DefaultType val = (idx == 0) ? 1.0 : ExprTools::my_atof(number);
+        if (isNegative) val = -val;
+
+        // --- Assign value to the appropriate component ---
+        switch (ident) {
+            case '\0':               // real part
+                constVal.v[0] = val;
+                break;
+            case 'i':
+                if constexpr (Dim >= 2) constVal.v[1] = val;
+                else { hasError = true; return; }
+                break;
+            case 'j':
+                if constexpr (Dim >= 4) constVal.v[2] = val;
+                else { hasError = true; return; }
+                break;
+            case 'k':
+                if constexpr (Dim >= 4) constVal.v[3] = val;
+                else { hasError = true; return; }
+                break;
+            case 'l':
+                if constexpr (Dim >= 8) constVal.v[4] = val;
+                else { hasError = true; return; }
+                break;
+            case 'm':
+                if constexpr (Dim >= 8) constVal.v[5] = val;
+                else { hasError = true; return; }
+                break;
+            case 'n':
+                if constexpr (Dim >= 8) constVal.v[6] = val;
+                else { hasError = true; return; }
+                break;
+            case 'o':
+                if constexpr (Dim >= 8) constVal.v[7] = val;
+                else { hasError = true; return; }
+                break;
+            default:
+                hasError = true;
+                return;
+        }
+
+        emitConstant(constVal);
     }
-
-    number[idx] = '\0';
-    DefaultType val = (idx == 0) ? 1.0 : ExprTools::my_atof(number);
-    if (isNegative) val = -val;
-
-    // --- Assign value to the appropriate component ---
-    switch (ident) {
-        case '\0':               // real part
-            constVal.v[0] = val;
-            break;
-        case 'i':
-            if constexpr (Dim >= 2) constVal.v[1] = val;
-            else { hasError = true; return; }
-            break;
-        case 'j':
-            if constexpr (Dim >= 4) constVal.v[2] = val;
-            else { hasError = true; return; }
-            break;
-        case 'k':
-            if constexpr (Dim >= 4) constVal.v[3] = val;
-            else { hasError = true; return; }
-            break;
-        case 'l':
-            if constexpr (Dim >= 8) constVal.v[4] = val;
-            else { hasError = true; return; }
-            break;
-        case 'm':
-            if constexpr (Dim >= 8) constVal.v[5] = val;
-            else { hasError = true; return; }
-            break;
-        case 'n':
-            if constexpr (Dim >= 8) constVal.v[6] = val;
-            else { hasError = true; return; }
-            break;
-        case 'o':
-            if constexpr (Dim >= 8) constVal.v[7] = val;
-            else { hasError = true; return; }
-            break;
-        default:
-            hasError = true;
-            return;
-    }
-
-    emitConstant(constVal);
-}
 
     HOST_DEVICE void parseVarOrArray(const char* name) {
         int v = findVariableIndex<Dim>(name,varEntries,numVars);
