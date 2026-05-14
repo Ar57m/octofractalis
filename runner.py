@@ -18,9 +18,10 @@ lyapunov = lib.lyapunov
 newton = lib.newton
 sandpile = lib.sandpile
 
+
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, POINTER(c_double),
-    c_double, c_bool, c_bool, c_bool, c_int, c_int, POINTER(c_double), POINTER(c_double), c_uint32, c_int]
+    c_double, c_bool, c_bool, c_bool, c_bool, c_int, c_int, POINTER(c_double), POINTER(c_double), c_uint32, c_int]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -85,7 +86,7 @@ all_parameters = {
     },
 
     'mode': 4, # 2 complex, 4 quaternion, 8 octonion mode.
-
+    'ignore_it': True,
 
     'zoom' : False,
     'max_zoom' : 10, # How many images # it's gonna generate  +n_coordinates more images than expected
@@ -219,6 +220,8 @@ def generate(all_parameters):
     xmax = all_parameters["xmax"]
     ymin = all_parameters["ymin"]
     ymax = all_parameters["ymax"]
+    dx = (xmax - xmin) / width
+    dy = (ymax - ymin) / height
 
     juliaset_c = np.array(all_parameters["juliaset_c"])
 
@@ -235,6 +238,7 @@ def generate(all_parameters):
     newton_epsilon = all_parameters["newton_epsilon"]
 
     mode = all_parameters["mode"]
+    ignore_it = all_parameters["ignore_it"]
     
     array = tools.primes(all_parameters['array_size']) if not all_parameters['fractalize_image'] else tools.bw_image(all_parameters['fractalize_image'], width, height)
 
@@ -268,8 +272,8 @@ def generate(all_parameters):
             fractal(
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
-                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                juliaset_c.ctypes.data_as(POINTER(c_double)), escape_radius, fast_mode, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
+                expression, width, height, max_iter, xmin, ymin, dx, dy,
+                juliaset_c.ctypes.data_as(POINTER(c_double)), escape_radius, fast_mode, "juliaset" == key, lake, ignore_it, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, z_initial.ctypes.data_as(POINTER(c_double)), array.ctypes.data_as(POINTER(c_double)), array.size, mode
             )
             save_img()

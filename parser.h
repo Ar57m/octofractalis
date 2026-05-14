@@ -1097,7 +1097,7 @@ HOST_DEVICE static inline void evaluateBytecode(
     const ArrayEntry* arrays)
 {
     alignas(16) Hypercomplex<Dim> R[MAX_REGISTERS];
-    bool hasError = false;
+    // bool hasError = false;
 
     for (size_t i = 0; i < size; ++i) {
         const Instruction<Dim>& inst = code[i];
@@ -1158,20 +1158,21 @@ HOST_DEVICE static inline void evaluateBytecode(
             case OP_J:
                 if constexpr (Dim >= 4)
                     R[inst.out] = Hypercomplex<Dim>(R[inst.in1].v[2]);
-                else
-                    hasError = true;  // should never happen if parser is correct
+                // else
+                //     hasError = true;
                 break;
             case OP_K:
                 if constexpr (Dim >= 4)
                     R[inst.out] = Hypercomplex<Dim>(R[inst.in1].v[3]);
-                else
-                    hasError = true;
+                // else
+                //     hasError = true;
                 break;
             case OP_L:
                 if constexpr (Dim >= 8)
                     R[inst.out] = Hypercomplex<Dim>(R[inst.in1].v[4]);
-                else
-                    hasError = true;
+                // else
+                //     hasError = true;
+                break;
 
             case OP_ROUND: Hypercomplex<Dim>::round(R[inst.out],R[inst.in1]); break;
             case OP_SIGN:  Hypercomplex<Dim>::sign(R[inst.out],R[inst.in1]); break;
