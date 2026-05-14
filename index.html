@@ -4,6 +4,12 @@
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Another Fractal Generator</title>
         <style>
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #ffffff;
+                --container-bg: #2d2d2d;
+                --fieldset-bg: #222222;
+            }
             h1 {
                 text-align: center;
                 background: linear-gradient(135deg, #ff00ea, #00fff2);
@@ -24,6 +30,7 @@
                 margin: 0;
                 padding: 20px;
                 box-sizing: border-box;
+                transition: background 0.3s, color 0.3s;
             }
             .container {
                 background: #222;
@@ -279,6 +286,7 @@
     </head>
     <body>
         <div class="container">
+            
             <h1>Another Fractal Generator</h1>
             <form id="fractalForm">
                 <fieldset class="collapsible">
@@ -549,7 +557,7 @@
                         <input type="text" id="rotation_angle" name="rotation_angle" value="0.0" data-default="0.0" required class="small-input">
                         <br>
                         <label for="axis">Axis:</label>
-                        <input type="number" id="axis" name="axis" min="-1" max="5" value="-1" data-default="-1" required class="small-input">
+                        <input type="number" id="axis" name="axis" min="-1" max="27" value="-1" data-default="-1" required class="small-input">
                         <br>
                         <label for="max_point_size">Max Point Size:</label>
                         <input type="number" id="max_point_size" name="max_point_size" min="1" max="256" value="1" data-default="1" required class="small-input">
