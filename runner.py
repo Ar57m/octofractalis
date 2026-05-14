@@ -10,15 +10,12 @@ import json
 import tools
 
 
-# Carregue a biblioteca
 lib = cdll.LoadLibrary('./libfract.so')
 
 
 fractal = lib.fractal
 lyapunov = lib.lyapunov
 newton = lib.newton
-magnet = lib.magnet
-lorenz = lib.lorenz
 sandpile = lib.sandpile
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
@@ -34,17 +31,12 @@ newton.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_bool, c_int, c_int, POINTER(c_double),
     c_double, POINTER(c_double), c_uint32]
 
-magnet.argtypes = [POINTER(c_uint8), POINTER(c_int), c_char_p,
-    c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_bool, c_int, POINTER(c_double), c_uint32]
-
-lorenz.argtypes = [POINTER(c_uint8), POINTER(c_int), c_double, c_char_p,
-    c_uint16, c_uint16, c_int, c_double, c_double, c_double, c_double, c_double, c_double,
-    c_double, c_double, c_double, c_double, c_int, c_int, c_int, POINTER(c_double), POINTER(c_double), c_uint32]
-
 sandpile.argtypes = [POINTER(c_uint8), POINTER(c_int), c_uint16, c_uint16, c_uint32, c_int, c_uint16]
 
-
+fractal.restype = None
+lyapunov.restype = None
+newton.restype = None
+sandpile.restype = None
 
 
 def write_to_file(file_name, text):
@@ -88,8 +80,6 @@ all_parameters = {
         'juliaset': True,
         'newton' : False,
         'newton_juliaset': False,
-        'magnet': False,
-        'lorenz' : False,      # Requires a bit of zoom out to it better and much more iterations than mandelbrot are recommended
         'lyapunov': False,    # Lyapunov seems to run very slowly at high resolution try it with 1600x1600.
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
@@ -132,29 +122,10 @@ all_parameters = {
     # Newton epsilon for derivative
     'newton_epsilon' : 1e-6,
 
-    # Lorenz Params
-    'sigma' : 10.0,
-    'rho' : 28.0,
-    'beta' : 8/3,
-    'dt' : 0.01,
-    'rotation_angle': 0.0, #in degress
-    'axis': -1, #
-    'max_point_size': 1, # to get the 3d effect, bigger points should be closer to the view
 
     #Lyapunov uses it as the imaginary part if juliaset is off
     'lyapunov_c_a' : 0.0,
     'lyapunov_c_b' : 0.0,
-
-
-
-
-
-    # Magnet Parameters
-    'n_points'  : 3,
-    'velocity_r' : 0.0,
-    'velocity_i' : 0.0,
-
-
 
 
     # Here you can move around
@@ -163,9 +134,6 @@ all_parameters = {
     'ymin': -2.5,
     'ymax':  2.5,
 
-    # For Lorenz
-    'zmin': -1e30 * 1,
-    'zmax':  1e30 * 1,
 
     # This part is to help you aim
     'n_coordinates' : 0,   #  Number of coordinates to use, set 0 to not use it
@@ -252,9 +220,6 @@ def generate(all_parameters):
     ymin = all_parameters["ymin"]
     ymax = all_parameters["ymax"]
 
-    zmin = all_parameters["zmin"]
-    zmax = all_parameters["zmax"]
-
     juliaset_c = np.array(all_parameters["juliaset_c"])
 
     lyapunov_c_a = all_parameters["lyapunov_c_a"]
@@ -269,17 +234,6 @@ def generate(all_parameters):
 
     newton_epsilon = all_parameters["newton_epsilon"]
 
-    velocity_r = all_parameters["velocity_r"]
-    velocity_i = all_parameters["velocity_i"]
-    n_points = all_parameters["n_points"]
-
-    sigma = all_parameters["sigma"]
-    rho = all_parameters["rho"]
-    beta = all_parameters["beta"]
-    dt = all_parameters["dt"]
-    rotation_angle = all_parameters["rotation_angle"]
-    axis = all_parameters["axis"]
-    max_point_size = all_parameters["max_point_size"]
     mode = all_parameters["mode"]
     
     array = tools.primes(all_parameters['array_size']) if not all_parameters['fractalize_image'] else tools.bw_image(all_parameters['fractalize_image'], width, height)
@@ -343,31 +297,6 @@ def generate(all_parameters):
                 juliaset_c.ctypes.data_as(POINTER(c_double)), "newton_juliaset" == key, (array_top_colors_outside.shape[0])-1, 
                 (array_top_colors_lake.shape[0])-1, z_initial.ctypes.data_as(POINTER(c_double)), newton_epsilon,
                 array.ctypes.data_as(POINTER(c_double)), array.size
-            )
-            save_img()
-
-
-        # Lorenz Attractor / Lorenz system
-        if ((key == "lorenz")) and (value):
-
-            lorenz(
-                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
-                rotation_angle,
-                expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                zmin, zmax, sigma, rho, beta, dt, (array_top_colors_outside.shape[0])-1, 
-                axis, max_point_size, z_initial.ctypes.data_as(POINTER(c_double)),
-                array.ctypes.data_as(POINTER(c_double)), array.size
-            )
-            save_img()
-
-
-        # Magnet Pendulum Attractor
-        if (key == "magnet") and (value):
-            
-            magnet(
-                gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside[:n_points].ctypes.data_as(POINTER(c_int)),
-                expression, width, height, max_iter, xmin, xmax, ymin, ymax, velocity_r, velocity_i, escape_radius,
-                z_initial[2], z_initial[3], fast_mode, n_points, array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
 

@@ -28,8 +28,8 @@ fi
 
 if [ $USE_CUDA -eq 1 ]; then
     echo "Compiling with CUDA support..."
-    nvcc fract.cpp fract_kernel.cu -O3 -arch=sm_75 -Xcompiler -fPIC $F32_FLAG $OCTO_FLAG -DUSE_CUDA -shared -o libfract.so
+    nvcc fract.cpp fract_kernel.cu --ptxas-options=-v -O3 -arch=sm_75 -Xcompiler -fPIC $F32_FLAG $OCTO_FLAG -DUSE_CUDA -shared -o libfract.so
 else
     echo "Compiling for CPU only..."
-    g++ -O3 -Wall -Wextra -pedantic -march=native -fPIC -funroll-loops -fopenmp $F32_FLAG $OCTO_FLAG -shared -o libfract.so fract.cpp
+    g++ -std=c++20 -O3 -Wall -Wextra -pedantic -march=native -fomit-frame-pointer -ffp-contract=fast -fPIC -funroll-loops -fopenmp $F32_FLAG $OCTO_FLAG -shared -o libfract.so fract.cpp
 fi

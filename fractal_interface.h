@@ -1,0 +1,333 @@
+#ifndef FRACTAL_INTERFACE_H
+#define FRACTAL_INTERFACE_H
+
+#include <cstdint>
+#include <vector>
+#include <csignal>
+#include <cstdlib>
+#include <chrono>
+#include <iostream>
+#include <cstring>
+#include <fstream>
+#include <string>
+#include <iomanip>
+#include <functional>
+#include <stdexcept>
+
+
+#ifndef USE_CUDA
+#include <omp.h>
+#include "parser.h"
+#endif
+
+
+
+
+
+
+
+void signal_handler(int signal) {
+    printf("(Ctrl+C) %d\n", signal);
+    std::exit(signal);
+}
+
+
+
+class ManualTimer {
+public:
+    ManualTimer(std::string logPath) : m_logPath(std::move(logPath)) {}
+
+    // Start or restart the timer for a specific phase
+    void start(std::string taskName) {
+        m_taskName = std::move(taskName);
+        m_startTime = std::chrono::high_resolution_clock::now();
+    }
+
+    // Stop and write to the log immediately
+    void stop() {
+        auto endTime = std::chrono::high_resolution_clock::now();
+        
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - m_startTime).count();
+        double ms = duration / 1000000.0; // High precision conversion to milliseconds
+
+        std::ofstream logFile(m_logPath, std::ios_base::app);
+        if (logFile.is_open()) {
+            logFile << "[" << m_taskName << "] " 
+                    << std::fixed << std::setprecision(4) << ms << " ms" << std::endl;
+        }
+    }
+
+private:
+    std::string m_logPath;
+    std::string m_taskName;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_startTime;
+};
+
+
+
+
+
+// Portable nearest-even rounding
+inline int round_div_nearest_even(long long numer, int denom) {
+    long long q = numer / denom;
+    long long rem = numer % denom;
+    long long twice = rem * 2;
+    if (twice < denom) return (int)q;
+    if (twice > denom) return (int)(q + 1);
+    return (int)((q % 2 == 0) ? q : q + 1);
+}
+
+// CPU version of the RGB Lerp
+inline uint32_t rgbLerp_cpu(uint32_t c0, uint32_t c1, int step, int steps) {
+    int r0 = (c0 >> 16) & 0xFF;
+    int g0 = (c0 >> 8) & 0xFF;
+    int b0 = c0 & 0xFF;
+    int r1 = (c1 >> 16) & 0xFF;
+    int g1 = (c1 >> 8) & 0xFF;
+    int b1 = c1 & 0xFF;
+    
+    int denom = steps + 1;
+    int r = round_div_nearest_even((long long)r0 * (denom - step) + (long long)r1 * step, denom);
+    int g = round_div_nearest_even((long long)g0 * (denom - step) + (long long)g1 * step, denom);
+    int b = round_div_nearest_even((long long)b0 * (denom - step) + (long long)b1 * step, denom);
+    
+    r = std::clamp(r, 0, 255);
+    g = std::clamp(g, 0, 255);
+    b = std::clamp(b, 0, 255);
+    
+    return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
+}
+
+void generate_on_cpu(const uint32_t* h_colors, int numColors, int totalOutputSize, uint32_t* h_out) {
+    if (totalOutputSize <= 0 || numColors <= 0) return;
+
+    int outSizePerColor = totalOutputSize / numColors;
+    int S = outSizePerColor - 1;
+
+    for (int i = 0; i < totalOutputSize; ++i) {
+        int colorIndex = i / outSizePerColor;
+        int pos = i % outSizePerColor;
+
+        if (colorIndex >= numColors) break;
+
+        uint32_t c0 = h_colors[colorIndex];
+        if (pos == 0 || S <= 0) {
+            h_out[i] = c0;
+        } else {
+            uint32_t c1 = h_colors[(colorIndex + 1) % numColors];
+            h_out[i] = rgbLerp_cpu(c0, c1, pos, S);
+        }
+    }
+}
+
+
+
+#ifndef USE_CUDA
+
+void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType& temp,
+                const uint16_t& width, const uint16_t& iteration, const uint16_t& x, const uint16_t& y,
+                const bool& not_escaped, const int& top_colors_outside, const int& top_colors_lake, const bool& lake, const bool& lya) {
+
+    const int index = (y * width + x) * 3;
+    int it = 0;
+    
+    if (not_escaped) {
+        it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * top_colors_lake))] : array_top_colors_lake[0];
+    } else if (lya) {
+        it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
+    } else {
+        it = array_top_colors_outside[iteration % (top_colors_outside+1)];
+    }
+
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
+
+
+void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
+                            const uint16_t x, const uint16_t y, const int attractor_index, const int num_attractors) {
+
+    int index = (y * width + x) * 3;
+    int it = array_top_colors_outside[attractor_index % num_attractors];
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
+
+
+
+
+template <int Dim>
+void setHypercomplexValues(
+    bool juliaset,
+    Hypercomplex<Dim>& c,
+    Hypercomplex<Dim>& z,
+    const double* juliaset_c,
+    DefaultType real_part,
+    DefaultType imag_part,
+    const double* z_initial)
+{
+    // Helper to copy from double array to Hypercomplex<Dim> components
+    auto setFromDoubleArray = [](Hypercomplex<Dim>& h, const double* src) {
+        for (int i = 0; i < Dim && i < 8; ++i)  // max 8 components
+            h.v[i] = static_cast<DefaultType>(src[i]);
+    };
+
+    if (juliaset) {
+        // c is constant from juliaset_c, z uses (real_part, imag_part) + extra from z_initial
+        setFromDoubleArray(c, juliaset_c);
+        z.v[0] = real_part;
+        z.v[1] = imag_part;
+        for (int i = 2; i < Dim; ++i)
+            z.v[i] = static_cast<DefaultType>(z_initial[i]);
+    } else {
+        // c uses (real_part, imag_part) + extra from juliaset_c[2..]
+        c.v[0] = real_part;
+        c.v[1] = imag_part;
+        for (int i = 2; i < Dim; ++i)
+            c.v[i] = static_cast<DefaultType>(juliaset_c[i]);
+
+        // z is fully initialised from z_initial
+        setFromDoubleArray(z, z_initial);
+    }
+}
+
+
+template <int Dim>
+void runFractalCPU(
+    uint8_t* output,
+    const int* array_top_colors_outside,
+    const int* array_top_colors_lake,
+    const char* exp,
+    size_t exp_size,
+    uint16_t width, uint16_t height,
+    uint16_t max_iter,
+    double xmin, double ymin, double dx, double dy,
+    const double* juliaset_c,
+    double escape_radius,
+    bool fast_mode, bool juliaset, bool lake,
+    int top_colors_outside, int top_colors_lake,
+    const double* z_initial,
+    double* input_array,
+    uint32_t array_size)
+{
+    using H = Hypercomplex<Dim>;
+
+    // Constants
+    H pi(3.14159265358979323846);
+    H phi(1.61803398874989484820);
+    H e(2.71828182845904523536);
+
+    // Pre‑parse the expression (outside parallel region)
+    // Variables that are updated per pixel: z, c, it, x, y
+    // We'll point to dummy values during parse (nullptr), then rebind per thread.
+    VariableEntry<Dim> baseVarEntries[] = {
+        {"z",   nullptr},
+        {"c",   nullptr},
+        {"phi", const_cast<H*>(&phi)},
+        {"pi",  const_cast<H*>(&pi)},
+        {"e",   const_cast<H*>(&e)},
+        {"it",  nullptr},
+        {"y",   nullptr},
+        {"x",   nullptr}
+    };
+    const size_t numVars = sizeof(baseVarEntries) / sizeof(baseVarEntries[0]);
+
+    ArrayEntry arrEntries[] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = sizeof(arrEntries) / sizeof(arrEntries[0]);
+
+    Parser<Dim> parser(exp, exp_size, baseVarEntries, numVars, arrEntries, numArrays);
+    parser.parse();
+    const Instruction<Dim>* globalBytecode = parser.getBytecode();
+    const size_t bytecodeSize = parser.getBytecodeSize();
+
+    if (bytecodeSize == 0) {
+        printf("Error: empty bytecode from expression: %s\n", exp);
+        fflush(stdout);
+        return;
+    }
+
+    // Pixel loop with OpenMP
+    #pragma omp parallel for schedule(dynamic)
+    for (int x = 0; x < width; ++x) {
+        // Thread‑local variables
+        H z, c, last_it_z;
+        H it_quat(0.0);
+        H x_quat(static_cast<DefaultType>(x));
+        H y_quat(0.0);
+
+        // Thread‑local variable entries (point to the thread’s local objects)
+        VariableEntry<Dim> threadVarEntries[] = {
+            {"z",   &z},
+            {"c",   &c},
+            {"phi", const_cast<H*>(&phi)},
+            {"pi",  const_cast<H*>(&pi)},
+            {"e",   const_cast<H*>(&e)},
+            {"it",  &it_quat},
+            {"y",   &y_quat},
+            {"x",   &x_quat}
+        };
+
+        for (int y = 0; y < height; ++y) {
+            y_quat = H(static_cast<DefaultType>(y));
+
+            // Set c and z according to juliaset flag and initial values
+            setHypercomplexValues<Dim>(juliaset, c, z, juliaset_c,
+                                       xmin + x * dx,
+                                       ymin + y * dy,
+                                       z_initial);
+
+            uint16_t iteration = 0;
+            DefaultType magSq = 0.0;
+            bool escaped = false;
+
+            while (!escaped && iteration < max_iter) {
+                it_quat = H(static_cast<DefaultType>(iteration));
+
+                evaluateBytecode(last_it_z, globalBytecode, bytecodeSize,
+                                 threadVarEntries, arrEntries);
+
+                if (fast_mode && last_it_z == z) break;   // converged
+
+                z = last_it_z;
+                H::mag_squared(magSq,z);
+                ++iteration;
+                escaped = (magSq >= escape_radius);
+            }
+
+            update_output(output, array_top_colors_outside, array_top_colors_lake,
+                          my_sqrt(magSq), width,
+                          iteration, x, y, !escaped,
+                          top_colors_outside, top_colors_lake, lake, false);
+        }
+    }
+}
+#endif
+
+
+#ifdef _WIN32
+    #define EXPORT __declspec(dllexport)
+#else
+    #define EXPORT
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
