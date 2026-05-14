@@ -1,5 +1,5 @@
-#ifndef CUDA_MATH_WRAPPER_H
-#define CUDA_MATH_WRAPPER_H
+#ifndef MATH_WRAPPER_H
+#define MATH_WRAPPER_H
 
 
 
@@ -107,4 +107,4 @@ HOST_DEVICE inline DefaultType my_max(DefaultType x, DefaultType y) {
     return x > y ? x : y;
 }
 
-#endif // CUDA_MATH_WRAPPER_H
+#endif // MATH_WRAPPER_H
