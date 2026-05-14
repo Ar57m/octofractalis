@@ -23,7 +23,7 @@ sandpile = lib.sandpile
 
 fractal.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, POINTER(c_double),
-    c_double, c_bool, c_bool, c_bool, c_int, c_int, POINTER(c_double), POINTER(c_double), c_uint32]
+    c_double, c_bool, c_bool, c_bool, c_int, c_int, POINTER(c_double), POINTER(c_double), c_uint32, c_int]
 
 lyapunov.argtypes = [POINTER(c_uint8), POINTER(c_int), POINTER(c_int), c_char_p,
     c_uint16, c_uint16, c_uint16, c_double, c_double, c_double, c_double, c_double,
@@ -94,6 +94,8 @@ all_parameters = {
         'sandpile': False,     # Try sandpile with less resolution and much more iterations(=grains of sand) to get better results, but don't let the colored area touch the border or you will get broken results.
     },
 
+    'mode': 4, # 2 complex, 4 quaternion, 8 octonion mode.
+
 
     'zoom' : False,
     'max_zoom' : 10, # How many images # it's gonna generate  +n_coordinates more images than expected
@@ -105,7 +107,7 @@ all_parameters = {
 
     'palette' : "./palettes/palette.png",  # Palette location
     'use_palette' : True,
-    'gradient' : 16,        # Amount of colors between the colors
+    'gradient' : 32,        # Amount of colors between the colors
 
     # How many top colors to use from the palette.png
     'top_colors' : 16,
@@ -223,7 +225,7 @@ def generate(all_parameters):
     expression = all_parameters['expression']
     input_expression = expression
 
-    expression = re.sub(r"[^\x00-\x7F]+", "", expression.replace(" ", ""))[:511]
+    expression = re.sub(r"[^\x00-\x7F]+", "", expression.replace(" ", ""))[:256]
     
     
 
@@ -278,6 +280,7 @@ def generate(all_parameters):
     rotation_angle = all_parameters["rotation_angle"]
     axis = all_parameters["axis"]
     max_point_size = all_parameters["max_point_size"]
+    mode = all_parameters["mode"]
     
     array = tools.primes(all_parameters['array_size']) if not all_parameters['fractalize_image'] else tools.bw_image(all_parameters['fractalize_image'], width, height)
 
@@ -313,7 +316,7 @@ def generate(all_parameters):
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
                 juliaset_c.ctypes.data_as(POINTER(c_double)), escape_radius, fast_mode, "juliaset" == key, lake, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, z_initial.ctypes.data_as(POINTER(c_double)), array.ctypes.data_as(POINTER(c_double)), array.size
+                (array_top_colors_lake.shape[0])-1, z_initial.ctypes.data_as(POINTER(c_double)), array.ctypes.data_as(POINTER(c_double)), array.size, mode
             )
             save_img()
             

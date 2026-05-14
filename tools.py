@@ -78,27 +78,68 @@ def get_top_colors(img_path, top_n, use_palette = True, levels=16):
     unique, counts = np.unique(quantized, return_counts=True)
     return unique[np.argsort(-counts)[:top_n]]
 
-
-
 def generate_gradient(arr, n_grad):
-    """Generate color gradient between consecutive colors."""
-    n_grad += 2
-    if n_grad < 3:
-        return arr
-    
-    r0, g0, b0 = (arr >> 16) & 0xFF, (arr >> 8) & 0xFF, arr & 0xFF
-    arr = np.roll(arr, -1)
-    
-    r1, g1, b1 = (arr >> 16) & 0xFF, (arr >> 8) & 0xFF, arr & 0xFF
-    
-    dr, dg, db = r1 - r0, g1 - g0, b1 - b0
-    steps = np.linspace(0, 1, n_grad - 1, endpoint=False)[:, np.newaxis]
-    
-    r = (r0 + dr * steps).astype(np.int32)
-    g = (g0 + dg * steps).astype(np.int32)
-    b = (b0 + db * steps).astype(np.int32)
-    
-    return ((r << 16) + (g << 8) + b).T.reshape(-1)
+    """
+    Vectorized gradient generator.
+    - arr: array-like of 0xRRGGBB integers (list or ndarray)
+    - n_grad: number of gradient steps BETWEEN bases (e.g. 5 -> base + 5 steps)
+    Returns: 1D np.ndarray dtype=np.uint32 of length N*(n_grad+1)
+    """
+    arr = np.asarray(arr, dtype=np.uint32)
+    if arr.size == 0:
+        return arr.astype(np.uint32)
+    if n_grad <= 0:
+        # just return bases
+        return arr.astype(np.uint32)
+
+    N = arr.size
+    S = int(n_grad)  # number of steps per segment
+
+    # extract channels as floats for interpolation
+    r0 = ((arr >> 16) & 0xFF).astype(np.float64)  # shape (N,)
+    g0 = ((arr >> 8) & 0xFF).astype(np.float64)
+    b0 = (arr & 0xFF).astype(np.float64)
+
+    arr_next = np.roll(arr, -1)
+    r1 = ((arr_next >> 16) & 0xFF).astype(np.float64)
+    g1 = ((arr_next >> 8) & 0xFF).astype(np.float64)
+    b1 = (arr_next & 0xFF).astype(np.float64)
+
+    dr = (r1 - r0)[None, :]   # shape (1, N)
+    dg = (g1 - g0)[None, :]
+    db = (b1 - b0)[None, :]
+
+    # fractional steps: step/(S+1) for step=1..S -> shape (S,1)
+    frac = (np.arange(1, S + 1, dtype=np.float64) / (S + 1.0))[:, None]  # (S,1)
+
+    # produce S x N arrays for each channel (float)
+    r_steps = r0[None, :] + dr * frac    # shape (S, N)
+    g_steps = g0[None, :] + dg * frac
+    b_steps = b0[None, :] + db * frac
+
+    # round-to-nearest and clip to [0,255], then cast to uint32
+    # use np.rint (same behavior as earlier helper); cast to uint32 for safe bit ops
+    r_steps_i = np.clip(np.rint(r_steps), 0, 255).astype(np.uint32)  # (S,N)
+    g_steps_i = np.clip(np.rint(g_steps), 0, 255).astype(np.uint32)
+    b_steps_i = np.clip(np.rint(b_steps), 0, 255).astype(np.uint32)
+
+    # prepare matrices: (N, S+1) where col0 is base, cols 1..S are steps
+    r_mat = np.empty((N, S + 1), dtype=np.uint32)
+    g_mat = np.empty((N, S + 1), dtype=np.uint32)
+    b_mat = np.empty((N, S + 1), dtype=np.uint32)
+
+    r_mat[:, 0] = np.clip(np.rint(r0), 0, 255).astype(np.uint32)
+    g_mat[:, 0] = np.clip(np.rint(g0), 0, 255).astype(np.uint32)
+    b_mat[:, 0] = np.clip(np.rint(b0), 0, 255).astype(np.uint32)
+
+    # fill cols 1..S with steps transposed
+    r_mat[:, 1:] = r_steps_i.T
+    g_mat[:, 1:] = g_steps_i.T
+    b_mat[:, 1:] = b_steps_i.T
+
+    # combine channels into a (N, S+1) uint32 matrix, then flatten row-major
+    out_mat = (r_mat << np.uint32(16)) | (g_mat << np.uint32(8)) | b_mat
+    return out_mat.reshape(-1)
 
 
 
