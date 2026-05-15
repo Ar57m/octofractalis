@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <string>
 #include <cstdio>
@@ -19,7 +18,7 @@
 // Image Save
 #include "lodepng.h"
 
-// Your Fractal Interface
+// Fractal Interface
 #include "fractal_interface.h"
 #include "math_wrapper.h"
 
@@ -75,9 +74,8 @@ struct AppState {
     int mode = 2; // 2,4,8
 
 
-    float juliaC[8];
-    float zInit[8];
-    int numParams = 8;
+    float juliaC[8] = {-0.8f,0.16f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
+    float zInit[8] = {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
 
     char expressionBuffer[256] = "z*z+c";
     
@@ -108,8 +106,8 @@ struct AppState {
         ResetView();
         iterations = 256; escapeRadius = 2.0f; isJulia = false; fastMode = true; showLake = true;
         strncpy(expressionBuffer, "z*z+c", sizeof(expressionBuffer));
-        for(int i=0; i<numParams; i++) { juliaC[i] = 0; zInit[i] = 0; }
-        juliaC[0] = -0.8f; juliaC[1] = 0.156f;
+        for(int i=0; i<mode; i++) { juliaC[i] = 0.0f; zInit[i] = 0.0f; }
+        juliaC[0] = -0.8f; juliaC[1] = 0.6f;
         realtimeExpression = true;
         lastGenTime = 0.0;
     }
@@ -202,9 +200,6 @@ std::string load_json_from_png(const std::string& filename) {
 }
 
 
-    // fractal_kernel_call(rgb.data(), pO.data(), pL.data(), s.expressionBuffer, strlen(s.expressionBuffer),
-    //     (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv, (DefaultType)s.escapeRadius, 
-    //     s.fastMode, s.isJulia, s.showLake, (int)pO.size(), (int)pL.size(), zv, d, 1);
 
 void SavePNGThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppState s) {
     // PAD the RGB buffer by 8192 extra pixels to safely absorb any CUDA block edge overruns
@@ -216,14 +211,15 @@ void SavePNGThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppSt
     DefaultType ym = s.offsetY - (h * sc) / 2.0;
 
     double cv[8]={0}, zv[8]={0}, d[1]={0};
-    for(int i=0; i<s.numParams; i++) { 
+    const int mode = state.mode;
+    for (int i = 0; i < mode; i++) {
         cv[i]=(double)s.juliaC[i]; 
         zv[i]=(double)s.zInit[i]; 
     }
 
     fractal(rgb.data(), pO.data(), pL.data(), s.expressionBuffer,
-        (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv, (DefaultType)s.escapeRadius, 
-        s.fastMode, s.isJulia, s.showLake, s.ignore_it, (int)pO.size(), (int)pL.size(), zv, d, 1, s.mode);
+        (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv, s.escapeRadius, 
+        s.fastMode, s.isJulia, s.showLake, s.ignore_it, (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
 
     if (g_saveTask.cancel) { 
         g_saveTask.active = false; 
@@ -289,7 +285,8 @@ void AsyncRenderThread(std::vector<int> pO, std::vector<int> pL, int w, int h, A
     DefaultType xm = s.offsetX - (w * sc) / 2.0;
     DefaultType ym = s.offsetY - (h * sc) / 2.0;
     double cv[8] = { 0 }, zv[8] = { 0 }, d[1] = { 0 };
-    for (int i = 0; i < s.numParams; i++) {
+    const int mode = state.mode;
+    for (int i = 0; i < mode; i++) {
         cv[i] = (double)s.juliaC[i];
         zv[i] = (double)s.zInit[i];
     }
@@ -298,8 +295,8 @@ void AsyncRenderThread(std::vector<int> pO, std::vector<int> pL, int w, int h, A
     // Heavy Math happens here (Main thread is now free to keep the UI alive!)
     fractal(g_asyncRgbBuf.data(), pO.data(), pL.data(), s.expressionBuffer,
         (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv,
-        (DefaultType)s.escapeRadius, s.fastMode, s.isJulia, s.showLake, s.ignore_it,
-        (int)pO.size(), (int)pL.size(), zv, d, 1, s.mode);
+        s.escapeRadius, s.fastMode, s.isJulia, s.showLake, s.ignore_it,
+        (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
     lastGenTime = (double)(SDL_GetTicksNS() - startTicks) / 1000000.0;
     state.texOffsetX = s.offsetX;
     state.texOffsetY = s.offsetY;
@@ -334,7 +331,6 @@ volatile std::sig_atomic_t g_SignalExitRequested = 0;
 void SignalHandler(int signum) {
     g_SignalExitRequested = 1; // Just set the flag and get out!
 }
-
 
 
 
@@ -623,12 +619,12 @@ int main(int, char**) {
 
             if (ImGui::CollapsingHeader("CONSTANTS")) {
                 bool c_changed = false;
-                for (int i = 0; i < state.numParams; i++) {
+                for (int i = 0; i < state.mode; i++) {
                     char l[16]; sprintf(l, "C[%d]", i);
                     if (ImGui::DragFloat(l, &state.juliaC[i], 0.001f)) c_changed = true;
                 }
                 ImGui::Separator();
-                for (int i = 0; i < state.numParams; i++) {
+                for (int i = 0; i < state.mode; i++) {
                     char l[16]; sprintf(l, "Z[%d]", i);
                     if (ImGui::DragFloat(l, &state.zInit[i], 0.001f)) c_changed = true;
                 }
@@ -734,7 +730,9 @@ int main(int, char**) {
 }
 
 
-            // fractal_kernel_call(rgbBuf.data(), palOut.data(), palLake.data(), state.expressionBuffer, strlen(state.expressionBuffer),
-            //     (uint16_t)state.renderWidth, (uint16_t)state.renderHeight, (uint16_t)state.iterations, xm, ym, sc, sc, cv, 
-            //     (DefaultType)state.escapeRadius, state.fastMode, state.isJulia, state.showLake, (int)palOut.size(), (int)palLake.size(), zv, d, 1);
+
+
+
+
+
             

@@ -273,8 +273,8 @@ def generate(all_parameters):
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, ymin, dx, dy,
-                juliaset_c.ctypes.data_as(POINTER(c_double)), escape_radius, fast_mode, "juliaset" == key, lake, ignore_it, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, z_initial.ctypes.data_as(POINTER(c_double)), array.ctypes.data_as(POINTER(c_double)), array.size, mode
+                juliaset_c.ctypes.data_as(POINTER(c_double)), escape_radius, fast_mode, "juliaset" == key, lake, ignore_it, array_top_colors_outside.shape[0], 
+                array_top_colors_lake.shape[0], z_initial.ctypes.data_as(POINTER(c_double)), array.ctypes.data_as(POINTER(c_double)), array.size, mode
             )
             save_img()
             
@@ -286,8 +286,8 @@ def generate(all_parameters):
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                lyapunov_c_a, lyapunov_c_b, z_initial[2], z_initial[3], escape_radius, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, array.ctypes.data_as(POINTER(c_double)), array.size
+                lyapunov_c_a, lyapunov_c_b, z_initial[2], z_initial[3], escape_radius, array_top_colors_outside.shape[0], 
+                array_top_colors_lake.shape[0], array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()
 
@@ -298,8 +298,8 @@ def generate(all_parameters):
                 gen_array.ctypes.data_as(POINTER(c_uint8)), array_top_colors_outside.ctypes.data_as(POINTER(c_int)),
                 array_top_colors_lake.ctypes.data_as(POINTER(c_int)),
                 expression, width, height, max_iter, xmin, xmax, ymin, ymax,
-                juliaset_c.ctypes.data_as(POINTER(c_double)), "newton_juliaset" == key, (array_top_colors_outside.shape[0])-1, 
-                (array_top_colors_lake.shape[0])-1, z_initial.ctypes.data_as(POINTER(c_double)), newton_epsilon,
+                juliaset_c.ctypes.data_as(POINTER(c_double)), "newton_juliaset" == key, array_top_colors_outside.shape[0], 
+                array_top_colors_lake.shape[0], z_initial.ctypes.data_as(POINTER(c_double)), newton_epsilon,
                 array.ctypes.data_as(POINTER(c_double)), array.size
             )
             save_img()

@@ -126,9 +126,9 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
     if (not_escaped) {
         it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * top_colors_lake))] : array_top_colors_lake[0];
     } else if (lya) {
-        it = array_top_colors_outside[static_cast<int>((std::round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
+        it = array_top_colors_outside[static_cast<int>((my_round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
     } else {
-        it = array_top_colors_outside[iteration % (top_colors_outside+1)];
+        it = array_top_colors_outside[iteration % top_colors_outside];
     }
 
 
@@ -372,12 +372,12 @@ extern "C" {
 
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-            timer.start("cuda");    
+            // timer.start("cuda");
             fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, juliaset_c, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, z_initial, input_array, array_size);
-            timer.stop();
+            // timer.stop();
         #else
 
-        timer.start("cpu-eval");  
+        // timer.start("cpu-eval");  
         // Dispatch based on dimension
         switch (mode) {
             case 2:
@@ -408,7 +408,7 @@ extern "C" {
                 std::cerr << "Unsupported dimension: " << mode << std::endl;
                 return;
         }
-        timer.stop();
+        // timer.stop();
 
         #endif
     }

@@ -1,0 +1,14 @@
+.vscode/
+SDL3-*/
+sdl/
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.pdb
+*.exp
+*.log
+*.ini
+*.so
+images/
