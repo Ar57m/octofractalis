@@ -164,7 +164,7 @@ void setHypercomplexValues(
 {
     // Helper to copy from double array to Hypercomplex<Dim> components
     auto setFromDoubleArray = [](Hypercomplex<Dim>& h, const double* src) {
-        for (int i = 0; i < Dim && i < 8; ++i)  // max 8 components
+        for (int i = 0; i < Dim; ++i)  // max 8 components
             h.v[i] = static_cast<DefaultType>(src[i]);
     };
 

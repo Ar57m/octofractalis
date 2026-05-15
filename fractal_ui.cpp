@@ -1,13 +1,13 @@
-#include <vector>
-#include <string>
 #include <cstdio>
 #include <cmath>
 #include <thread>
 #include <atomic>
-#include <chrono>
-#include <cstdint>
 #include <csignal>
 #include <filesystem>
+#include <sstream>
+#include <algorithm>
+
+
 
 // ImGui
 #include <SDL3/SDL.h>
@@ -116,6 +116,109 @@ struct AppState {
 AppState state;
 
 
+
+
+std::string SaveState(const AppState& state, const std::string& filename = "") {
+    std::ostringstream ss;
+    ss << std::setprecision(18) << std::fixed;
+
+    ss << "{\n";
+    ss << "  \"offsetX\": " << state.offsetX << ",\n";
+    ss << "  \"offsetY\": " << state.offsetY << ",\n";
+    ss << "  \"zoom\": " << state.zoom << ",\n";
+    ss << "  \"iterations\": " << state.iterations << ",\n";
+    ss << "  \"escapeRadius\": " << state.escapeRadius << ",\n";
+    ss << "  \"isJulia\": " << (state.isJulia ? "true" : "false") << ",\n";
+    ss << "  \"fastMode\": " << (state.fastMode ? "true" : "false") << ",\n";
+    ss << "  \"showLake\": " << (state.showLake ? "true" : "false") << ",\n";
+    ss << "  \"ignore_it\": " << (state.ignore_it ? "true" : "false") << ",\n";
+    ss << "  \"mode\": " << state.mode << ",\n";
+    ss << "  \"expression\": \"" << state.expressionBuffer << "\",\n";
+
+    // Lambda for array serialization to keep it clean
+    auto writeArray = [&](const std::string& key, auto* arr, int count, bool last = false) {
+        ss << "  \"" << key << "\": [";
+        for(int i = 0; i < count; ++i) ss << arr[i] << (i < count - 1 ? "," : "");
+        ss << "]" << (last ? "\n" : ",\n");
+    };
+
+    writeArray("juliaC", state.juliaC, 8);
+    writeArray("zInit", state.zInit, 8);
+    writeArray("seedOut", state.seedOut, 8);
+    writeArray("seedLake", state.seedLake, 8, true);
+
+    ss << "}";
+
+    std::string result = ss.str();
+    if (!filename.empty()) {
+        std::ofstream f(filename);
+        if (f.is_open()) f << result;
+    }
+    return result;
+}
+
+bool LoadState(AppState& state, std::string input, bool isPath = true) {
+    std::string content;
+    if (isPath) {
+        std::ifstream f(input);
+        if (!f.is_open()) return false;
+        content.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    } else {
+        content = input;
+    }
+
+    std::stringstream ss(content);
+    std::string line;
+    while (std::getline(ss, line)) {
+        size_t colonPos = line.find(':');
+        if (colonPos == std::string::npos) continue;
+
+        std::string key = line.substr(0, colonPos);
+        std::string val = line.substr(colonPos + 1);
+
+        auto sanitize = [](std::string& s) {
+            s.erase(std::remove_if(s.begin(), s.end(), [](char c) {
+                return c == ' ' || c == ',' || c == '\"' || c == '{' || c == '}' || c == '[' || c == ']';
+            }), s.end());
+        };
+
+        if (key.find("offsetX") != std::string::npos) { sanitize(val); state.offsetX = std::stold(val); }
+        else if (key.find("offsetY") != std::string::npos) { sanitize(val); state.offsetY = std::stold(val); }
+        else if (key.find("zoom") != std::string::npos)    { sanitize(val); state.zoom = std::stold(val); }
+        else if (key.find("iterations") != std::string::npos) { sanitize(val); state.iterations = std::stoi(val); }
+        else if (key.find("escapeRadius") != std::string::npos) { sanitize(val); state.escapeRadius = std::stof(val); }
+        else if (key.find("isJulia") != std::string::npos)     { sanitize(val); state.isJulia = (val.find("true") != std::string::npos); }
+        else if (key.find("fastMode") != std::string::npos)    { sanitize(val); state.fastMode = (val.find("true") != std::string::npos); }
+        else if (key.find("showLake") != std::string::npos)    { sanitize(val); state.showLake = (val.find("true") != std::string::npos); }
+        else if (key.find("ignore_it") != std::string::npos)   { sanitize(val); state.ignore_it = (val.find("true") != std::string::npos); }
+        else if (key.find("mode") != std::string::npos)        { sanitize(val); state.mode = std::stoi(val); }
+        else if (key.find("expression") != std::string::npos) {
+            size_t first = line.find('\"', colonPos);
+            size_t last = line.find_last_of('\"');
+            if (first != std::string::npos && last > first) {
+                std::string expr = line.substr(first + 1, last - first - 1);
+                strncpy(state.expressionBuffer, expr.c_str(), sizeof(state.expressionBuffer) - 1);
+            }
+        }
+        else if (line.find('[') != std::string::npos) {
+            size_t start = line.find('[');
+            size_t end = line.find(']');
+            std::string arrayContent = line.substr(start + 1, end - start - 1);
+            std::stringstream arraySs(arrayContent);
+            std::string item;
+            int i = 0;
+            while (std::getline(arraySs, item, ',') && i < 8) {
+                if (key.find("juliaC") != std::string::npos) state.juliaC[i] = std::stof(item);
+                else if (key.find("zInit") != std::string::npos) state.zInit[i] = std::stof(item);
+                else if (key.find("seedOut") != std::string::npos) state.seedOut[i] = (uint32_t)std::stoul(item);
+                else if (key.find("seedLake") != std::string::npos) state.seedLake[i] = (uint32_t)std::stoul(item);
+                i++;
+            }
+        }
+    }
+    state.needsRender = true;
+    return true;
+}
 void SetupCyberpunkStyle() {
     auto& style = ImGui::GetStyle();
     style.WindowRounding = 0.0f;
@@ -263,11 +366,10 @@ void SavePNGThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppSt
         tm.tm_sec
     );
 
-    std::string myJson = "{\"type\": \"fractal\", \"zoom\": 1.5, \"iterations\": 100}";
+    std::string myJson = SaveState(s);
 
     save_png_with_json(tmp_fn, rgba, w, h, myJson);
     printf("Loaded JSON: %s\n", load_json_from_png(tmp_fn).c_str());
-    // lodepng::encode(tmp_fn, rgba, w, h);
     
     g_saveTask.filename = std::string(tmp_fn);
     g_saveTask.active = false;
@@ -617,19 +719,65 @@ int main(int, char**) {
                 }
             }
 
+            const char* labels[] = {
+                "Real", "i", "j", "k", "l", "m", "n", "o"
+            };
+
             if (ImGui::CollapsingHeader("CONSTANTS")) {
-                bool c_changed = false;
-                for (int i = 0; i < state.mode; i++) {
-                    char l[16]; sprintf(l, "C[%d]", i);
-                    if (ImGui::DragFloat(l, &state.juliaC[i], 0.001f)) c_changed = true;
-                }
+                bool changed = false;
+
+                // --- C ---
+                ImGui::TextUnformatted("Constant (C)");
                 ImGui::Separator();
-                for (int i = 0; i < state.mode; i++) {
-                    char l[16]; sprintf(l, "Z[%d]", i);
-                    if (ImGui::DragFloat(l, &state.zInit[i], 0.001f)) c_changed = true;
+
+                if (state.isJulia) {
+                    // Julia: full C is editable
+                    for (int i = 0; i < state.mode; i++) {
+                        char l[32];
+                        snprintf(l, sizeof(l), "C.%s", labels[i]);
+                        if (ImGui::DragFloat(l, &state.juliaC[i], 0.001f))
+                            changed = true;
+                    }
+                } else {
+                    // Mandelbrot: only higher dimensions are editable
+                    ImGui::TextDisabled("C.real and C.i come from pixel position");
+
+                    for (int i = 2; i < state.mode; i++) {
+                        char l[32];
+                        snprintf(l, sizeof(l), "C.%s", labels[i]);
+                        if (ImGui::DragFloat(l, &state.juliaC[i], 0.001f))
+                            changed = true;
+                    }
                 }
 
-                if (c_changed && state.realtimeExpression) state.needsRender = true;
+                ImGui::Spacing();
+
+                // --- Z ---
+                ImGui::TextUnformatted("Initial Z");
+                ImGui::Separator();
+
+                if (state.isJulia) {
+                    // Julia: only higher dimensions editable
+                    ImGui::TextDisabled("Z.real and Z.i come from pixel position");
+
+                    for (int i = 2; i < state.mode; i++) {
+                        char l[32];
+                        snprintf(l, sizeof(l), "Z.%s", labels[i]);
+                        if (ImGui::DragFloat(l, &state.zInit[i], 0.001f))
+                            changed = true;
+                    }
+                } else {
+                    // Mandelbrot: full Z editable
+                    for (int i = 0; i < state.mode; i++) {
+                        char l[32];
+                        snprintf(l, sizeof(l), "Z.%s", labels[i]);
+                        if (ImGui::DragFloat(l, &state.zInit[i], 0.001f))
+                            changed = true;
+                    }
+                }
+
+                if (changed && state.realtimeExpression)
+                    state.needsRender = true;
             }
 
             if (ImGui::CollapsingHeader("PALETTE", ImGuiTreeNodeFlags_DefaultOpen)) {
