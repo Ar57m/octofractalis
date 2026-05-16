@@ -1,6 +1,8 @@
 .vscode/
 SDL3-*/
 sdl/
+images/
+__pycache__/
 *.o
 *.obj
 *.exe
@@ -11,4 +13,3 @@ sdl/
 *.log
 *.ini
 *.so
-images/

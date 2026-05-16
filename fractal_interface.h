@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <functional>
 #include <stdexcept>
-
+#include <atomic>
 
 #ifndef USE_CUDA
 #include <omp.h>
@@ -200,7 +200,7 @@ void runFractalCPU(
     double xmin, double ymin, double dx, double dy,
     const double* juliaset_c,
     double escape_radius,
-    bool fast_mode, bool juliaset, bool lake, bool ignore_it,
+    bool fast_mode, bool juliaset, bool lake, bool ignore_it, std::atomic<bool>& stopFlag,
     int top_colors_outside, int top_colors_lake,
     const double* z_initial,
     double* input_array,
@@ -247,13 +247,13 @@ void runFractalCPU(
     // Pixel loop with OpenMP
     #pragma omp parallel for schedule(dynamic)
     for (int x = 0; x < width; ++x) {
-        // Thread‑local variables
+        if (stopFlag.load(std::memory_order_relaxed)) continue;
+
         H z, c, last_it_z;
         H it_quat(0.0);
         H x_quat(static_cast<DefaultType>(x));
         H y_quat(0.0);
 
-        // Thread‑local variable entries (point to the thread’s local objects)
         VariableEntry<Dim> threadVarEntries[] = {
             {"z",   &z},
             {"c",   &c},
@@ -266,36 +266,43 @@ void runFractalCPU(
         };
 
         for (int y = 0; y < height; ++y) {
+            if (stopFlag.load(std::memory_order_relaxed)) break;
+
             y_quat = H(static_cast<DefaultType>(y));
 
-            // Set c and z according to juliaset flag and initial values
             setHypercomplexValues<Dim>(juliaset, c, z, juliaset_c,
-                                       xmin + x * dx,
-                                       ymin + y * dy,
-                                       z_initial);
+                                    xmin + x * dx,
+                                    ymin + y * dy,
+                                    z_initial);
 
             uint16_t iteration = 0;
             DefaultType magSq = 0.0;
             bool escaped = false;
 
             while (!escaped && iteration < max_iter) {
+                if ((iteration & 7) == 0) { // check every 8 iterations
+                    if (stopFlag.load(std::memory_order_relaxed)) break;
+                }
+
                 it_quat = H(static_cast<DefaultType>(iteration));
 
                 evaluateBytecode(last_it_z, globalBytecode, bytecodeSize,
-                                 threadVarEntries, arrEntries);
+                                threadVarEntries, arrEntries);
 
-                if (fast_mode && last_it_z == z) break;   // converged
+                if (fast_mode && last_it_z == z) break;
 
                 z = last_it_z;
-                H::mag_squared(magSq,z);
+                H::mag_squared(magSq, z);
                 ++iteration;
                 escaped = (magSq >= escape_radius);
             }
 
+            if (stopFlag.load(std::memory_order_relaxed)) break;
+
             update_output(output, array_top_colors_outside, array_top_colors_lake,
-                          my_sqrt(magSq), width,
-                          iteration, x, y, ignore_it ? true : !escaped,
-                          top_colors_outside, top_colors_lake, lake, false);
+                        my_sqrt(magSq), width,
+                        iteration, x, y, ignore_it ? true : !escaped,
+                        top_colors_outside, top_colors_lake, lake, false);
         }
     }
 }
@@ -354,7 +361,7 @@ extern "C" {
         const double* juliaset_c,
         double escape_radius,
         const bool fast_mode, const bool juliaset,
-        const bool lake, const bool ignore_it,
+        const bool lake, const bool ignore_it, std::atomic<bool>& stopFlag,
         const int top_colors_outside,
         const int top_colors_lake,
         const double* z_initial,
@@ -384,7 +391,7 @@ extern "C" {
                 runFractalCPU<2>(output, array_top_colors_outside, array_top_colors_lake,
                                 exp, exp_size, width, height, max_iter,
                                 xmin, ymin, dx, dy, juliaset_c,
-                                escape_radius, fast_mode, juliaset, lake, ignore_it,
+                                escape_radius, fast_mode, juliaset, lake, ignore_it, stopFlag,
                                 top_colors_outside, top_colors_lake,
                                 z_initial, input_array, array_size);
                 break;
@@ -392,7 +399,7 @@ extern "C" {
                 runFractalCPU<4>(output, array_top_colors_outside, array_top_colors_lake,
                                 exp, exp_size, width, height, max_iter,
                                 xmin, ymin, dx, dy, juliaset_c,
-                                escape_radius, fast_mode, juliaset, lake, ignore_it,
+                                escape_radius, fast_mode, juliaset, lake, ignore_it, stopFlag,
                                 top_colors_outside, top_colors_lake,
                                 z_initial, input_array, array_size);
                 break;
@@ -400,7 +407,7 @@ extern "C" {
                 runFractalCPU<8>(output, array_top_colors_outside, array_top_colors_lake,
                                 exp, exp_size, width, height, max_iter,
                                 xmin, ymin, dx, dy, juliaset_c,
-                                escape_radius, fast_mode, juliaset, lake, ignore_it,
+                                escape_radius, fast_mode, juliaset, lake, ignore_it, stopFlag,
                                 top_colors_outside, top_colors_lake,
                                 z_initial, input_array, array_size);
                 break;

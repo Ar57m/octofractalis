@@ -1,7 +1,6 @@
 #include <cstdio>
 #include <cmath>
 #include <thread>
-#include <atomic>
 #include <csignal>
 #include <filesystem>
 #include <sstream>
@@ -32,9 +31,8 @@ static int g_currentTexH = 0;
 static bool g_isFullscreen = false;
 
 // --- Threading & Save State ---
-struct SaveTask {
-    std::atomic<bool> active{ false };
-    std::atomic<bool> cancel{ false };
+struct {
+    std::atomic<bool> active{false};
     std::string filename;
 } g_saveTask;
 
@@ -42,7 +40,8 @@ struct SaveTask {
 
 std::thread g_renderThread;
 std::atomic<bool> g_isAsyncRendering{false};
-std::atomic<bool> g_abortRender{false};
+std::atomic<bool> g_renderStopFlag = false;
+std::atomic<bool> g_saveStopFlag   = false;
 std::atomic<bool> g_renderBufferReady{false};
 std::vector<uint8_t> g_asyncRgbBuf;
 
@@ -85,7 +84,7 @@ struct AppState {
     int seedOutCount = 8;
     uint32_t seedOut[8] = { 0x050505, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x000033, 0x004488, 0x6600AA, 0x222222 };
     int seedLakeCount = 8;
-    uint32_t seedLake[8] = { 0x000000, 0x001133, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x3388AA, 0x000000 };
+    uint32_t seedLake[8] = { 0x000000, 0x711c91, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x00657B, 0x711c91 };
 
     int renderResMultiplier = 2;
     bool showGUI = true;
@@ -118,25 +117,35 @@ AppState state;
 
 
 
+// Helper to sanitize keys for precise matching
+std::string cleanKey(std::string k) {
+    k.erase(std::remove_if(k.begin(), k.end(), [](char c) {
+        return c == ' ' || c == '\t' || c == '\"' || c == '{' || c == '}';
+    }), k.end());
+    return k;
+}
+
+
 std::string SaveState(const AppState& state, const std::string& filename = "") {
     std::ostringstream ss;
     ss << std::setprecision(18) << std::fixed;
 
     ss << "{\n";
-    ss << "  \"offsetX\": " << state.offsetX << ",\n";
-    ss << "  \"offsetY\": " << state.offsetY << ",\n";
-    ss << "  \"zoom\": " << state.zoom << ",\n";
+    ss << "  \"mode\": " << state.mode << ",\n";
+    ss << "  \"expression\": \"" << state.expressionBuffer << "\",\n";
     ss << "  \"iterations\": " << state.iterations << ",\n";
     ss << "  \"escapeRadius\": " << state.escapeRadius << ",\n";
     ss << "  \"isJulia\": " << (state.isJulia ? "true" : "false") << ",\n";
     ss << "  \"fastMode\": " << (state.fastMode ? "true" : "false") << ",\n";
     ss << "  \"showLake\": " << (state.showLake ? "true" : "false") << ",\n";
     ss << "  \"ignore_it\": " << (state.ignore_it ? "true" : "false") << ",\n";
-    ss << "  \"mode\": " << state.mode << ",\n";
-    ss << "  \"expression\": \"" << state.expressionBuffer << "\",\n";
+    ss << "  \"offsetX\": " << state.offsetX << ",\n";
+    ss << "  \"offsetY\": " << state.offsetY << ",\n";
+    ss << "  \"zoom\": " << state.zoom << ",\n";
 
-    // Lambda for array serialization to keep it clean
-    auto writeArray = [&](const std::string& key, auto* arr, int count, bool last = false) {
+
+
+    auto writeArray = [&](const std::string& key, const auto* arr, int count, bool last = false) {
         ss << "  \"" << key << "\": [";
         for(int i = 0; i < count; ++i) ss << arr[i] << (i < count - 1 ? "," : "");
         ss << "]" << (last ? "\n" : ",\n");
@@ -145,7 +154,7 @@ std::string SaveState(const AppState& state, const std::string& filename = "") {
     writeArray("juliaC", state.juliaC, 8);
     writeArray("zInit", state.zInit, 8);
     writeArray("seedOut", state.seedOut, 8);
-    writeArray("seedLake", state.seedLake, 8, true);
+    writeArray("seedLake", state.seedLake, 8, true); // Kept true for valid JSON output
 
     ss << "}";
 
@@ -173,7 +182,8 @@ bool LoadState(AppState& state, std::string input, bool isPath = true) {
         size_t colonPos = line.find(':');
         if (colonPos == std::string::npos) continue;
 
-        std::string key = line.substr(0, colonPos);
+        std::string rawKey = line.substr(0, colonPos);
+        std::string key = cleanKey(rawKey);
         std::string val = line.substr(colonPos + 1);
 
         auto sanitize = [](std::string& s) {
@@ -182,37 +192,42 @@ bool LoadState(AppState& state, std::string input, bool isPath = true) {
             }), s.end());
         };
 
-        if (key.find("offsetX") != std::string::npos) { sanitize(val); state.offsetX = std::stold(val); }
-        else if (key.find("offsetY") != std::string::npos) { sanitize(val); state.offsetY = std::stold(val); }
-        else if (key.find("zoom") != std::string::npos)    { sanitize(val); state.zoom = std::stold(val); }
-        else if (key.find("iterations") != std::string::npos) { sanitize(val); state.iterations = std::stoi(val); }
-        else if (key.find("escapeRadius") != std::string::npos) { sanitize(val); state.escapeRadius = std::stof(val); }
-        else if (key.find("isJulia") != std::string::npos)     { sanitize(val); state.isJulia = (val.find("true") != std::string::npos); }
-        else if (key.find("fastMode") != std::string::npos)    { sanitize(val); state.fastMode = (val.find("true") != std::string::npos); }
-        else if (key.find("showLake") != std::string::npos)    { sanitize(val); state.showLake = (val.find("true") != std::string::npos); }
-        else if (key.find("ignore_it") != std::string::npos)   { sanitize(val); state.ignore_it = (val.find("true") != std::string::npos); }
-        else if (key.find("mode") != std::string::npos)        { sanitize(val); state.mode = std::stoi(val); }
-        else if (key.find("expression") != std::string::npos) {
+        if (key == "offsetX")      { sanitize(val); state.offsetX = std::stold(val); }
+        else if (key == "offsetY") { sanitize(val); state.offsetY = std::stold(val); }
+        else if (key == "zoom")    { sanitize(val); state.zoom = std::stold(val); }
+        else if (key == "iterations")   { sanitize(val); state.iterations = std::stoi(val); }
+        else if (key == "escapeRadius") { sanitize(val); state.escapeRadius = std::stof(val); }
+        else if (key == "isJulia")  { sanitize(val); state.isJulia = (val.find("true") != std::string::npos); }
+        else if (key == "fastMode") { sanitize(val); state.fastMode = (val.find("true") != std::string::npos); }
+        else if (key == "showLake") { sanitize(val); state.showLake = (val.find("true") != std::string::npos); }
+        else if (key == "ignore_it"){ sanitize(val); state.ignore_it = (val.find("true") != std::string::npos); }
+        else if (key == "mode")     { sanitize(val); state.mode = std::stoi(val); }
+        else if (key == "expression") {
             size_t first = line.find('\"', colonPos);
             size_t last = line.find_last_of('\"');
             if (first != std::string::npos && last > first) {
                 std::string expr = line.substr(first + 1, last - first - 1);
-                strncpy(state.expressionBuffer, expr.c_str(), sizeof(state.expressionBuffer) - 1);
+                std::memset(state.expressionBuffer, 0, sizeof(state.expressionBuffer));
+                std::strncpy(state.expressionBuffer, expr.c_str(), sizeof(state.expressionBuffer) - 1);
             }
         }
-        else if (line.find('[') != std::string::npos) {
+        
+        // Handle array fields dynamically based on clean keys
+        if (line.find('[') != std::string::npos) {
             size_t start = line.find('[');
             size_t end = line.find(']');
-            std::string arrayContent = line.substr(start + 1, end - start - 1);
-            std::stringstream arraySs(arrayContent);
-            std::string item;
-            int i = 0;
-            while (std::getline(arraySs, item, ',') && i < 8) {
-                if (key.find("juliaC") != std::string::npos) state.juliaC[i] = std::stof(item);
-                else if (key.find("zInit") != std::string::npos) state.zInit[i] = std::stof(item);
-                else if (key.find("seedOut") != std::string::npos) state.seedOut[i] = (uint32_t)std::stoul(item);
-                else if (key.find("seedLake") != std::string::npos) state.seedLake[i] = (uint32_t)std::stoul(item);
-                i++;
+            if (start != std::string::npos && end != std::string::npos && end > start) {
+                std::string arrayContent = line.substr(start + 1, end - start - 1);
+                std::stringstream arraySs(arrayContent);
+                std::string item;
+                int i = 0;
+                while (std::getline(arraySs, item, ',') && i < 8) {
+                    if (key == "juliaC")         state.juliaC[i] = std::stof(item);
+                    else if (key == "zInit")     state.zInit[i] = std::stof(item);
+                    else if (key == "seedOut")   state.seedOut[i] = (uint32_t)std::stoul(item);
+                    else if (key == "seedLake")  state.seedLake[i] = (uint32_t)std::stoul(item);
+                    i++;
+                }
             }
         }
     }
@@ -305,6 +320,7 @@ std::string load_json_from_png(const std::string& filename) {
 
 
 void SavePNGThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppState s) {
+    g_saveStopFlag.store(false, std::memory_order_relaxed);
     // PAD the RGB buffer by 8192 extra pixels to safely absorb any CUDA block edge overruns
     std::vector<uint8_t> rgb((size_t)(w * h + 8192) * 3);
     std::vector<uint8_t> rgba((size_t)w * h * 4); // No padding needed here, loop is bound to w*h
@@ -320,13 +336,18 @@ void SavePNGThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppSt
         zv[i]=(double)s.zInit[i]; 
     }
 
+    uint64_t startTicks = SDL_GetTicksNS();
     fractal(rgb.data(), pO.data(), pL.data(), s.expressionBuffer,
         (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv, s.escapeRadius, 
-        s.fastMode, s.isJulia, s.showLake, s.ignore_it, (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
+        s.fastMode, s.isJulia, s.showLake, s.ignore_it, g_saveStopFlag, (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
+    double elapsed = (double)(SDL_GetTicksNS() - startTicks) / 1000000.0;
+    bool wasStopped = g_saveStopFlag.load(std::memory_order_relaxed);
 
-    if (g_saveTask.cancel) { 
+    if (wasStopped) { 
         g_saveTask.active = false; 
         return; 
+    } else {
+        lastGenTime = elapsed;
     }
 
     // Loop strictly up to w*h, completely ignoring the padded memory zone
@@ -397,21 +418,29 @@ void AsyncRenderThread(std::vector<int> pO, std::vector<int> pL, int w, int h, A
     // Heavy Math happens here (Main thread is now free to keep the UI alive!)
     fractal(g_asyncRgbBuf.data(), pO.data(), pL.data(), s.expressionBuffer,
         (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv,
-        s.escapeRadius, s.fastMode, s.isJulia, s.showLake, s.ignore_it,
+        s.escapeRadius, s.fastMode, s.isJulia, s.showLake, s.ignore_it, g_renderStopFlag,
         (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
-    lastGenTime = (double)(SDL_GetTicksNS() - startTicks) / 1000000.0;
-    state.texOffsetX = s.offsetX;
-    state.texOffsetY = s.offsetY;
-    state.texZoom = s.zoom;
-    state.texW = w;
-    state.texH = h;
-    g_renderBufferReady = true;
+    double elapsed = (double)(SDL_GetTicksNS() - startTicks) / 1000000.0;
+    bool wasStopped = g_renderStopFlag.load(std::memory_order_relaxed);
+
+    if (!wasStopped) {
+        state.texOffsetX = s.offsetX;
+        state.texOffsetY = s.offsetY;
+        state.texZoom = s.zoom;
+        state.texW = w;
+        state.texH = h;
+
+        lastGenTime = elapsed;
+        g_renderBufferReady = true;
+    }
+
     g_isAsyncRendering = false;
 }
 
 void CleanupAndExit() {
     // 1. Tell the system we are trying to stop
-    g_abortRender = true; 
+    g_renderStopFlag.store(true, std::memory_order_relaxed);
+    g_saveStopFlag.store(true, std::memory_order_relaxed);
 
     // 2. Wait for the thread to finish its current job
     if (g_renderThread.joinable()) {
@@ -445,7 +474,7 @@ int main(int, char**) {
         return -1;
     }
 
-    g_window = SDL_CreateWindow("FRACTAL ENGINE // CYBER", state.winWidth, state.winHeight, SDL_WINDOW_RESIZABLE);
+    g_window = SDL_CreateWindow("OCTO FRACTALIS", state.winWidth, state.winHeight, SDL_WINDOW_RESIZABLE);
     if (!g_window) return -1;
 
     g_renderer = SDL_CreateRenderer(g_window, nullptr);
@@ -520,9 +549,10 @@ int main(int, char**) {
         if (ImGui::IsKeyPressed(ImGuiKey_F11)) ToggleFullscreen();
         if (ImGui::IsKeyPressed(ImGuiKey_Enter)||ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) state.needsRender = true;
 
-        if ((ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)||ImGui::IsKeyPressed(ImGuiKey_RightCtrl))&&ImGui::IsKeyPressed(ImGuiKey_S)) {
+        bool ctrl = ImGui::GetIO().KeyCtrl;
+        if (!g_saveTask.active && ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
             g_saveTask.active = true;
-            g_saveTask.cancel = false;
+            g_renderStopFlag.store(true, std::memory_order_relaxed);
             std::thread(SavePNGThread, palOut, palLake, 
                         state.renderWidth * state.renderResMultiplier, 
                         state.renderHeight * state.renderResMultiplier, state).detach();
@@ -576,6 +606,9 @@ int main(int, char**) {
                 interacting = true; 
                 if (state.realtimeExpression) state.needsRender = true;
             }
+            if (interacting) {
+                g_renderStopFlag.store(true, std::memory_order_relaxed);
+            }
         }
 
         if (g_renderBufferReady) {
@@ -601,11 +634,19 @@ int main(int, char**) {
         if (state.needsRender && !interacting && debounceTimeout && !g_isAsyncRendering && !g_saveTask.active) {
             // Clean up the previous thread handle if it finished
             if (g_renderThread.joinable()) {
-                g_renderThread.join();
+                g_renderStopFlag.store(true, std::memory_order_relaxed); // tell it to stop
+                g_renderThread.join(); // wait until it actually stops
             }
             
-            g_abortRender = false;
-            g_renderThread = std::thread(AsyncRenderThread, palOut, palLake, state.renderWidth, state.renderHeight, state);
+            g_renderStopFlag.store(false, std::memory_order_relaxed);
+
+            g_renderThread = std::thread(
+                AsyncRenderThread,
+                palOut, palLake,
+                state.renderWidth,
+                state.renderHeight,
+                state
+            );
         }
 
         if (g_pFractalTexture) {
@@ -649,11 +690,60 @@ int main(int, char**) {
             d->AddText(ImVec2(360, state.renderHeight-32), IM_COL32(0,255,200,255), zb);
         }
 
+        {
+            ImDrawList* d = ImGui::GetForegroundDrawList();
+
+            char buf[64];
+            double tmpp = lastGenTime;
+            if (g_isAsyncRendering || g_saveTask.active)
+                snprintf(buf, 64, "rendering...");
+            else if (tmpp >= 0.0)
+                snprintf(buf, 64, "%.2f ms", tmpp);
+            else
+                snprintf(buf, 64, "cancelled");
+
+            ImVec2 textSize = ImGui::CalcTextSize(buf);
+
+            float pad = 10.0f;
+            ImVec2 pos = ImVec2(
+                state.renderWidth - textSize.x - pad * 2,
+                pad
+            );
+
+            d->AddRectFilled(
+                pos,
+                ImVec2(pos.x + textSize.x + pad, pos.y + textSize.y + pad),
+                IM_COL32(5, 5, 10, 200),
+                4
+            );
+
+            d->AddText(
+                ImVec2(pos.x + pad * 0.5f, pos.y + pad * 0.5f),
+                IM_COL32(255, 80, 180, 255),
+                buf
+            );
+        }
+
         if (g_saveTask.active) {
             ImGui::OpenPopup("EXPORTING");
-            if (ImGui::BeginPopupModal("EXPORTING", nullptr, ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoTitleBar)) {
+
+            ImGuiViewport* vp = ImGui::GetMainViewport();
+            ImVec2 center = vp->GetCenter();
+
+            ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+            ImGui::SetNextWindowSize(ImVec2(260, 100), ImGuiCond_Always); // <-- key fix
+
+            if (ImGui::BeginPopupModal("EXPORTING", nullptr,
+                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar))
+            {
                 ImGui::TextColored(ImVec4(0,1,0.8f,1), "RENDER IN PROGRESS...");
-                if (ImGui::Button("CANCEL", ImVec2(-1, 40))) g_saveTask.cancel = true;
+
+                ImGui::Dummy(ImVec2(0, 10)); // spacing
+
+                if (ImGui::Button("CANCEL", ImVec2(-1, 40))) {
+                    g_saveStopFlag.store(true, std::memory_order_relaxed);
+                }
+
                 ImGui::EndPopup();
             }
         }
@@ -662,8 +752,7 @@ int main(int, char**) {
             ImGui::SetNextWindowPos(ImVec2((float)state.renderWidth, 0));
             ImGui::SetNextWindowSize(ImVec2((float)state.guiWidth, (float)state.winHeight));
             ImGui::Begin("CONSOLE", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
-            double tmp = lastGenTime;
-            ImGui::TextColored(ImVec4(0.9f, 0, 0.4f, 1), "FRACTAL GENERATOR [%.2f ms]", tmp);
+            ImGui::TextColored(ImVec4(0.9f, 0, 0.4f, 1), "FRACTAL VIEWER");
             
             ImGui::Separator();
 
@@ -780,60 +869,72 @@ int main(int, char**) {
                     state.needsRender = true;
             }
 
-            if (ImGui::CollapsingHeader("PALETTE", ImGuiTreeNodeFlags_DefaultOpen)) {
-                bool palette_changed = false;
-                if (ImGui::Checkbox("Lake", &state.showLake)) palette_changed = true;
-                if (ImGui::Checkbox("Ignore Iter", &state.ignore_it)) palette_changed = true;
-                bool pc = false;
-                
-                // SNAP the sliders to multiples of 8 so the GPU kernel never writes out of bounds!
-                if (ImGui::SliderInt("Out Colors", &state.outColCount, 16, 2048)) {
-                    state.outColCount = (state.outColCount / 8) * 8; 
-                    pc = true;
-                }
-                if (ImGui::SliderInt("Lake Colors", &state.lakeColCount, 16, 2048)) {
-                    state.lakeColCount = (state.lakeColCount / 8) * 8;
-                    pc = true;
-                }
+        if (ImGui::CollapsingHeader("PALETTE", ImGuiTreeNodeFlags_DefaultOpen)) {
+            bool palette_changed = false;
 
-                ImGui::Text("Outside Seeds");
-                for (int i = 0; i < 8; i++) {
-                    ImGui::PushID(i);
-                    float c[3] = {
-                        ((state.seedOut[i] >> 16) & 0xFF) / 255.f,
-                        ((state.seedOut[i] >> 8) & 0xFF) / 255.f,
-                        (state.seedOut[i] & 0xFF) / 255.f
-                    };
-                    if (ImGui::ColorEdit3("##o", c, ImGuiColorEditFlags_NoInputs)) {
-                        state.seedOut[i] = ((int)(c[0] * 255) << 16) | ((int)(c[1] * 255) << 8) | (int)(c[2] * 255);
-                        pc = true;
-                    }
-                    if ((i + 1) % 4 != 0) ImGui::SameLine();
-                    ImGui::PopID();
-                }
+            if (ImGui::Checkbox("Lake", &state.showLake)) palette_changed = true;
+            if (ImGui::Checkbox("Ignore Iter", &state.ignore_it)) palette_changed = true;
 
-                ImGui::Text("Lake Seeds");
-                for (int i = 0; i < 8; i++) {
-                    ImGui::PushID(100 + i);
-                    float c[3] = {
-                        ((state.seedLake[i] >> 16) & 0xFF) / 255.f,
-                        ((state.seedLake[i] >> 8) & 0xFF) / 255.f,
-                        (state.seedLake[i] & 0xFF) / 255.f
-                    };
-                    if (ImGui::ColorEdit3("##l", c, ImGuiColorEditFlags_NoInputs)) {
-                        state.seedLake[i] = ((int)(c[0] * 255) << 16) | ((int)(c[1] * 255) << 8) | (int)(c[2] * 255);
-                        pc = true;
-                    }
-                    if ((i + 1) % 4 != 0) ImGui::SameLine();
-                    ImGui::PopID();
-                }
-                if (pc) {
-                    regenPalettes();
+            // snap to multiples of 8 (GPU safety)
+            if (ImGui::SliderInt("Out Colors", &state.outColCount, 16, 2048)) {
+                state.outColCount = (state.outColCount / 8) * 8;
+                palette_changed = true;
+            }
+
+            if (ImGui::SliderInt("Lake Colors", &state.lakeColCount, 16, 2048)) {
+                state.lakeColCount = (state.lakeColCount / 8) * 8;
+                palette_changed = true;
+            }
+
+            ImGui::Text("Outside Seeds");
+            for (int i = 0; i < 8; i++) {
+                ImGui::PushID(i);
+
+                float c[3] = {
+                    ((state.seedOut[i] >> 16) & 0xFF) / 255.f,
+                    ((state.seedOut[i] >> 8) & 0xFF) / 255.f,
+                    (state.seedOut[i] & 0xFF) / 255.f
+                };
+
+                if (ImGui::ColorEdit3("##o", c, ImGuiColorEditFlags_NoInputs)) {
+                    state.seedOut[i] =
+                        ((int)(c[0] * 255) << 16) |
+                        ((int)(c[1] * 255) << 8)  |
+                        (int)(c[2] * 255);
                     palette_changed = true;
                 }
 
-                if (palette_changed && state.realtimeExpression) state.needsRender = true;
+                if ((i + 1) % 4 != 0) ImGui::SameLine();
+                ImGui::PopID();
             }
+
+            ImGui::Text("Lake Seeds");
+            for (int i = 0; i < 8; i++) {
+                ImGui::PushID(100 + i);
+
+                float c[3] = {
+                    ((state.seedLake[i] >> 16) & 0xFF) / 255.f,
+                    ((state.seedLake[i] >> 8) & 0xFF) / 255.f,
+                    (state.seedLake[i] & 0xFF) / 255.f
+                };
+
+                if (ImGui::ColorEdit3("##l", c, ImGuiColorEditFlags_NoInputs)) {
+                    state.seedLake[i] =
+                        ((int)(c[0] * 255) << 16) |
+                        ((int)(c[1] * 255) << 8)  |
+                        (int)(c[2] * 255);
+                    palette_changed = true;
+                }
+
+                if ((i + 1) % 4 != 0) ImGui::SameLine();
+                ImGui::PopID();
+            }
+
+            if (palette_changed) {
+                regenPalettes();
+                state.needsRender = true;
+            }
+        }
 
             ImGui::EndChild();
 
@@ -844,7 +945,7 @@ int main(int, char**) {
 
             if (ImGui::Button("SAVE PNG", ImVec2(bw_footer, 40))) {
                 g_saveTask.active = true;
-                g_saveTask.cancel = false;
+                g_renderStopFlag.store(true, std::memory_order_relaxed);
                 std::thread(SavePNGThread, palOut, palLake, 
                             state.renderWidth * state.renderResMultiplier, 
                             state.renderHeight * state.renderResMultiplier, state).detach();
