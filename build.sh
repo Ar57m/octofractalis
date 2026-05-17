@@ -4,6 +4,7 @@
 MODE="CPU"
 PRECISION="DOUBLE"
 SHARE="OFF"
+TARGET="UI"   # UI or CLI
 
 show_help() {
     echo "Fractal Viewer Build Script"
@@ -13,6 +14,7 @@ show_help() {
     echo "--float     Use 32-bit floats"
     echo "--double    Use 64-bit doubles"
     echo "--share     Portable binary (disables march=native)"
+    echo "--cli       Build CLI version (no SDL/ImGui)"
     exit 0
 }
 
@@ -26,33 +28,43 @@ while [[ $# -gt 0 ]]; do
         --float)  PRECISION="FLOAT"; shift ;;
         --double) PRECISION="DOUBLE"; shift ;;
         --share)  SHARE="ON"; shift ;;
+        --cli)    TARGET="CLI"; shift ;;
         -h|--help) show_help ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
 # ------------------------
-# SDL (UNCHANGED as requested)
+# SDL (ONLY for UI)
 # ------------------------
-if [ ! -f "libSDL3.so" ]; then
-    if [ ! -f "sdl/build/libSDL3.so" ]; then
-        echo "SDL3 Shared not found. Building..."
-        mkdir -p sdl/build && cd sdl/build
-        cmake .. -DSDL_SHARED=ON -DSDL_STATIC=OFF -DCMAKE_BUILD_TYPE=Release
-        JOBS=$(nproc 2>/dev/null || echo 4)
-        make -j$JOBS
-        cd ../..
+if [ "$TARGET" == "UI" ]; then
+    if [ ! -f "libSDL3.so" ]; then
+        if [ ! -f "sdl/build/libSDL3.so" ]; then
+            echo "SDL3 Shared not found. Building..."
+            mkdir -p sdl/build && cd sdl/build
+            cmake .. -DSDL_SHARED=ON -DSDL_STATIC=OFF -DCMAKE_BUILD_TYPE=Release
+            JOBS=$(nproc 2>/dev/null || echo 4)
+            make -j$JOBS
+            cd ../..
+        fi
+        cp -L sdl/build/libSDL3.so* .
     fi
-    cp -L sdl/build/libSDL3.so* .
 fi
 
 # ------------------------
 # Flags
 # ------------------------
-CXX_FLAGS="-std=c++20 -O3 -fomit-frame-pointer -ffp-contract=fast -fPIC -funroll-loops -I imgui -I imgui/backends -I lodepng -I sdl/include -I sdl/include/SDL3"
+CXX_FLAGS="-std=c++20 -O3 -fomit-frame-pointer -ffp-contract=fast -funroll-loops -fno-math-errno -fno-trapping-math"
+INCLUDES="-I lodepng"
 DEFS=""
 OMP_FLAGS=""
-LDFLAGS="-L. -Wl,-rpath,\$ORIGIN"
+LDFLAGS=""
+
+# Only UI needs these
+if [ "$TARGET" == "UI" ]; then
+    INCLUDES+=" -I imgui -I imgui/backends -I sdl/include -I sdl/include/SDL3"
+    LDFLAGS="-L. -Wl,-rpath,\$ORIGIN"
+fi
 
 [[ "$MODE" == "CUDA" ]] && DEFS+="-DUSE_CUDA "
 [[ "$PRECISION" == "FLOAT" ]] && DEFS+="-DUSE_FLOAT "
@@ -72,16 +84,30 @@ rm -f *.o
 # ------------------------
 # Compile
 # ------------------------
-g++ $CXX_FLAGS $OMP_FLAGS $DEFS -c \
-    fractal_ui.cpp \
-    lodepng.cpp \
-    imgui/imgui.cpp \
-    imgui/imgui_draw.cpp \
-    imgui/imgui_tables.cpp \
-    imgui/imgui_widgets.cpp \
-    imgui/imgui_demo.cpp \
-    imgui/backends/imgui_impl_sdl3.cpp \
-    imgui/backends/imgui_impl_sdlrenderer3.cpp
+if [ "$TARGET" == "CLI" ]; then
+
+    echo "Building CLI..."
+
+    g++ $CXX_FLAGS $OMP_FLAGS $DEFS $INCLUDES -c \
+        fractal_cli.cpp \
+        lodepng.cpp
+
+else
+
+    echo "Building UI..."
+
+    g++ $CXX_FLAGS $OMP_FLAGS $DEFS $INCLUDES -c \
+        fractal_ui.cpp \
+        lodepng.cpp \
+        imgui/imgui.cpp \
+        imgui/imgui_draw.cpp \
+        imgui/imgui_tables.cpp \
+        imgui/imgui_widgets.cpp \
+        imgui/imgui_demo.cpp \
+        imgui/backends/imgui_impl_sdl3.cpp \
+        imgui/backends/imgui_impl_sdlrenderer3.cpp
+
+fi
 
 # CUDA
 if [ "$MODE" == "CUDA" ]; then
@@ -94,15 +120,31 @@ fi
 # ------------------------
 # Link
 # ------------------------
-LIBS="-lSDL3 -lm -lpthread"
+if [ "$TARGET" == "CLI" ]; then
 
-if [ "$MODE" == "CUDA" ]; then
-    g++ *.o -o fractal_viewer \
-        -L/usr/local/cuda/lib64 \
-        $LDFLAGS -lcudart $LIBS
+    if [ "$MODE" == "CUDA" ]; then
+        g++ *.o -o fractal_cli \
+            -L/usr/local/cuda/lib64 \
+            $LDFLAGS -lcudart -lm -lpthread
+    else
+        g++ *.o -o fractal_cli \
+            $OMP_FLAGS $LDFLAGS -lm -lpthread
+    fi
+
+    echo "Build complete: ./fractal_cli"
+
 else
-    g++ *.o -o fractal_viewer \
-        $OMP_FLAGS $LDFLAGS $LIBS
-fi
 
-echo "Build complete: ./fractal_viewer"
+    LIBS="-lSDL3 -lm -lpthread"
+
+    if [ "$MODE" == "CUDA" ]; then
+        g++ *.o -o fractal_viewer \
+            -L/usr/local/cuda/lib64 \
+            $LDFLAGS -lcudart $LIBS
+    else
+        g++ *.o -o fractal_viewer \
+            $OMP_FLAGS $LDFLAGS $LIBS
+    fi
+
+    echo "Build complete: ./fractal_viewer"
+fi

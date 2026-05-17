@@ -13,7 +13,6 @@
 // Fractal Interface
 #include "fractal_interface.h"
 #include "math_wrapper.h"
-#include "runtime.h"
 #include "app_core.h"
 
 
@@ -171,7 +170,6 @@ int main(int, char**) {
         }
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Error creating directory: " << e.what() << std::endl;
-        // Handle error (e.g., return or notify UI)
     }
 
     std::vector<uint8_t> rgbaBuf;
@@ -651,4 +649,3 @@ int main(int, char**) {
 
 
 
-            

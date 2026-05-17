@@ -1,4 +1,3 @@
-#include <atomic>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -6,7 +5,6 @@
 #include <sstream>
 #include <algorithm>
 #include <fstream>
-#include <vector>
 
 // Image Save
 #include "lodepng.h"
@@ -50,7 +48,7 @@ struct AppState {
     int seedLakeCount = 8;
     uint32_t seedLake[8] = { 0x000000, 0x711c91, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x00657B, 0x711c91 };
 
-    int renderResMultiplier = 2;
+    int renderResMultiplier = 1;
     bool showGUI = true;
     
     int winWidth = 1280;
