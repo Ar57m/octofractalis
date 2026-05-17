@@ -25,35 +25,35 @@
 
 
 
-class ManualTimer {
-public:
-    ManualTimer(std::string logPath) : m_logPath(std::move(logPath)) {}
+// class ManualTimer {
+// public:
+//     ManualTimer(std::string logPath) : m_logPath(std::move(logPath)) {}
 
-    // Start or restart the timer for a specific phase
-    void start(std::string taskName) {
-        m_taskName = std::move(taskName);
-        m_startTime = std::chrono::high_resolution_clock::now();
-    }
+//     // Start or restart the timer for a specific phase
+//     void start(std::string taskName) {
+//         m_taskName = std::move(taskName);
+//         m_startTime = std::chrono::high_resolution_clock::now();
+//     }
 
-    // Stop and write to the log immediately
-    void stop() {
-        auto endTime = std::chrono::high_resolution_clock::now();
+//     // Stop and write to the log immediately
+//     void stop() {
+//         auto endTime = std::chrono::high_resolution_clock::now();
         
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - m_startTime).count();
-        double ms = duration / 1000000.0; // High precision conversion to milliseconds
+//         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - m_startTime).count();
+//         double ms = duration / 1000000.0; // High precision conversion to milliseconds
 
-        std::ofstream logFile(m_logPath, std::ios_base::app);
-        if (logFile.is_open()) {
-            logFile << "[" << m_taskName << "] " 
-                    << std::fixed << std::setprecision(4) << ms << " ms" << std::endl;
-        }
-    }
+//         std::ofstream logFile(m_logPath, std::ios_base::app);
+//         if (logFile.is_open()) {
+//             logFile << "[" << m_taskName << "] " 
+//                     << std::fixed << std::setprecision(4) << ms << " ms" << std::endl;
+//         }
+//     }
 
-private:
-    std::string m_logPath;
-    std::string m_taskName;
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_startTime;
-};
+// private:
+//     std::string m_logPath;
+//     std::string m_taskName;
+//     std::chrono::time_point<std::chrono::high_resolution_clock> m_startTime;
+// };
 
 
 
@@ -116,11 +116,11 @@ void generate_on_cpu(const uint32_t* h_colors, int numColors, int totalOutputSiz
 
 #ifndef USE_CUDA
 
-void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType& temp,
+static inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType& temp,
                 const uint16_t& width, const uint16_t& iteration, const uint16_t& x, const uint16_t& y,
                 const bool& not_escaped, const int& top_colors_outside, const int& top_colors_lake, const bool& lake, const bool& lya) {
 
-    const int index = (y * width + x) * 3;
+    const int index = (y * width + x) * 4;
     int it = 0;
     
     if (not_escaped) {
@@ -131,10 +131,10 @@ void update_output(uint8_t* output, const int* array_top_colors_outside, const i
         it = array_top_colors_outside[iteration % top_colors_outside];
     }
 
-
-    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
-    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
-    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+    output[index]     = static_cast<uint8_t>((it >> 16) & 0xFF); // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);  // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);         // B
+    output[index + 3] = 255;                                     // A
 }
 
 
@@ -374,17 +374,13 @@ extern "C" {
         escape_radius *= escape_radius;
 
         size_t exp_size = std::strlen(exp);
-        ManualTimer timer("engine_bench.log");
 
 
         #ifdef USE_CUDA
             // --- GPU Implementation ---
-            // timer.start("cuda");
             fractal_kernel_call(output, array_top_colors_outside, array_top_colors_lake, exp, exp_size, width, height, max_iter, xmin, ymin, dx, dy, juliaset_c, escape_radius, fast_mode, juliaset, lake, top_colors_outside, top_colors_lake, z_initial, input_array, array_size);
-            // timer.stop();
         #else
 
-        // timer.start("cpu-eval");  
         // Dispatch based on dimension
         switch (mode) {
             case 2:
@@ -415,7 +411,6 @@ extern "C" {
                 std::cerr << "Unsupported dimension: " << mode << std::endl;
                 return;
         }
-        // timer.stop();
 
         #endif
     }

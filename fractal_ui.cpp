@@ -1,12 +1,7 @@
-#include <cstdio>
 #include <cmath>
 #include <thread>
 #include <csignal>
 #include <filesystem>
-#include <sstream>
-#include <algorithm>
-
-
 
 // ImGui
 #include <SDL3/SDL.h>
@@ -14,12 +9,12 @@
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
 
-// Image Save
-#include "lodepng.h"
 
 // Fractal Interface
 #include "fractal_interface.h"
 #include "math_wrapper.h"
+#include "runtime.h"
+#include "app_core.h"
 
 
 static SDL_Window* g_window = nullptr;
@@ -30,210 +25,13 @@ static int g_currentTexW = 0;
 static int g_currentTexH = 0;
 static bool g_isFullscreen = false;
 
-// --- Threading & Save State ---
-struct {
-    std::atomic<bool> active{false};
-    std::string filename;
-} g_saveTask;
 
-
-
-std::thread g_renderThread;
-std::atomic<bool> g_isAsyncRendering{false};
-std::atomic<bool> g_renderStopFlag = false;
-std::atomic<bool> g_saveStopFlag   = false;
-std::atomic<bool> g_renderBufferReady{false};
-std::vector<uint8_t> g_asyncRgbBuf;
-
-std::atomic<double> lastInteractionTime = 0.0;
-std::atomic<double>  lastGenTime = 0.0;
-
-struct AppState {
-    DefaultType offsetX = 0.0;
-    DefaultType offsetY = 0.0;
-    DefaultType zoom = 1.0;
-    
-    // Smooth interaction tracking
-    DefaultType texOffsetX = 0.0;
-    DefaultType texOffsetY = 0.0;
-    DefaultType texZoom = 1.0;
-    int texW = 1, texH = 1;
-
-    bool needsRender = true;
-    
-
-    int iterations = 256;
-    float escapeRadius = 2.0f;
-    bool isJulia = false;
-    bool fastMode = true;
-    bool showLake = true;
-    bool ignore_it = false;
-    bool realtimeExpression = true;
-
-    int mode = 2; // 2,4,8
-
-
-    float juliaC[8] = {-0.8f,0.16f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
-    float zInit[8] = {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
-
-    char expressionBuffer[256] = "z*z+c";
-    
-    int outColCount = 512;
-    int lakeColCount = 512;
-    
-    int seedOutCount = 8;
-    uint32_t seedOut[8] = { 0x050505, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x000033, 0x004488, 0x6600AA, 0x222222 };
-    int seedLakeCount = 8;
-    uint32_t seedLake[8] = { 0x000000, 0x711c91, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x00657B, 0x711c91 };
-
-    int renderResMultiplier = 2;
-    bool showGUI = true;
-    
-    int winWidth = 1280;
-    int winHeight = 720;
-    int renderWidth = 1280;
-    int renderHeight = 720;
-    const int guiWidth = 360;
-
-    void ResetView() {
-        offsetX = 0.0; offsetY = 0.0; zoom = 1.0;
-        needsRender = true;
-        lastInteractionTime = ImGui::GetTime();
-    }
-    
-    void ResetAll() {
-        ResetView();
-        iterations = 256; escapeRadius = 2.0f; isJulia = false; fastMode = true; showLake = true;
-        strncpy(expressionBuffer, "z*z+c", sizeof(expressionBuffer));
-        for(int i=0; i<mode; i++) { juliaC[i] = 0.0f; zInit[i] = 0.0f; }
-        juliaC[0] = -0.8f; juliaC[1] = 0.6f;
-        realtimeExpression = true;
-        lastGenTime = 0.0;
-    }
-};
+RuntimeState g_runtime;
 
 AppState state;
 
 
 
-
-// Helper to sanitize keys for precise matching
-std::string cleanKey(std::string k) {
-    k.erase(std::remove_if(k.begin(), k.end(), [](char c) {
-        return c == ' ' || c == '\t' || c == '\"' || c == '{' || c == '}';
-    }), k.end());
-    return k;
-}
-
-
-std::string SaveState(const AppState& state, const std::string& filename = "") {
-    std::ostringstream ss;
-    ss << std::setprecision(18) << std::fixed;
-
-    ss << "{\n";
-    ss << "  \"mode\": " << state.mode << ",\n";
-    ss << "  \"expression\": \"" << state.expressionBuffer << "\",\n";
-    ss << "  \"iterations\": " << state.iterations << ",\n";
-    ss << "  \"escapeRadius\": " << state.escapeRadius << ",\n";
-    ss << "  \"isJulia\": " << (state.isJulia ? "true" : "false") << ",\n";
-    ss << "  \"fastMode\": " << (state.fastMode ? "true" : "false") << ",\n";
-    ss << "  \"showLake\": " << (state.showLake ? "true" : "false") << ",\n";
-    ss << "  \"ignore_it\": " << (state.ignore_it ? "true" : "false") << ",\n";
-    ss << "  \"offsetX\": " << state.offsetX << ",\n";
-    ss << "  \"offsetY\": " << state.offsetY << ",\n";
-    ss << "  \"zoom\": " << state.zoom << ",\n";
-
-
-
-    auto writeArray = [&](const std::string& key, const auto* arr, int count, bool last = false) {
-        ss << "  \"" << key << "\": [";
-        for(int i = 0; i < count; ++i) ss << arr[i] << (i < count - 1 ? "," : "");
-        ss << "]" << (last ? "\n" : ",\n");
-    };
-
-    writeArray("juliaC", state.juliaC, 8);
-    writeArray("zInit", state.zInit, 8);
-    writeArray("seedOut", state.seedOut, 8);
-    writeArray("seedLake", state.seedLake, 8, true); // Kept true for valid JSON output
-
-    ss << "}";
-
-    std::string result = ss.str();
-    if (!filename.empty()) {
-        std::ofstream f(filename);
-        if (f.is_open()) f << result;
-    }
-    return result;
-}
-
-bool LoadState(AppState& state, std::string input, bool isPath = true) {
-    std::string content;
-    if (isPath) {
-        std::ifstream f(input);
-        if (!f.is_open()) return false;
-        content.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    } else {
-        content = input;
-    }
-
-    std::stringstream ss(content);
-    std::string line;
-    while (std::getline(ss, line)) {
-        size_t colonPos = line.find(':');
-        if (colonPos == std::string::npos) continue;
-
-        std::string rawKey = line.substr(0, colonPos);
-        std::string key = cleanKey(rawKey);
-        std::string val = line.substr(colonPos + 1);
-
-        auto sanitize = [](std::string& s) {
-            s.erase(std::remove_if(s.begin(), s.end(), [](char c) {
-                return c == ' ' || c == ',' || c == '\"' || c == '{' || c == '}' || c == '[' || c == ']';
-            }), s.end());
-        };
-
-        if (key == "offsetX")      { sanitize(val); state.offsetX = std::stold(val); }
-        else if (key == "offsetY") { sanitize(val); state.offsetY = std::stold(val); }
-        else if (key == "zoom")    { sanitize(val); state.zoom = std::stold(val); }
-        else if (key == "iterations")   { sanitize(val); state.iterations = std::stoi(val); }
-        else if (key == "escapeRadius") { sanitize(val); state.escapeRadius = std::stof(val); }
-        else if (key == "isJulia")  { sanitize(val); state.isJulia = (val.find("true") != std::string::npos); }
-        else if (key == "fastMode") { sanitize(val); state.fastMode = (val.find("true") != std::string::npos); }
-        else if (key == "showLake") { sanitize(val); state.showLake = (val.find("true") != std::string::npos); }
-        else if (key == "ignore_it"){ sanitize(val); state.ignore_it = (val.find("true") != std::string::npos); }
-        else if (key == "mode")     { sanitize(val); state.mode = std::stoi(val); }
-        else if (key == "expression") {
-            size_t first = line.find('\"', colonPos);
-            size_t last = line.find_last_of('\"');
-            if (first != std::string::npos && last > first) {
-                std::string expr = line.substr(first + 1, last - first - 1);
-                std::memset(state.expressionBuffer, 0, sizeof(state.expressionBuffer));
-                std::strncpy(state.expressionBuffer, expr.c_str(), sizeof(state.expressionBuffer) - 1);
-            }
-        }
-        
-        // Handle array fields dynamically based on clean keys
-        if (line.find('[') != std::string::npos) {
-            size_t start = line.find('[');
-            size_t end = line.find(']');
-            if (start != std::string::npos && end != std::string::npos && end > start) {
-                std::string arrayContent = line.substr(start + 1, end - start - 1);
-                std::stringstream arraySs(arrayContent);
-                std::string item;
-                int i = 0;
-                while (std::getline(arraySs, item, ',') && i < 8) {
-                    if (key == "juliaC")         state.juliaC[i] = std::stof(item);
-                    else if (key == "zInit")     state.zInit[i] = std::stof(item);
-                    else if (key == "seedOut")   state.seedOut[i] = (uint32_t)std::stoul(item);
-                    else if (key == "seedLake")  state.seedLake[i] = (uint32_t)std::stoul(item);
-                    i++;
-                }
-            }
-        }
-    }
-    state.needsRender = true;
-    return true;
-}
 void SetupCyberpunkStyle() {
     auto& style = ImGui::GetStyle();
     style.WindowRounding = 0.0f;
@@ -269,159 +67,35 @@ void ResizeFractalTexture(int w, int h) {
     g_currentTexH = h;
 }
 
-bool save_png_with_json(const std::string& filename, const std::vector<unsigned char>& rgba, unsigned w, unsigned h, const std::string& json) {
-    lodepng::State state;
-    
-    // Add the JSON string to a custom "comment" or "Parameters" chunk
-    // Use "Parameters" as the key to match your previous successful test
-    lodepng_add_text(&state.info_png, "Parameters", json.c_str());
-
-    std::vector<unsigned char> buffer;
-    unsigned error = lodepng::encode(buffer, rgba, w, h, state);
-    
-    if (!error) {
-        error = lodepng::save_file(buffer, filename);
-    }
-
-    if (error) {
-        // Optional: log error lodepng_error_text(error)
-        return false;
-    }
-    return true;
-}
-
-std::string load_json_from_png(const std::string& filename) {
-    lodepng::State state;
-    std::vector<unsigned char> buffer;
-    std::vector<unsigned char> dummy_pixels; // We won't actually fill this
-    unsigned w, h;
-
-    unsigned error = lodepng::load_file(buffer, filename);
-    if (error) return "";
-
-    // IMPORTANT: Tell LodePNG to decode metadata but NOT the pixels
-    // This makes it extremely fast.
-    state.decoder.color_convert = 0; 
-    state.decoder.read_text_chunks = 1; // Ensure this is on
-
-    // Decode the header and chunks. Since we use the state, it will fill text_num.
-    error = lodepng::decode(dummy_pixels, w, h, state, buffer);
-    if (error) return "";
-
-    for (size_t i = 0; i < state.info_png.text_num; ++i) {
-        if (std::string(state.info_png.text_keys[i]) == "Parameters") {
-            return std::string(state.info_png.text_strings[i]);
-        }
-    }
-
-    return "";
-}
-
-
-
-void SavePNGThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppState s) {
-    g_saveStopFlag.store(false, std::memory_order_relaxed);
-    // PAD the RGB buffer by 8192 extra pixels to safely absorb any CUDA block edge overruns
-    std::vector<uint8_t> rgb((size_t)(w * h + 8192) * 3);
-    std::vector<uint8_t> rgba((size_t)w * h * 4); // No padding needed here, loop is bound to w*h
-    
-    DefaultType sc = 4.0 / (h * s.zoom);
-    DefaultType xm = s.offsetX - (w * sc) / 2.0;
-    DefaultType ym = s.offsetY - (h * sc) / 2.0;
-
-    double cv[8]={0}, zv[8]={0}, d[1]={0};
-    const int mode = state.mode;
-    for (int i = 0; i < mode; i++) {
-        cv[i]=(double)s.juliaC[i]; 
-        zv[i]=(double)s.zInit[i]; 
-    }
-
-    uint64_t startTicks = SDL_GetTicksNS();
-    fractal(rgb.data(), pO.data(), pL.data(), s.expressionBuffer,
-        (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv, s.escapeRadius, 
-        s.fastMode, s.isJulia, s.showLake, s.ignore_it, g_saveStopFlag, (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
-    double elapsed = (double)(SDL_GetTicksNS() - startTicks) / 1000000.0;
-    bool wasStopped = g_saveStopFlag.load(std::memory_order_relaxed);
-
-    if (wasStopped) { 
-        g_saveTask.active = false; 
-        return; 
-    } else {
-        lastGenTime = elapsed;
-    }
-
-    // Loop strictly up to w*h, completely ignoring the padded memory zone
-    for(int i=0; i<w*h; i++) {
-        rgba[i*4+0]=rgb[i*3+0]; 
-        rgba[i*4+1]=rgb[i*3+1]; 
-        rgba[i*4+2]=rgb[i*3+2]; 
-        rgba[i*4+3]=255;
-    }
-
-    char tmp_fn[128];
-
-    // get current time
-    auto now = std::chrono::system_clock::now();
-
-    // convert to time_t for calendar breakdown
-    auto tt = std::chrono::system_clock::to_time_t(now);
-
-    std::tm tm{};
-    #ifdef _WIN32
-        localtime_s(&tm, &tt);
-    #else
-        localtime_r(&tt, &tm);
-    #endif
-
-    // optional milliseconds
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()) % 1000;
-
-    std::snprintf(tmp_fn, sizeof(tmp_fn),
-        "./images/fractal_%04d%02d%02d_%02d%02d%02d.png",
-        tm.tm_year + 1900,
-        tm.tm_mon + 1,
-        tm.tm_mday,
-        tm.tm_hour,
-        tm.tm_min,
-        tm.tm_sec
-    );
-
-    std::string myJson = SaveState(s);
-
-    save_png_with_json(tmp_fn, rgba, w, h, myJson);
-    printf("Loaded JSON: %s\n", load_json_from_png(tmp_fn).c_str());
-    
-    g_saveTask.filename = std::string(tmp_fn);
-    g_saveTask.active = false;
-}
 
 void AsyncRenderThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppState s) {
-    g_isAsyncRendering = true;
+    g_runtime.isAsyncRendering = true;
 
     // Resize the global async buffer to match requirements
-    size_t requiredSize = (size_t)(w * h + 8192) * 3;
-    if (g_asyncRgbBuf.size() != requiredSize) g_asyncRgbBuf.resize(requiredSize);
+    size_t requiredSize = (size_t)(w * h + 8192) * 4;
+    if (g_runtime.asyncRgbaBuf.size() != requiredSize)
+        g_runtime.asyncRgbaBuf.resize(requiredSize);
 
     // Setup math constants (copied from your main logic)
     DefaultType sc = 4.0 / (h * s.zoom);
     DefaultType xm = s.offsetX - (w * sc) / 2.0;
     DefaultType ym = s.offsetY - (h * sc) / 2.0;
     double cv[8] = { 0 }, zv[8] = { 0 }, d[1] = { 0 };
-    const int mode = state.mode;
+    const int mode = s.mode;
     for (int i = 0; i < mode; i++) {
         cv[i] = (double)s.juliaC[i];
         zv[i] = (double)s.zInit[i];
     }
 
-    uint64_t startTicks = SDL_GetTicksNS();
+    auto start = std::chrono::steady_clock::now();
     // Heavy Math happens here (Main thread is now free to keep the UI alive!)
-    fractal(g_asyncRgbBuf.data(), pO.data(), pL.data(), s.expressionBuffer,
+    fractal(g_runtime.asyncRgbaBuf.data(), pO.data(), pL.data(), s.expressionBuffer,
         (uint16_t)w, (uint16_t)h, (uint16_t)s.iterations, xm, ym, sc, sc, cv,
-        s.escapeRadius, s.fastMode, s.isJulia, s.showLake, s.ignore_it, g_renderStopFlag,
+        s.escapeRadius, s.fastMode, s.isJulia, s.showLake, s.ignore_it, g_runtime.renderStopFlag,
         (int)pO.size(), (int)pL.size(), zv, d, 1, mode);
-    double elapsed = (double)(SDL_GetTicksNS() - startTicks) / 1000000.0;
-    bool wasStopped = g_renderStopFlag.load(std::memory_order_relaxed);
+    auto end = std::chrono::steady_clock::now();
+    double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
+    bool wasStopped = g_runtime.renderStopFlag.load(std::memory_order_relaxed);
 
     if (!wasStopped) {
         state.texOffsetX = s.offsetX;
@@ -430,21 +104,21 @@ void AsyncRenderThread(std::vector<int> pO, std::vector<int> pL, int w, int h, A
         state.texW = w;
         state.texH = h;
 
-        lastGenTime = elapsed;
-        g_renderBufferReady = true;
+        g_runtime.lastGenTime = elapsed;
+        g_runtime.renderBufferReady = true;
     }
 
-    g_isAsyncRendering = false;
+    g_runtime.isAsyncRendering = false;
 }
 
 void CleanupAndExit() {
     // 1. Tell the system we are trying to stop
-    g_renderStopFlag.store(true, std::memory_order_relaxed);
-    g_saveStopFlag.store(true, std::memory_order_relaxed);
+    g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
+    g_runtime.saveStopFlag.store(true, std::memory_order_relaxed);
 
     // 2. Wait for the thread to finish its current job
-    if (g_renderThread.joinable()) {
-        g_renderThread.join(); 
+    if (g_runtime.renderThread.joinable()) {
+        g_runtime.renderThread.join(); 
     }
 
     // 3. Now destroy everything in order
@@ -500,7 +174,7 @@ int main(int, char**) {
         // Handle error (e.g., return or notify UI)
     }
 
-    std::vector<uint8_t> rgbBuf, rgbaBuf;
+    std::vector<uint8_t> rgbaBuf;
     std::vector<int> palOut, palLake;
 
     auto regenPalettes = [&]() {
@@ -550,12 +224,12 @@ int main(int, char**) {
         if (ImGui::IsKeyPressed(ImGuiKey_Enter)||ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) state.needsRender = true;
 
         bool ctrl = ImGui::GetIO().KeyCtrl;
-        if (!g_saveTask.active && ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-            g_saveTask.active = true;
-            g_renderStopFlag.store(true, std::memory_order_relaxed);
+        if (!g_runtime.saveTask.active && ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+            g_runtime.saveTask.active = true;
+            g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
             std::thread(SavePNGThread, palOut, palLake, 
                         state.renderWidth * state.renderResMultiplier, 
-                        state.renderHeight * state.renderResMultiplier, state).detach();
+                        state.renderHeight * state.renderResMultiplier, state, std::ref(g_runtime), fractal).detach();
         }
         // 1. Fetch exact window size directly from OS every frame
         SDL_GetWindowSize(g_window, &state.winWidth, &state.winHeight);
@@ -571,25 +245,24 @@ int main(int, char**) {
         ResizeFractalTexture(state.renderWidth, state.renderHeight);
         
         size_t pixelCount = (size_t)state.renderWidth * state.renderHeight;
-        size_t requiredRgb = (pixelCount + 8192) * 3; // Pad by 8192 extra pixels
         size_t requiredRgba = (pixelCount + 8192) * 4;
-        
-        if (rgbBuf.size() != requiredRgb) {
-            rgbBuf.resize(requiredRgb);
+
+        if (rgbaBuf.size() != requiredRgba) {
             rgbaBuf.resize(requiredRgba);
             if (state.realtimeExpression) state.needsRender = true;
         }
+
 
         bool mouseInRender = io.MousePos.x >= 0 && io.MousePos.x < state.renderWidth && io.MousePos.y >= 0 && io.MousePos.y < state.renderHeight;
         bool isFocused = (SDL_GetWindowFlags(g_window) & SDL_WINDOW_INPUT_FOCUS);
         bool interacting = false;
 
-        if (mouseInRender && !io.WantCaptureMouse && isFocused && !g_saveTask.active) {
+        if (mouseInRender && !io.WantCaptureMouse && isFocused && !g_runtime.saveTask.active) {
             if (ImGui::IsMouseDown(0)) {
                 DefaultType s = 4.0 / (state.renderHeight * state.zoom);
                 state.offsetX -= io.MouseDelta.x * s; 
                 state.offsetY -= io.MouseDelta.y * s;
-                lastInteractionTime = ImGui::GetTime(); 
+                g_runtime.lastInteractionTime = ImGui::GetTime(); 
                 interacting = true; 
                 if (state.realtimeExpression) state.needsRender = true;
             }
@@ -602,45 +275,39 @@ int main(int, char**) {
                 DefaultType ns = 4.0 / (state.renderHeight * state.zoom);
                 state.offsetX = mx - io.MousePos.x * ns + (state.renderWidth * ns) / 2.0;
                 state.offsetY = my - io.MousePos.y * ns + (state.renderHeight * ns) / 2.0;
-                lastInteractionTime = ImGui::GetTime(); 
+                g_runtime.lastInteractionTime = ImGui::GetTime(); 
                 interacting = true; 
                 if (state.realtimeExpression) state.needsRender = true;
             }
             if (interacting) {
-                g_renderStopFlag.store(true, std::memory_order_relaxed);
+                g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
             }
         }
 
-        if (g_renderBufferReady) {
-            size_t pixelCount = (size_t)state.texW * state.texH;
-            if (rgbaBuf.size() < pixelCount * 4) rgbaBuf.resize(pixelCount * 4);
-            
-            // Copy background RGB to foreground RGBA
-            for (size_t i = 0; i < pixelCount; i++) {
-                rgbaBuf[i * 4 + 0] = g_asyncRgbBuf[i * 3 + 0];
-                rgbaBuf[i * 4 + 1] = g_asyncRgbBuf[i * 3 + 1];
-                rgbaBuf[i * 4 + 2] = g_asyncRgbBuf[i * 3 + 2];
-                rgbaBuf[i * 4 + 3] = 255;
-            }
+        if (g_runtime.renderBufferReady) {
+            SDL_UpdateTexture(
+                g_pFractalTexture,
+                nullptr,
+                g_runtime.asyncRgbaBuf.data(),
+                state.texW * 4
+            );
 
-            SDL_UpdateTexture(g_pFractalTexture, nullptr, rgbaBuf.data(), state.texW * 4);
-            
-            g_renderBufferReady = false; 
+            g_runtime.renderBufferReady = false;
             state.needsRender = false;
         }
 
         // 2. Trigger a new background render if needed and thread is idle
-        bool debounceTimeout = (ImGui::GetTime() - lastInteractionTime > 0.25);
-        if (state.needsRender && !interacting && debounceTimeout && !g_isAsyncRendering && !g_saveTask.active) {
+        bool debounceTimeout = (ImGui::GetTime() - g_runtime.lastInteractionTime > 0.25);
+        if (state.needsRender && !interacting && debounceTimeout && !g_runtime.isAsyncRendering && !g_runtime.saveTask.active) {
             // Clean up the previous thread handle if it finished
-            if (g_renderThread.joinable()) {
-                g_renderStopFlag.store(true, std::memory_order_relaxed); // tell it to stop
-                g_renderThread.join(); // wait until it actually stops
+            if (g_runtime.renderThread.joinable()) {
+                g_runtime.renderStopFlag.store(true, std::memory_order_relaxed); // tell it to stop
+                g_runtime.renderThread.join(); // wait until it actually stops
             }
             
-            g_renderStopFlag.store(false, std::memory_order_relaxed);
+            g_runtime.renderStopFlag.store(false, std::memory_order_relaxed);
 
-            g_renderThread = std::thread(
+            g_runtime.renderThread = std::thread(
                 AsyncRenderThread,
                 palOut, palLake,
                 state.renderWidth,
@@ -694,8 +361,8 @@ int main(int, char**) {
             ImDrawList* d = ImGui::GetForegroundDrawList();
 
             char buf[64];
-            double tmpp = lastGenTime;
-            if (g_isAsyncRendering || g_saveTask.active)
+            double tmpp = g_runtime.lastGenTime;
+            if (g_runtime.isAsyncRendering || g_runtime.saveTask.active)
                 snprintf(buf, 64, "rendering...");
             else if (tmpp >= 0.0)
                 snprintf(buf, 64, "%.2f ms", tmpp);
@@ -724,7 +391,7 @@ int main(int, char**) {
             );
         }
 
-        if (g_saveTask.active) {
+        if (g_runtime.saveTask.active) {
             ImGui::OpenPopup("EXPORTING");
 
             ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -741,14 +408,14 @@ int main(int, char**) {
                 ImGui::Dummy(ImVec2(0, 10)); // spacing
 
                 if (ImGui::Button("CANCEL", ImVec2(-1, 40))) {
-                    g_saveStopFlag.store(true, std::memory_order_relaxed);
+                    g_runtime.saveStopFlag.store(true, std::memory_order_relaxed);
                 }
 
                 ImGui::EndPopup();
             }
         }
 
-        if (state.showGUI && !g_saveTask.active) {
+        if (state.showGUI && !g_runtime.saveTask.active) {
             ImGui::SetNextWindowPos(ImVec2((float)state.renderWidth, 0));
             ImGui::SetNextWindowSize(ImVec2((float)state.guiWidth, (float)state.winHeight));
             ImGui::Begin("CONSOLE", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
@@ -944,11 +611,11 @@ int main(int, char**) {
             ImGui::SliderInt("Export Scale", &state.renderResMultiplier, 1, 8);
 
             if (ImGui::Button("SAVE PNG", ImVec2(bw_footer, 40))) {
-                g_saveTask.active = true;
-                g_renderStopFlag.store(true, std::memory_order_relaxed);
+                g_runtime.saveTask.active = true;
+                g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
                 std::thread(SavePNGThread, palOut, palLake, 
                             state.renderWidth * state.renderResMultiplier, 
-                            state.renderHeight * state.renderResMultiplier, state).detach();
+                            state.renderHeight * state.renderResMultiplier, state, std::ref(g_runtime), fractal).detach();
             }
 
             ImGui::SameLine();
