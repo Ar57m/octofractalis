@@ -9,7 +9,7 @@
 
 
 
-#include "hypercomplex.h"
+#include "core/hypercomplex.h"
 
 
 

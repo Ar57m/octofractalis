@@ -5,15 +5,15 @@
 
 // ImGui
 #include <SDL3/SDL.h>
-#include "imgui.h"
+#include "imgui/imgui.h"
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
 
 
 // Fractal Interface
-#include "fractal_interface.h"
-#include "math_wrapper.h"
-#include "app_core.h"
+#include "core/fractal_interface.h"
+#include "core/math_wrapper.h"
+#include "core/app_core.h"
 
 
 static SDL_Window* g_window = nullptr;

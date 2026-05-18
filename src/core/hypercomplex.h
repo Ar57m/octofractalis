@@ -5,7 +5,7 @@
 
 
 #include <cstdio>
-#include "math_wrapper.h"
+#include "core/math_wrapper.h"
 
 #ifndef USE_CUDA
     #include <random>

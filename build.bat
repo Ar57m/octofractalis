@@ -1,6 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: ============================================================================
+:: PATH SETUP
+:: ============================================================================
+set SRC=src
+set BUILD=build
+set LIBS=libs
+
+if not exist %BUILD% mkdir %BUILD%
+
 :: Default Settings
 set MODE=CPU
 set PRECISION=DOUBLE
@@ -37,35 +46,40 @@ echo Unknown target: %TARGET% & exit /b 1
 
 
 :: ============================================================================
-:: CLI MODE (No SDL/ImGui dependencies)
+:: CLI MODE
 :: ============================================================================
 :build_cli
 echo Building CLI...
 
 set FLAGS=/std:c++20 /O2 /openmp /EHsc /MT ^
 /fp:precise /GS- /Gw /Gy /Oi /Ot ^
-/I lodepng\
+/I %SRC% ^
+/I %SRC%\core ^
+/I %SRC%\ext
 
 set DEFS=
 if "%MODE%"=="CUDA" set DEFS=%DEFS% -DUSE_CUDA
 if "%PRECISION%"=="FLOAT" set DEFS=%DEFS% -DUSE_FLOAT
 
-if "%SHARE%"=="OFF" (
-    set FLAGS=%FLAGS% /arch:AVX2
-)
+if "%SHARE%"=="OFF" set FLAGS=%FLAGS% /arch:AVX2
 
-:: Clean up old compilation objects
-del *.obj 2>nul
+del %BUILD%\*.obj 2>nul
 
-echo Running MSVC Compiler...
-cl %FLAGS% %DEFS% fractal_cli.cpp lodepng.cpp /Fe:fractal_cli.exe
+:: Collect sources (CLI + core + ext, but NOT UI)
+set FILES=
+for %%F in (%SRC%\core\*.cpp) do set FILES=!FILES! %%F
+for %%F in (%SRC%\ext\*.cpp) do set FILES=!FILES! %%F
+set FILES=!FILES! %SRC%\app\octofractalis-cli.cpp
 
-echo Build complete: fractal_cli.exe
+echo Compiling...
+cl %FLAGS% %DEFS% /Fo%BUILD%\ %FILES% /Fe:octofractalis-cli.exe
+
+echo Build complete: octofractalis-cli.exe
 exit /b 0
 
 
 :: ============================================================================
-:: UI MODE (Standard path with SDL3 + ImGui)
+:: UI MODE
 :: ============================================================================
 :build_ui
 echo Building UI...
@@ -73,11 +87,8 @@ echo Building UI...
 set "SDL_FOUND=0"
 echo ---- SDL SEARCH START ----
 
-for /d %%D in (SDL3-*) do (
-    echo Checking folder: %%D
-
+for /d %%D in (%LIBS%\SDL3-*) do (
     if exist "%%D\include\SDL3\SDL.h" (
-        echo Found SDL headers in %%D
         set "SDL_DIR=%%D"
         set "SDL_FOUND=1"
         goto sdl_setup
@@ -95,56 +106,53 @@ if "%SDL_FOUND%"=="1" (
 
 if exist "%SDL_LIB_DIR%\SDL3.dll" copy /y "%SDL_LIB_DIR%\SDL3.dll" . >nul
 
-:: Setup Compiler Flags
+:: Compiler flags
 set CXX_FLAGS=/nologo /std:c++20 /O2 /Ob3 /GL /openmp ^
 /fp:precise ^
 /EHsc /MT /GS- /Gw /Gy /Oi /Ot ^
-/I imgui ^
-/I imgui\backends ^
-/I lodepng\ ^
+/I %SRC% ^
+/I %SRC%\core ^
+/I %SRC%\ext ^
+/I %SRC%\ext\imgui ^
+/I %SRC%\ext\imgui\backends ^
 /I "%SDL_INCLUDE_DIR%"
 
 set DEFS=
 if "%MODE%"=="CUDA" set DEFS=%DEFS% -DUSE_CUDA
 if "%PRECISION%"=="FLOAT" set DEFS=%DEFS% -DUSE_FLOAT
 
-if "%SHARE%"=="OFF" (
-    set CXX_FLAGS=%CXX_FLAGS% /arch:AVX2
-)
+if "%SHARE%"=="OFF" set CXX_FLAGS=%CXX_FLAGS% /arch:AVX2
 
-del *.obj 2>nul
+del %BUILD%\*.obj 2>nul
 
-:: Compile UI Main Core
-cl %CXX_FLAGS% %DEFS% fractal_ui.cpp /c
+:: Collect sources (exclude CLI)
+set FILES=
+for %%F in (%SRC%\core\*.cpp) do set FILES=!FILES! %%F
+for %%F in (%SRC%\ext\*.cpp) do set FILES=!FILES! %%F
+for %%F in (%SRC%\ext\imgui\*.cpp) do set FILES=!FILES! %%F
+set FILES=!FILES! %SRC%\ext\imgui\backends\imgui_impl_sdl3.cpp
+set FILES=!FILES! %SRC%\ext\imgui\backends\imgui_impl_sdlrenderer3.cpp
+set FILES=!FILES! %SRC%\app\octofractalis-ui.cpp
 
-:: Compile UI Dependencies
-cl %CXX_FLAGS% %DEFS% ^
-lodepng.cpp ^
-imgui\imgui.cpp ^
-imgui\imgui_draw.cpp ^
-imgui\imgui_tables.cpp ^
-imgui\imgui_widgets.cpp ^
-imgui\imgui_demo.cpp ^
-imgui\backends\imgui_impl_sdl3.cpp ^
-imgui\backends\imgui_impl_sdlrenderer3.cpp ^
-/c
+echo Compiling...
+cl %CXX_FLAGS% %DEFS% /Fo%BUILD%\ /c !FILES!
 
-:: Optional CUDA Compilation Pipeline
+:: CUDA
 if "%MODE%"=="CUDA" (
     set NVCC_ARCH=-gencode arch=compute_75,code=sm_75 -gencode arch=compute_86,code=sm_86
-    nvcc -c fract_kernel.cu -O3 %DEFS% !NVCC_ARCH! --ptxas-options=-v -Xcompiler "/MD /EHsc"
+    nvcc -c %SRC%\gpu\octofractalis-kernel.cu -o %BUILD%\kernel.obj -O3 %DEFS% !NVCC_ARCH! --ptxas-options=-v -Xcompiler "/MD /EHsc"
 )
 
-:: Link Phase
-set LIBS=SDL3.lib user32.lib gdi32.lib shell32.lib
+:: Link
+set LIBS_LINK=SDL3.lib user32.lib gdi32.lib shell32.lib
 set LIB_PATHS=/LIBPATH:"%SDL_LIB_DIR%"
 
 if "%MODE%"=="CUDA" (
-    set LIBS=%LIBS% cudart.lib
+    set LIBS_LINK=%LIBS_LINK% cudart.lib
     set LIB_PATHS=%LIB_PATHS% /LIBPATH:"%CUDA_PATH%\lib\x64"
 )
 
-link /nologo /LTCG /OUT:fractal_viewer.exe *.obj %LIB_PATHS% %LIBS%
+link /nologo /LTCG /OUT:octofractalis.exe %BUILD%\*.obj %LIB_PATHS% %LIBS_LINK%
 
-echo Build complete: fractal_viewer.exe
+echo Build complete: octofractalis.exe
 exit /b 0

@@ -1,10 +1,19 @@
 #!/bin/bash
 
+# ============================================================================
+# PATHS
+# ============================================================================
+SRC="src"
+BUILD="build"
+LIBS="libs"
+
+mkdir -p "$BUILD"
+
 # Default Settings
 MODE="CPU"
 PRECISION="DOUBLE"
 SHARE="OFF"
-TARGET="UI"   # UI or CLI
+TARGET="UI"
 
 show_help() {
     echo "Fractal Viewer Build Script"
@@ -35,19 +44,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ------------------------
-# SDL (ONLY for UI)
+# SDL (UI only)
 # ------------------------
 if [ "$TARGET" == "UI" ]; then
     if [ ! -f "libSDL3.so" ]; then
-        if [ ! -f "sdl/build/libSDL3.so" ]; then
-            echo "SDL3 Shared not found. Building..."
-            mkdir -p sdl/build && cd sdl/build
+        if [ ! -f "$LIBS/sdl/build/libSDL3.so" ]; then
+            echo "SDL3 not found. Building..."
+            mkdir -p "$LIBS/sdl/build" && cd "$LIBS/sdl/build"
             cmake .. -DSDL_SHARED=ON -DSDL_STATIC=OFF -DCMAKE_BUILD_TYPE=Release
             JOBS=$(nproc 2>/dev/null || echo 4)
             make -j$JOBS
-            cd ../..
+            cd - >/dev/null
         fi
-        cp -L sdl/build/libSDL3.so* .
+        cp -L "$LIBS/sdl/build/libSDL3.so"* .
     fi
 fi
 
@@ -55,14 +64,13 @@ fi
 # Flags
 # ------------------------
 CXX_FLAGS="-std=c++20 -O3 -fomit-frame-pointer -ffp-contract=fast -funroll-loops -fno-math-errno -fno-trapping-math"
-INCLUDES="-I lodepng"
+INCLUDES="-I $SRC -I $SRC/core -I $SRC/ext"
 DEFS=""
 OMP_FLAGS=""
 LDFLAGS=""
 
-# Only UI needs these
 if [ "$TARGET" == "UI" ]; then
-    INCLUDES+=" -I imgui -I imgui/backends -I sdl/include -I sdl/include/SDL3"
+    INCLUDES+=" -I $SRC/ext/imgui -I $SRC/ext/imgui/backends -I $LIBS/sdl/include -I $LIBS/sdl/include/SDL3"
     LDFLAGS="-L. -Wl,-rpath,\$ORIGIN"
 fi
 
@@ -79,7 +87,19 @@ else
     LDFLAGS+=" -static-libstdc++ -static-libgcc"
 fi
 
-rm -f *.o
+rm -f $BUILD/*.o
+
+# ------------------------
+# Collect sources
+# ------------------------
+
+CORE_SRC=$(find $SRC/core -name "*.cpp")
+EXT_SRC=$(find $SRC/ext -maxdepth 1 -name "*.cpp")
+
+IMGUI_CORE=$(find $SRC/ext/imgui -maxdepth 1 -name "*.cpp")
+
+IMGUI_BACKENDS="$SRC/ext/imgui/backends/imgui_impl_sdl3.cpp \
+$SRC/ext/imgui/backends/imgui_impl_sdlrenderer3.cpp"
 
 # ------------------------
 # Compile
@@ -88,63 +108,73 @@ if [ "$TARGET" == "CLI" ]; then
 
     echo "Building CLI..."
 
-    g++ $CXX_FLAGS $OMP_FLAGS $DEFS $INCLUDES -c \
-        fractal_cli.cpp \
-        lodepng.cpp
+    SRC_FILES=(
+        $(find $SRC/core -name "*.cpp")
+        $(find $SRC/ext -maxdepth 1 -name "*.cpp")
+        $SRC/app/octofractalis-cli.cpp
+    )
+
+    for file in "${SRC_FILES[@]}"; do
+        obj="$BUILD/$(basename "${file%.cpp}.o")"
+        g++ $CXX_FLAGS $OMP_FLAGS $DEFS $INCLUDES -c "$file" -o "$obj" || exit 1
+    done
 
 else
 
     echo "Building UI..."
 
     g++ $CXX_FLAGS $OMP_FLAGS $DEFS $INCLUDES -c \
-        fractal_ui.cpp \
-        lodepng.cpp \
-        imgui/imgui.cpp \
-        imgui/imgui_draw.cpp \
-        imgui/imgui_tables.cpp \
-        imgui/imgui_widgets.cpp \
-        imgui/imgui_demo.cpp \
-        imgui/backends/imgui_impl_sdl3.cpp \
-        imgui/backends/imgui_impl_sdlrenderer3.cpp
+        $CORE_SRC \
+        $EXT_SRC \
+        $IMGUI_CORE \
+        $IMGUI_BACKENDS \
+        $SRC/app/octofractalis-ui.cpp
+
+    mv *.o $BUILD 2>/dev/null
 
 fi
 
+# ------------------------
 # CUDA
+# ------------------------
 if [ "$MODE" == "CUDA" ]; then
-    nvcc -c fract_kernel.cu -O3 $DEFS \
+    nvcc -c $SRC/gpu/octofractalis-kernel.cu -O3 $DEFS \
         -gencode arch=compute_75,code=sm_75 \
         -gencode arch=compute_86,code=sm_86 \
         -Xcompiler -fPIC
+    mv *.o $BUILD 2>/dev/null
 fi
 
 # ------------------------
 # Link
 # ------------------------
+OBJ_FILES=$(ls $BUILD/*.o)
+
 if [ "$TARGET" == "CLI" ]; then
 
     if [ "$MODE" == "CUDA" ]; then
-        g++ *.o -o fractal_cli \
+        g++ $OBJ_FILES -o octofractalis-cli \
             -L/usr/local/cuda/lib64 \
             $LDFLAGS -lcudart -lm -lpthread
     else
-        g++ *.o -o fractal_cli \
+        g++ $OBJ_FILES -o octofractalis-cli \
             $OMP_FLAGS $LDFLAGS -lm -lpthread
     fi
 
-    echo "Build complete: ./fractal_cli"
+    echo "Build complete: ./octofractalis-cli"
 
 else
 
-    LIBS="-lSDL3 -lm -lpthread"
+    LIBS_LINK="-lSDL3 -lm -lpthread"
 
     if [ "$MODE" == "CUDA" ]; then
-        g++ *.o -o fractal_viewer \
+        g++ $OBJ_FILES -o octofractalis \
             -L/usr/local/cuda/lib64 \
-            $LDFLAGS -lcudart $LIBS
+            $LDFLAGS -lcudart $LIBS_LINK
     else
-        g++ *.o -o fractal_viewer \
-            $OMP_FLAGS $LDFLAGS $LIBS
+        g++ $OBJ_FILES -o octofractalis \
+            $OMP_FLAGS $LDFLAGS $LIBS_LINK
     fi
 
-    echo "Build complete: ./fractal_viewer"
+    echo "Build complete: ./octofractalis"
 fi

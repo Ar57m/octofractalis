@@ -1,8 +1,8 @@
 #include <iostream>
 #include <csignal>
 #include <filesystem>
-#include "app_core.h"
-#include "fractal_interface.h"
+#include "core/app_core.h"
+#include "core/fractal_interface.h"
 
 
 RuntimeState g_runtime;

@@ -1,8 +1,9 @@
 .vscode/
-SDL3-*/
-sdl/
+libs/SDL3-*/
+libs/sdl/
 images/
 __pycache__/
+.clangd
 *.o
 *.obj
 *.exe
@@ -13,3 +14,6 @@ __pycache__/
 *.log
 *.ini
 *.so
+*.0
+octofractalis
+octofractalis-cli

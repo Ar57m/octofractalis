@@ -7,8 +7,9 @@
 #include <fstream>
 
 // Image Save
-#include "lodepng.h"
-#include "runtime.h"
+#include "ext/lodepng.h"
+#include "core/runtime.h"
+
 
 struct AppState {
     double offsetX = 0.0;

@@ -16,7 +16,7 @@
 
 #ifndef USE_CUDA
 #include <omp.h>
-#include "parser.h"
+#include "core/parser.h"
 #endif
 
 
