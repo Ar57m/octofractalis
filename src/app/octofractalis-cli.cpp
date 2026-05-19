@@ -117,20 +117,19 @@ void printConfig() {
 
 // ---------- PALETTE ----------
 void regenPalettes(std::vector<int>& palOut, std::vector<int>& palLake) {
-    state.outColCount = (state.outColCount / 8) * 8;
-    state.lakeColCount = (state.lakeColCount / 8) * 8;
+    if (state.outGradCount < 0) state.outGradCount = 0;
+    if (state.lakeGradCount < 0) state.lakeGradCount = 0;
+    uint32_t countout = state.seedOutCount*(1+state.outGradCount);
+    uint32_t countlake = state.seedLakeCount*(1+state.lakeGradCount);
+    if (palOut.capacity() < (size_t)countout) palOut.reserve(3072);
+    if (palLake.capacity() < (size_t)countlake) palLake.reserve(3072);
 
-    if (state.outColCount < 8) state.outColCount = 8;
-    if (state.lakeColCount < 8) state.lakeColCount = 8;
 
-    if (palOut.capacity() < (size_t)state.outColCount) palOut.reserve(16384);
-    if (palLake.capacity() < (size_t)state.lakeColCount) palLake.reserve(16384);
+    palOut.resize(countout);
+    palLake.resize(countlake);
 
-    palOut.resize(state.outColCount);
-    palLake.resize(state.lakeColCount);
-
-    generate_on_cpu(state.seedOut, state.seedOutCount, state.outColCount, (uint32_t*)palOut.data());
-    generate_on_cpu(state.seedLake, state.seedLakeCount, state.lakeColCount, (uint32_t*)palLake.data());
+    generate_on_cpu(state.seedOut, state.seedOutCount, countout, (uint32_t*)palOut.data());
+    generate_on_cpu(state.seedLake, state.seedLakeCount, countlake, (uint32_t*)palLake.data());
 }
 
 // ---------- RUN ----------

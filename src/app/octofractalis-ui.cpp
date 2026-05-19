@@ -176,27 +176,26 @@ int main(int, char**) {
     std::vector<int> palOut, palLake;
 
     auto regenPalettes = [&]() {
-        // 1. Force the counts to be multiples of 8
-        state.outColCount = (state.outColCount / 8) * 8;
-        state.lakeColCount = (state.lakeColCount / 8) * 8;
-
-        if (state.outColCount < 8) state.outColCount = 8;
-        if (state.lakeColCount < 8) state.lakeColCount = 8;
-
+        if (state.outGradCount < 0) state.outGradCount = 0;
+        if (state.lakeGradCount < 0) state.lakeGradCount = 0;
+        uint32_t countout = state.seedOutCount*(1+state.outGradCount);
+        uint32_t countlake = state.seedLakeCount*(1+state.lakeGradCount);
+        
         // Use reserve to prevent frequent reallocations
-        if (palOut.capacity() < (size_t)state.outColCount) palOut.reserve(16384);
-        if (palLake.capacity() < (size_t)state.lakeColCount) palLake.reserve(16384);
+        if (palOut.capacity() < (size_t)countout) palOut.reserve(3072);
+        if (palLake.capacity() < (size_t)countlake) palLake.reserve(3072);
 
-        palOut.resize(state.outColCount); 
-        palLake.resize(state.lakeColCount);
+        palOut.resize(countout); 
+        palLake.resize(countlake);
 
-        // 2. Call CPU version instead of GPU
-        generate_on_cpu(state.seedOut, state.seedOutCount, state.outColCount, (uint32_t*)palOut.data());
-        generate_on_cpu(state.seedLake, state.seedLakeCount, state.lakeColCount, (uint32_t*)palLake.data());
+        // Call CPU version instead of GPU
+        generate_on_cpu(state.seedOut, state.seedOutCount, countout, (uint32_t*)palOut.data());
+        generate_on_cpu(state.seedLake, state.seedLakeCount, countlake, (uint32_t*)palLake.data());
         
         if (state.realtimeExpression) state.needsRender = true;
     };
     regenPalettes();
+    
 
     const int TARGET_FPS = 60;
     const int FRAME_TARGET_MS = 1000 / TARGET_FPS;
@@ -224,10 +223,27 @@ int main(int, char**) {
         bool ctrl = ImGui::GetIO().KeyCtrl;
         if (!g_runtime.saveTask.active && ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
             g_runtime.saveTask.active = true;
+
             g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
-            std::thread(SavePNGThread, palOut, palLake, 
-                        state.renderWidth * state.renderResMultiplier, 
-                        state.renderHeight * state.renderResMultiplier, state, std::ref(g_runtime), fractal).detach();
+            if (g_runtime.renderThread.joinable()) {
+                g_runtime.renderThread.join();
+            }
+
+            if (g_runtime.saveThread.joinable()) {
+                g_runtime.saveThread.join();
+            }
+
+            g_runtime.saveStopFlag.store(false, std::memory_order_relaxed);
+
+            g_runtime.saveThread = std::thread(
+                SavePNGThread,
+                palOut, palLake,
+                state.renderWidth * state.renderResMultiplier,
+                state.renderHeight * state.renderResMultiplier,
+                state,
+                std::ref(g_runtime),
+                fractal
+            );
         }
         // 1. Fetch exact window size directly from OS every frame
         SDL_GetWindowSize(g_window, &state.winWidth, &state.winHeight);
@@ -291,7 +307,15 @@ int main(int, char**) {
             );
 
             g_runtime.renderBufferReady = false;
-            state.needsRender = false;
+            // state.needsRender = false;
+        }
+        // Safe cleanup of finished save thread
+        if (g_runtime.saveTask.active && g_runtime.saveThread.joinable()) {
+            // Only join if the save thread has actually finished its work
+            // You MUST ensure SavePNGThread sets active = false at the end
+            if (!g_runtime.saveTask.active.load(std::memory_order_relaxed)) {
+                g_runtime.saveThread.join();
+            }
         }
 
         // 2. Trigger a new background render if needed and thread is idle
@@ -302,7 +326,7 @@ int main(int, char**) {
                 g_runtime.renderStopFlag.store(true, std::memory_order_relaxed); // tell it to stop
                 g_runtime.renderThread.join(); // wait until it actually stops
             }
-            
+            state.needsRender = false;
             g_runtime.renderStopFlag.store(false, std::memory_order_relaxed);
 
             g_runtime.renderThread = std::thread(
@@ -540,14 +564,11 @@ int main(int, char**) {
             if (ImGui::Checkbox("Lake", &state.showLake)) palette_changed = true;
             if (ImGui::Checkbox("Ignore Iter", &state.ignore_it)) palette_changed = true;
 
-            // snap to multiples of 8 (GPU safety)
-            if (ImGui::SliderInt("Out Colors", &state.outColCount, 16, 2048)) {
-                state.outColCount = (state.outColCount / 8) * 8;
+            if (ImGui::SliderInt("Out Colors", &state.outGradCount, 0, 256)) {
                 palette_changed = true;
             }
 
-            if (ImGui::SliderInt("Lake Colors", &state.lakeColCount, 16, 2048)) {
-                state.lakeColCount = (state.lakeColCount / 8) * 8;
+            if (ImGui::SliderInt("Lake Colors", &state.lakeGradCount, 0, 256)) {
                 palette_changed = true;
             }
 
@@ -595,9 +616,9 @@ int main(int, char**) {
                 ImGui::PopID();
             }
 
-            if (palette_changed) {
+            if (palette_changed && state.realtimeExpression) {
                 regenPalettes();
-                state.needsRender = true;
+                g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
             }
         }
 
@@ -606,16 +627,35 @@ int main(int, char**) {
             ImGui::Separator();
             float bw_footer = (ImGui::GetContentRegionAvail().x - 8.0f) * 0.5f;
 
-            ImGui::SliderInt("Export Scale", &state.renderResMultiplier, 1, 8);
+            ImGui::SliderInt("Export Scale", &state.renderResMultiplier, 1, 10);
 
             if (ImGui::Button("SAVE PNG", ImVec2(bw_footer, 40))) {
-                g_runtime.saveTask.active = true;
-                g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
-                std::thread(SavePNGThread, palOut, palLake, 
-                            state.renderWidth * state.renderResMultiplier, 
-                            state.renderHeight * state.renderResMultiplier, state, std::ref(g_runtime), fractal).detach();
-            }
+                if (!g_runtime.saveTask.active) {
+                    g_runtime.saveTask.active = true;
 
+                    g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
+                    if (g_runtime.renderThread.joinable()) {
+                        g_runtime.renderThread.join();
+                    }
+
+                    // 🔥 FIX HERE
+                    if (g_runtime.saveThread.joinable()) {
+                        g_runtime.saveThread.join();
+                    }
+
+                    g_runtime.saveStopFlag.store(false, std::memory_order_relaxed);
+
+                    g_runtime.saveThread = std::thread(
+                        SavePNGThread,
+                        palOut, palLake,
+                        state.renderWidth * state.renderResMultiplier,
+                        state.renderHeight * state.renderResMultiplier,
+                        state,
+                        std::ref(g_runtime),
+                        fractal
+                    );
+                }
+            }
             ImGui::SameLine();
 
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0, 0, 1));

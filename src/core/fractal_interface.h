@@ -124,9 +124,9 @@ static inline void update_output(uint8_t* output, const int* array_top_colors_ou
     int it = 0;
     
     if (not_escaped) {
-        it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * top_colors_lake))] : array_top_colors_lake[0];
+        it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * (top_colors_lake - 1)))] : array_top_colors_lake[0];
     } else if (lya) {
-        it = array_top_colors_outside[static_cast<int>((my_round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
+        it = array_top_colors_outside[static_cast<int>((my_round((temp / (temp + top_colors_outside / 10.0)) * (top_colors_outside - 1))))];
     } else {
         it = array_top_colors_outside[iteration % top_colors_outside];
     }

@@ -11,6 +11,7 @@ struct SaveTask {
 
 struct RuntimeState {
     std::thread renderThread;
+    std::thread saveThread;
 
     std::atomic<bool> isAsyncRendering{false};
     std::atomic<bool> renderStopFlag{false};

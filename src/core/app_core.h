@@ -41,8 +41,8 @@ struct AppState {
 
     char expressionBuffer[256] = "z*z+c";
     
-    int outColCount = 512;
-    int lakeColCount = 512;
+    int outGradCount = 72;
+    int lakeGradCount = 72;
     
     int seedOutCount = 8;
     uint32_t seedOut[8] = { 0x050505, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x000033, 0x004488, 0x6600AA, 0x222222 };
@@ -111,7 +111,26 @@ inline std::string cleanKey(std::string k) {
     }), k.end());
     return k;
 }
+inline uint32_t parseColorItem(std::string item) {
+    // Aggressively strip out all JSON array garbage: [, ], ", commas, and spaces
+    item.erase(std::remove_if(item.begin(), item.end(), [](unsigned char c) {
+        return c == '[' || c == ']' || c == '"' || c == ',' || std::isspace(c);
+    }), item.end());
 
+    // If the item ended up completely empty after cleaning, bail early
+    if (item.empty()) return 0;
+
+    try {
+        // Now item is guaranteed to be just "0x00ffff", "0x711c91", etc.
+        unsigned long val = std::stoul(item, nullptr, 0);
+        
+        // Cap it to 24-bit color max
+        return std::min<uint32_t>(val, 0xffffff); 
+    } 
+    catch (...) {
+        return 0; // Fallback safely if data is completely corrupted
+    }
+}
 
 inline std::string SaveState(const AppState& state, const std::string& filename = "") {
     std::ostringstream ss;
@@ -129,19 +148,36 @@ inline std::string SaveState(const AppState& state, const std::string& filename 
     ss << "  \"offsetX\": " << state.offsetX << ",\n";
     ss << "  \"offsetY\": " << state.offsetY << ",\n";
     ss << "  \"zoom\": " << state.zoom << ",\n";
+    ss << "  \"renderWidth\": " << state.renderWidth << ",\n";
+    ss << "  \"renderHeight\": " << state.renderHeight << ",\n";
+    ss << "  \"lakeGradCount\": " << state.lakeGradCount << ",\n";
+    ss << "  \"outGradCount\": " << state.outGradCount << ",\n";
 
 
 
-    auto writeArray = [&](const std::string& key, const auto* arr, int count, bool last = false) {
+    auto writeArray = [&](const std::string& key, const auto* arr, int count, bool last = false, bool asHex = false) {
         ss << "  \"" << key << "\": [";
-        for(int i = 0; i < count; ++i) ss << arr[i] << (i < count - 1 ? "," : "");
-        ss << "]" << (last ? "\n" : ",\n");
+        for(int i = 0; i < count; ++i) {
+            if (asHex) {
+                // Limit max value to 24-bit color (0xffffff)
+                uint32_t color = std::min<uint32_t>(arr[i], 0xffffff);
+                
+                // Format as "0x000000" padded nicely
+                ss << "\"0x" << std::setfill('0') << std::setw(6) << std::hex << color << "\"";
+            } else {
+                ss << std::dec << arr[i]; // Ensure it's decimal for normal numbers
+            }
+            
+            ss << (i < count - 1 ? ", " : "");
+        }
+        // Reset stream back to decimal just in case
+        ss << std::dec << "]" << (last ? "\n" : ",\n");
     };
 
     writeArray("juliaC", state.juliaC, 8);
     writeArray("zInit", state.zInit, 8);
-    writeArray("seedOut", state.seedOut, 8);
-    writeArray("seedLake", state.seedLake, 8, true); // Kept true for valid JSON output
+    writeArray("seedOut", state.seedOut, 8, false, true);
+    writeArray("seedLake", state.seedLake, 8, true, true); // Kept true for valid JSON output
 
     ss << "}";
 
@@ -183,6 +219,10 @@ inline bool LoadState(AppState& state, std::string input, bool isPath = true) {
         else if (key == "offsetY") { sanitize(val); state.offsetY = std::stold(val); }
         else if (key == "zoom")    { sanitize(val); state.zoom = std::stold(val); }
         else if (key == "iterations")   { sanitize(val); state.iterations = std::stoi(val); }
+        else if (key == "renderHeight")   { sanitize(val); state.renderHeight = std::stoi(val); }
+        else if (key == "renderWidth")   { sanitize(val); state.renderWidth = std::stoi(val); }
+        else if (key == "lakeGradCount")   { sanitize(val); state.lakeGradCount = std::stoi(val); }
+        else if (key == "outGradCount")   { sanitize(val); state.outGradCount = std::stoi(val); }
         else if (key == "escapeRadius") { sanitize(val); state.escapeRadius = std::stof(val); }
         else if (key == "isJulia")  { sanitize(val); state.isJulia = (val.find("true") != std::string::npos); }
         else if (key == "fastMode") { sanitize(val); state.fastMode = (val.find("true") != std::string::npos); }
@@ -211,8 +251,8 @@ inline bool LoadState(AppState& state, std::string input, bool isPath = true) {
                 while (std::getline(arraySs, item, ',') && i < 8) {
                     if (key == "juliaC")         state.juliaC[i] = std::stof(item);
                     else if (key == "zInit")     state.zInit[i] = std::stof(item);
-                    else if (key == "seedOut")   state.seedOut[i] = (uint32_t)std::stoul(item);
-                    else if (key == "seedLake")  state.seedLake[i] = (uint32_t)std::stoul(item);
+                    else if (key == "seedOut")   state.seedOut[i] = parseColorItem(item);
+                    else if (key == "seedLake")  state.seedLake[i] = parseColorItem(item);
                     i++;
                 }
             }
@@ -405,7 +445,7 @@ inline void SavePNGThread(
     std::string myJson = SaveState(s);
     save_png_with_json(tmp_fn, rgba, w, h, myJson);
 
-    printf("Loaded JSON: %s\n", load_json_from_png(tmp_fn).c_str());
+    printf("JSON included in IMG Metadata: %s\n", load_json_from_png(tmp_fn).c_str());
 
     g_runtime_.saveTask.filename = tmp_fn;
     g_runtime_.saveTask.active = false;
