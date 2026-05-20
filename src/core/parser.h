@@ -1018,7 +1018,7 @@ private:
 
 
 template <int Dim>
-HOST_DEVICE static inline void evaluateBytecode(
+HOST_DEVICE inline void evaluateBytecode(
     Hypercomplex<Dim>& out,
     const Instruction<Dim>* code,
     size_t size,

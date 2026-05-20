@@ -5,7 +5,7 @@
 #include <sstream>
 #include <algorithm>
 #include <fstream>
-
+#include <filesystem>
 // Image Save
 #include "ext/lodepng.h"
 #include "core/runtime.h"
@@ -14,7 +14,7 @@
 struct AppState {
     double offsetX = 0.0;
     double offsetY = 0.0;
-    double zoom = 1.0;
+    double zoom = 0.8;
     
     // Smooth interaction tracking
     double texOffsetX = 0.0;
@@ -54,8 +54,8 @@ struct AppState {
     
     int winWidth = 1280;
     int winHeight = 720;
-    int renderWidth = 1280;
-    int renderHeight = 720;
+    int renderWidth = 1024;
+    int renderHeight = 1024;
     const int guiWidth = 360;
 
     void ResetView();
@@ -131,6 +131,35 @@ inline uint32_t parseColorItem(std::string item) {
         return 0; // Fallback safely if data is completely corrupted
     }
 }
+inline constexpr bool endsWith(const char* expr, const char* token) {
+    // 1. Calculate length of expr and token
+    int exprLen = 0;
+    while (expr[exprLen] != '\0') exprLen++;
+
+    int tokenLen = 0;
+    while (token[tokenLen] != '\0') tokenLen++;
+
+    // 2. If token is longer than expr, it cannot be a suffix
+    if (tokenLen > exprLen) return false;
+
+    // 3. Compare from the offset
+    int startPos = exprLen - tokenLen;
+    for (int i = 0; i < tokenLen; ++i) {
+        if (expr[startPos + i] != token[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+inline bool endsWith(const std::string& str, const char* token) {
+    return endsWith(str.c_str(), token);
+}
+
+
+
+
+
 
 inline std::string SaveState(const AppState& state, const std::string& filename = "") {
     std::ostringstream ss;
@@ -150,6 +179,7 @@ inline std::string SaveState(const AppState& state, const std::string& filename 
     ss << "  \"zoom\": " << state.zoom << ",\n";
     ss << "  \"renderWidth\": " << state.renderWidth << ",\n";
     ss << "  \"renderHeight\": " << state.renderHeight << ",\n";
+    ss << "  \"renderResMultiplier\": " << state.renderResMultiplier << ",\n";
     ss << "  \"lakeGradCount\": " << state.lakeGradCount << ",\n";
     ss << "  \"outGradCount\": " << state.outGradCount << ",\n";
 
@@ -221,6 +251,7 @@ inline bool LoadState(AppState& state, std::string input, bool isPath = true) {
         else if (key == "iterations")   { sanitize(val); state.iterations = std::stoi(val); }
         else if (key == "renderHeight")   { sanitize(val); state.renderHeight = std::stoi(val); }
         else if (key == "renderWidth")   { sanitize(val); state.renderWidth = std::stoi(val); }
+        else if (key == "renderResMultiplier")   { sanitize(val); state.renderResMultiplier = std::stoi(val); }
         else if (key == "lakeGradCount")   { sanitize(val); state.lakeGradCount = std::stoi(val); }
         else if (key == "outGradCount")   { sanitize(val); state.outGradCount = std::stoi(val); }
         else if (key == "escapeRadius") { sanitize(val); state.escapeRadius = std::stof(val); }
@@ -315,6 +346,28 @@ inline std::string load_json_from_png(const std::string& filename) {
 
     return "";
 }
+
+inline bool loadInputState(AppState& state_, const std::string& path) {
+    if (path.empty()) return true;
+
+    if (!std::filesystem::exists(path)) {
+        printf("File not found: %s\n", path.c_str());
+        return false;
+    }
+
+    if (endsWith(path, ".png")) {
+        std::string json = load_json_from_png(path);
+        if (json.empty()) {
+            printf("Failed to extract JSON from PNG\n");
+            return false;
+        }
+        return LoadState(state_, json, false);
+    }
+
+    return LoadState(state_, path, true);
+}
+
+
 
 
 
@@ -450,3 +503,6 @@ inline void SavePNGThread(
     g_runtime_.saveTask.filename = tmp_fn;
     g_runtime_.saveTask.active = false;
 }
+
+
+

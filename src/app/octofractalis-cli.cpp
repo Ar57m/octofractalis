@@ -1,6 +1,5 @@
 #include <iostream>
 #include <csignal>
-#include <filesystem>
 #include "core/app_core.h"
 #include "core/fractal_interface.h"
 
@@ -14,12 +13,6 @@ static std::atomic<bool> g_stop(false);
 void handle_sigint(int) {
     g_stop.store(true);
     g_runtime.saveStopFlag.store(true);
-}
-
-// ---------- UTILS ----------
-bool endsWith(const std::string& str, const std::string& suffix) {
-    if (str.size() < suffix.size()) return false;
-    return str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 // ---------- ARGS ----------
@@ -61,27 +54,6 @@ void printHelp() {
     "  -e \"expr\"         Override expression\n"
     "  --bench N         Run N times and average\n"
     "  -h                Show this help\n";
-}
-
-// ---------- LOAD ----------
-bool loadInputState(const std::string& path) {
-    if (path.empty()) return true;
-
-    if (!std::filesystem::exists(path)) {
-        std::cerr << "File not found: " << path << "\n";
-        return false;
-    }
-
-    if (endsWith(path, ".png")) {
-        std::string json = load_json_from_png(path);
-        if (json.empty()) {
-            std::cerr << "Failed to extract JSON from PNG\n";
-            return false;
-        }
-        return LoadState(state, json, false);
-    }
-
-    return LoadState(state, path, true);
 }
 
 // ---------- OVERRIDE ----------
@@ -133,18 +105,11 @@ void regenPalettes(std::vector<int>& palOut, std::vector<int>& palLake) {
 }
 
 // ---------- RUN ----------
-double runOnce() {
+inline double runOnce(const std::vector<int>& palOut, const std::vector<int>& palLake) {
     g_runtime.saveStopFlag.store(false);
 
     int w = state.renderWidth * state.renderResMultiplier;
     int h = state.renderHeight * state.renderResMultiplier;
-
-    std::vector<int> palOut, palLake;
-    std::vector<uint8_t> rgbaBuf;
-
-    regenPalettes(palOut, palLake);
-
-    
 
     SavePNGThread(
         palOut,
@@ -161,13 +126,13 @@ double runOnce() {
 }
 
 // ---------- BENCH ----------
-void runBench(int count) {
+inline void runBench(int count, const std::vector<int>& palOut, const std::vector<int>& palLake) {
     double total = 0.0;
-
+    
     for (int i = 0; i < count; ++i) {
         if (g_stop.load()) break;
 
-        double t = runOnce();
+        double t = runOnce(palOut, palLake);
         total += t;
 
         std::cout << "[" << i+1 << "/" << count << "] "
@@ -199,17 +164,20 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    if (!loadInputState(opt.inputPath)) {
+    if (!loadInputState(state, opt.inputPath)) {
         return 1;
     }
 
     applyOverrides(opt);
     printConfig();
 
+    std::vector<int> palOut, palLake;
+    regenPalettes(palOut, palLake);
+
     if (opt.bench > 1) {
-        runBench(opt.bench);
+        runBench(opt.bench, palOut, palLake);
     } else {
-        double t = runOnce();
+        double t = runOnce(palOut, palLake);
         std::cout << "Time: " << t << " ms\n";
     }
 

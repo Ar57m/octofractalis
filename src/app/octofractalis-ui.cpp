@@ -199,6 +199,9 @@ int main(int, char**) {
 
     const int TARGET_FPS = 60;
     const int FRAME_TARGET_MS = 1000 / TARGET_FPS;
+    
+    static std::string g_NotificationText = "";
+    static uint64_t g_NotificationExpireTime = 0;
 
     bool done = false;
     while (!done) {
@@ -210,6 +213,34 @@ int main(int, char**) {
             ImGui_ImplSDL3_ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT) done = true;
             if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(g_window)) done = true;
+            
+            if (event.type == SDL_EVENT_DROP_FILE) {
+                const char* path = event.drop.data;
+
+                if (path != nullptr && path[0] != '\0') { 
+                    std::string droppedPath = path;
+
+                    // STOP THREAD SAFELY
+                    g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
+                    if (g_runtime.renderThread.joinable()) {
+                        g_runtime.renderThread.join();
+                    }
+
+                    // LOAD
+                    if (loadInputState(state, droppedPath)) {
+                        // Safe extraction of filename
+                        size_t lastSlash = droppedPath.find_last_of("/\\");
+                        std::string filename = (lastSlash == std::string::npos) ? droppedPath : droppedPath.substr(lastSlash + 1);
+                        
+                        g_NotificationText = "Loaded: " + filename;
+                        g_NotificationExpireTime = SDL_GetTicks() + 3500;
+                        state.needsRender = true;
+                    } else {
+                        g_NotificationText = "Failed to load file!";
+                        g_NotificationExpireTime = SDL_GetTicks() + 3500;
+                    }
+                }
+            }
         }
 
         ImGui_ImplSDLRenderer3_NewFrame();
@@ -312,7 +343,6 @@ int main(int, char**) {
         // Safe cleanup of finished save thread
         if (g_runtime.saveTask.active && g_runtime.saveThread.joinable()) {
             // Only join if the save thread has actually finished its work
-            // You MUST ensure SavePNGThread sets active = false at the end
             if (!g_runtime.saveTask.active.load(std::memory_order_relaxed)) {
                 g_runtime.saveThread.join();
             }
@@ -412,7 +442,41 @@ int main(int, char**) {
                 buf
             );
         }
+        if (!g_NotificationText.empty() && SDL_GetTicks() < g_NotificationExpireTime) {
+            ImDrawList* d = ImGui::GetForegroundDrawList();
+            ImVec2 textSize = ImGui::CalcTextSize(g_NotificationText.c_str());
+            
+            float pad = 10.0f;
+            ImVec2 pos = ImVec2(pad, pad); // Top-left placement
 
+            // Background capsule container
+            d->AddRectFilled(
+                pos,
+                ImVec2(pos.x + textSize.x + pad * 2.0f, pos.y + textSize.y + pad),
+                IM_COL32(5, 5, 10, 220), // Deep space blue/black matching your UI
+                4.0f                     // Rounded corners
+            );
+
+            // Subtle colored border highlight to catch the eye beautifully
+            d->AddRect(
+                pos,
+                ImVec2(pos.x + textSize.x + pad * 2.0f, pos.y + textSize.y + pad),
+                IM_COL32(0, 255, 200, 100), // Soft cyan glow
+                4.0f,
+                0,
+                1.0f
+            );
+
+            // Notification text
+            d->AddText(
+                ImVec2(pos.x + pad, pos.y + pad * 0.5f),
+                IM_COL32(0, 255, 200, 255), // Bright Cyan/Teal
+                g_NotificationText.c_str()
+            );
+        } else if (!g_NotificationText.empty()) {
+            // Clear string when expired so we don't evaluate CalcTextSize every frame
+            g_NotificationText = "";
+        }
         if (g_runtime.saveTask.active) {
             ImGui::OpenPopup("EXPORTING");
 

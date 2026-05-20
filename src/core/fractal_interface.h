@@ -90,7 +90,7 @@ inline uint32_t rgbLerp_cpu(uint32_t c0, uint32_t c1, int step, int steps) {
     return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
 }
 
-void generate_on_cpu(const uint32_t* h_colors, int numColors, int totalOutputSize, uint32_t* h_out) {
+inline void generate_on_cpu(const uint32_t* h_colors, int numColors, int totalOutputSize, uint32_t* h_out) {
     if (totalOutputSize <= 0 || numColors <= 0) return;
 
     int outSizePerColor = totalOutputSize / numColors;
@@ -116,7 +116,7 @@ void generate_on_cpu(const uint32_t* h_colors, int numColors, int totalOutputSiz
 
 #ifndef USE_CUDA
 
-static inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType& temp,
+inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType& temp,
                 const uint16_t& width, const uint16_t& iteration, const uint16_t& x, const uint16_t& y,
                 const bool& not_escaped, const int& top_colors_outside, const int& top_colors_lake, const bool& lake, const bool& lya) {
 
@@ -153,7 +153,7 @@ void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside
 
 
 template <int Dim>
-void setHypercomplexValues(
+inline void setHypercomplexValues(
     bool juliaset,
     Hypercomplex<Dim>& c,
     Hypercomplex<Dim>& z,
@@ -189,7 +189,7 @@ void setHypercomplexValues(
 
 
 template <int Dim>
-void runFractalCPU(
+inline void runFractalCPU(
     uint8_t* output,
     const int* array_top_colors_outside,
     const int* array_top_colors_lake,
