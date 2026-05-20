@@ -43,7 +43,7 @@ Tested on:
 
 ### UI (Work in Progress)
 <div align="center">
-  <img height="220" alt="Captura de tela 2026-05-20 013448" src="https://github.com/user-attachments/assets/5a01b252-a7f5-42e1-8744-87e41a4dc478" alt="UI preview"/>
+  <img height="220" src="https://github.com/user-attachments/assets/5a01b252-a7f5-42e1-8744-87e41a4dc478" alt="UI preview"/>
 </div>
 
 ### Fractals (Examples)
@@ -87,8 +87,8 @@ Precompiled builds are available in the Releases section:
 > ⚠️ This project uses submodules (ImGui). You **must** include them if you want to compile the UI mode.
 
 ```bash
-git clone --recurse-submodules https://github.com/Ar57m/another_fractal_generator
-cd another_fractal_generator
+git clone --recurse-submodules https://github.com/Ar57m/octofractalis
+cd octofractalis
 ````
 
 If you already cloned:
