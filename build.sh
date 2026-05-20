@@ -22,7 +22,7 @@ show_help() {
     echo "--cpu       Compile for CPU (defaults to double)"
     echo "--float     Use 32-bit floats"
     echo "--double    Use 64-bit doubles"
-    echo "--share     Portable binary (disables march=native)"
+    echo "--share     Portable build (no -march=native, better CPU compatibility)"
     echo "--cli       Build CLI version (no SDL/ImGui)"
     exit 0
 }

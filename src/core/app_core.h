@@ -498,7 +498,7 @@ inline void SavePNGThread(
     std::string myJson = SaveState(s);
     save_png_with_json(tmp_fn, rgba, w, h, myJson);
 
-    printf("JSON included in IMG Metadata: %s\n", load_json_from_png(tmp_fn).c_str());
+    // printf("JSON included in IMG Metadata: %s\n", load_json_from_png(tmp_fn).c_str());
 
     g_runtime_.saveTask.filename = tmp_fn;
     g_runtime_.saveTask.active = false;

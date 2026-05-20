@@ -74,17 +74,65 @@ const char* modeToStr(int mode) {
 }
 
 // ---------- PRINT ----------
+void printVec(const char* name, const float* v, int count) {
+    std::cout << name << ": [";
+    for (int i = 0; i < count; ++i) {
+        std::cout << std::fixed << std::setprecision(6) << v[i];
+        if (i < count - 1) std::cout << ", ";
+    }
+    std::cout << "]\n";
+}
+
+void printColors(const char* name, const uint32_t* colors, size_t count) {
+    std::cout << name << ": [";
+    for (size_t i = 0; i < count; ++i) {
+        std::cout << "\"0x"
+                  << std::hex << std::setw(6) << std::setfill('0')
+                  << (colors[i] & 0xFFFFFF)
+                  << std::dec << "\"";
+
+        if (i < count - 1) std::cout << ", ";
+    }
+    std::cout << "]\n";
+}
+
 void printConfig() {
-    std::cout << "\n=== FRACTAL CONFIG ===\n";
-    std::cout << "Mode:           " << modeToStr(state.mode) << "\n";
-    std::cout << "Expression:     " << state.expressionBuffer << "\n";
-    std::cout << "Iterations:     " << state.iterations << "\n";
-    std::cout << "Escape Radius:  " << state.escapeRadius << "\n";
-    std::cout << "Julia:          " << (state.isJulia ? "yes" : "no") << "\n";
-    std::cout << "Resolution:     "
-              << state.renderWidth << " x "
-              << state.renderHeight << "\n";
-    std::cout << "======================\n\n";
+    std::cout << "\n=========== FRACTAL CONFIG ===========\n";
+
+    // Core
+    std::cout << "\n[Core]\n";
+    std::cout << "Mode:              " << modeToStr(state.mode) << "\n";
+    std::cout << "Expression:        " << state.expressionBuffer << "\n";
+    std::cout << "Iterations:        " << state.iterations << "\n";
+    std::cout << "Escape Radius:     " << state.escapeRadius << "\n";
+
+    // Render
+    std::cout << "\n[Render]\n";
+    std::cout << "Resolution:        " << state.renderWidth << " x " << state.renderHeight << "\n";
+    std::cout << "Resolution Scale:  " << state.renderResMultiplier << "\n";
+    std::cout << "Zoom:              " << state.zoom << "\n";
+    std::cout << "Offset:            (" << state.offsetX << ", " << state.offsetY << ")\n";
+
+    // Mode flags
+    std::cout << "\n[Flags]\n";
+    std::cout << "Julia Mode:        " << (state.isJulia ? "yes" : "no") << "\n";
+    std::cout << "Show Lake:         " << (state.showLake ? "yes" : "no") << "\n";
+    std::cout << "Ignore Iteration:  " << (state.ignore_it ? "yes" : "no") << "\n";
+
+    // Vectors
+    std::cout << "\n[Vectors]\n";
+    printVec("Julia C", state.juliaC, 8);
+    printVec("Z Init ", state.zInit, 8);
+
+    // Palette
+    std::cout << "\n[Palette]\n";
+    std::cout << "Out Gradient Count:   " << state.outGradCount << "\n";
+    std::cout << "Lake Gradient Count:  " << state.lakeGradCount << "\n";
+
+    printColors("Seed Out ", state.seedOut, 8);
+    printColors("Seed Lake", state.seedLake, 8);
+
+    std::cout << "======================================\n\n";
 }
 
 // ---------- PALETTE ----------

@@ -35,7 +35,7 @@ echo --cuda      Compile for GPU (defaults to float)
 echo --cpu       Compile for CPU (defaults to double)
 echo --float     Use 32-bit floats
 echo --double    Use 64-bit doubles
-echo --share     Portable binary (disables AVX2)
+echo --share      Portable binary (no AVX2, runs on older CPUs)
 echo --cli       Build CLI version (no SDL/ImGui)
 exit /b 0
 
@@ -71,8 +71,10 @@ for %%F in (%SRC%\core\*.cpp) do set FILES=!FILES! %%F
 for %%F in (%SRC%\ext\*.cpp) do set FILES=!FILES! %%F
 set FILES=!FILES! %SRC%\app\octofractalis-cli.cpp
 
+
 echo Compiling...
-cl %FLAGS% %DEFS% /Fo%BUILD%\ %FILES% /Fe:octofractalis-cli.exe
+rc /DCLI_BUILD /fo %BUILD%\octofractalis.res %SRC%\app\octofractalis.rc
+cl %FLAGS% %DEFS% /Fo%BUILD%\ %FILES% %BUILD%\octofractalis.res /Fe:octofractalis-cli.exe
 
 echo Build complete: octofractalis-cli.exe
 exit /b 0
@@ -105,6 +107,8 @@ if "%SDL_FOUND%"=="1" (
 )
 
 if exist "%SDL_LIB_DIR%\SDL3.dll" copy /y "%SDL_LIB_DIR%\SDL3.dll" . >nul
+
+
 
 :: Compiler flags
 set CXX_FLAGS=/nologo /std:c++20 /O2 /Ob3 /GL /openmp ^
@@ -152,7 +156,8 @@ if "%MODE%"=="CUDA" (
     set LIB_PATHS=%LIB_PATHS% /LIBPATH:"%CUDA_PATH%\lib\x64"
 )
 
-link /nologo /LTCG /OUT:octofractalis.exe %BUILD%\*.obj %LIB_PATHS% %LIBS_LINK%
+rc /fo %BUILD%\octofractalis.res %SRC%\app\octofractalis.rc
+link /nologo /LTCG /OUT:octofractalis.exe %BUILD%\*.obj %BUILD%\octofractalis.res %LIB_PATHS% %LIBS_LINK%
 
 echo Build complete: octofractalis.exe
 exit /b 0
