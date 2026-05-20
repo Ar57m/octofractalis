@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+# Force Unix line endings for scripts
+*.sh text eol=lf
+*.cpp text eol=lf
+*.cu text eol=lf
+*.h text eol=lf

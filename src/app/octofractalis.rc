@@ -1,0 +1,5 @@
+#ifdef CLI_BUILD
+IDI_ICON1 ICON "../octobw.ico"
+#else
+IDI_ICON1 ICON "../octo.ico"
+#endif

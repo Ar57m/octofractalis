@@ -1,0 +1,835 @@
+// fract_kernel.cu
+
+#include <stdexcept>
+#include <cuda_runtime.h>
+
+#include "parser.h"
+
+
+
+
+__device__ inline void setQuaternionOrOctonionValues(const bool juliaset, QuaternionOrOctonion& c, QuaternionOrOctonion& z,
+                    const double* juliaset_c, const DefaultType r_part, const DefaultType i_part,
+                    const double* z_initial
+                ) {
+
+
+#ifndef OCTO
+    if (juliaset) {
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3]);
+    } else {
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
+    }
+#else
+    if (juliaset) {
+        c = QuaternionOrOctonion(juliaset_c[0], juliaset_c[1], juliaset_c[2], juliaset_c[3], juliaset_c[4], juliaset_c[5], juliaset_c[6], juliaset_c[7]);
+        z = QuaternionOrOctonion(r_part, i_part, z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+    } else {
+        c = QuaternionOrOctonion(r_part, i_part);
+        z = QuaternionOrOctonion(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+    }
+#endif
+
+}
+
+
+__device__ inline void update_output(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const DefaultType temp,
+    const uint16_t width, const uint16_t iteration, const uint16_t x, const uint16_t y,
+    const bool not_escaped, const int top_colors_outside, const int top_colors_lake, const bool lake, const bool lya) {
+
+    const int index = (y * width + x) * 3;
+    int it = 0;
+
+    if (not_escaped && lake) {
+        it = array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * top_colors_lake))];
+    } else if (lya) {
+        it = array_top_colors_outside[static_cast<int>((my_round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
+    } else {
+        it = array_top_colors_outside[iteration % (top_colors_outside+1)];
+    }
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
+
+__device__ inline void update_pendulum_output(uint8_t* output, const int* array_top_colors_outside, const uint16_t width,
+    const uint16_t x, const uint16_t y, const int attractor_index, const int num_attractors) {
+
+    int index = (y * width + x) * 3;
+    int it = array_top_colors_outside[attractor_index % num_attractors];
+
+    output[index] = static_cast<uint8_t>((it >> 16) & 0xFF);       // R
+    output[index + 1] = static_cast<uint8_t>((it >> 8) & 0xFF);    // G
+    output[index + 2] = static_cast<uint8_t>(it & 0xFF);           // B
+}
+
+
+
+__global__ void fractal_kernel(uint8_t* d_output,
+                    const int* d_array_top_colors_outside,
+                    const int* d_array_top_colors_lake,
+                    const char* d_exp, const size_t exp_size, 
+                    const uint16_t width,
+                    const uint16_t height,
+                    const uint16_t max_iter,
+                    const DefaultType xmin, const DefaultType ymin,
+                    const DefaultType dx, const DefaultType dy,
+                    const double* juliaset_c,
+                    DefaultType escape_radius,
+                    const bool fast_mode,
+                    const bool juliaset,
+                    const bool lake,
+                    const int top_colors_outside,
+                    const int top_colors_lake,
+                    const double* z_initial,
+                    double* input_array,
+                    const uint32_t array_size)
+{
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    DefaultType point_x = xmin + x * dx;
+    DefaultType point_y = ymin + y * dy;
+
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
+
+    QuaternionOrOctonion z , c, last_it_z;
+    uint16_t iteration = 0;
+
+
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
+
+    
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+
+    VariableEntry varEntries[8] = {
+        {"z", &z},
+        {"c", &c},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
+        {"y", &y_quat},
+        {"x", &x_quat}
+    };
+    const size_t numVars = 8;
+    Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse();
+
+
+
+    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, point_x, point_y,
+                            z_initial);
+
+
+    DefaultType temp = 0;
+    bool not_escaped = true;
+    
+
+    while ( not_escaped && iteration < max_iter) {
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
+        
+        last_it_z = ast->evaluate();
+        if (last_it_z == z && fast_mode) break;
+        z = last_it_z;
+        temp = z.mag();
+        ++iteration;
+        not_escaped = (temp < escape_radius);
+    }
+
+    update_output(d_output, d_array_top_colors_outside, d_array_top_colors_lake,
+                  temp, width, iteration, x, y, not_escaped,
+                  top_colors_outside, top_colors_lake, lake, false);
+}
+
+
+
+
+
+__global__ void lyapunov_kernel(uint8_t* d_output,
+                    const int* d_array_top_colors_outside,
+                    const int* d_array_top_colors_lake,
+                    const char* d_exp, const size_t exp_size, 
+                    const uint16_t width,
+                    const uint16_t height,
+                    const uint16_t max_iter,
+                    const DefaultType xmin, const DefaultType ymin,
+                    const DefaultType dx, const DefaultType dy,
+                    const DefaultType complex_a, const DefaultType complex_b,
+                    DefaultType escape_radius,
+                    const int top_colors_outside,
+                    const int top_colors_lake,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
+                    double* input_array,
+                    const uint32_t array_size)
+{
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    DefaultType point_x = xmin + x * dx;
+    DefaultType point_y = ymin + y * dy;
+
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
+
+    QuaternionOrOctonion v, p, temp;
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x));
+    QuaternionOrOctonion y_quat(0.0);
+
+    int k = 0;
+
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+    VariableEntry varEntries[9] = {
+        {"v", &v},
+        {"p", &p},
+        {"c", &temp},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
+        {"y", &y_quat},
+        {"x", &x_quat}
+    };
+
+    const size_t numVars = 9;
+    Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse();
+    const QuaternionOrOctonion a(0.5 + point_x * 0.5, complex_a, z_initial_j, z_initial_k);
+    const QuaternionOrOctonion b(0.5 + point_y * 0.5, complex_b, z_initial_j, z_initial_k);
+    p = QuaternionOrOctonion(0.0, 0.0);
+    v = QuaternionOrOctonion(0.5, 0.0);
+
+    k = 0;
+    y_quat = (static_cast<DefaultType>(y));
+
+
+    DefaultType p_mag = 0.0;
+
+    while (k < max_iter) {
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(k));
+        if (k % 12 < 6) {
+            v = b * v * (1.0 - v);
+            temp = b;
+            p += (ast->evaluate());
+        } else { //     log(mag(c*(1-2*v)))
+            v = a * v * (1.0 - v);
+            temp = a;
+            p += (ast->evaluate());
+        }
+        p_mag = p.mag();
+        if (p_mag > escape_radius) break;
+        ++k;
+    }
+    update_output( d_output, d_array_top_colors_outside, d_array_top_colors_lake, p_mag, width,
+    0, x, y, false, top_colors_outside, top_colors_lake, false, true);
+
+}
+
+
+__global__ void newton_kernel(uint8_t* d_output,
+                    const int* d_array_top_colors_outside,
+                    const int* d_array_top_colors_lake,
+                    const char* d_exp, const size_t exp_size, 
+                    const uint16_t width,
+                    const uint16_t height,
+                    const uint16_t max_iter,
+                    const DefaultType xmin, const DefaultType ymin,
+                    const DefaultType dx, const DefaultType dy,
+                    const double* juliaset_c,
+                    const bool juliaset,
+                    const int top_colors_outside,
+                    const int top_colors_lake,
+                    const double* z_initial,
+                    const DefaultType newton_epsilon,
+                    double* input_array,
+                    const uint32_t array_size)
+{
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    DefaultType point_x = xmin + x * dx;
+    DefaultType point_y = ymin + y * dy;
+
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
+
+    QuaternionOrOctonion z , c, last_it_z;
+    uint16_t iteration = 0;
+
+
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
+
+
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+
+    VariableEntry varEntries[8] = {
+        {"z", &z},
+        {"c", &c},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
+        {"y", &y_quat},
+        {"x", &x_quat}
+    };
+    const size_t numVars = 8;
+    Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse();
+
+
+
+    setQuaternionOrOctonionValues(juliaset, c, z, juliaset_c, point_x, point_y,
+                z_initial);
+
+
+    DefaultType temp = 0;
+    bool not_escaped = true;
+
+
+    while ( not_escaped && iteration < max_iter) {
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
+
+        const QuaternionOrOctonion last_z = z;
+        const DefaultType h(newton_epsilon);
+        
+        z += h;
+        const QuaternionOrOctonion next_z = ast->evaluate();
+        z = last_z;
+        z = ast->evaluate();
+        
+        temp = z.mag();
+        
+        if ( temp < 1e-13 ) break;
+        const QuaternionOrOctonion znew = ( next_z - z )/(h); 
+        z = last_z - ( z/znew );
+        ++iteration;
+    }
+
+    update_output( d_output, d_array_top_colors_outside, d_array_top_colors_lake, 3.0, width,
+        iteration, x, y, false, top_colors_outside, top_colors_lake, false, false);
+}
+
+
+__global__ void magnet_kernel(uint8_t* d_output,
+                    const int* d_array_top_colors_outside,
+                    const QuaternionOrOctonion* attractors,
+                    const char* d_exp, const size_t exp_size, 
+                    const uint16_t width,
+                    const uint16_t height,
+                    const uint16_t max_iter,
+                    const DefaultType xmin, const DefaultType ymin,
+                    const DefaultType dx, const DefaultType dy,
+                    const DefaultType v_real, const DefaultType v_imag,
+                    DefaultType escape_radius,
+                    const DefaultType z_initial_j,
+                    const DefaultType z_initial_k,
+                    const bool fast_mode,
+                    const int n_points,
+                    double* input_array,
+                    const uint32_t array_size)
+{
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    DefaultType point_x = xmin + x * dx;
+    DefaultType point_y = ymin + y * dy;
+
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
+
+    QuaternionOrOctonion z, velocity, force, dif;
+    const DefaultType damping = 0.1;
+    uint16_t iteration = 0;
+
+
+    QuaternionOrOctonion it_quat(0.0);
+    QuaternionOrOctonion x_quat(static_cast<DefaultType>(x), 0.0, 0.0, 0.0);
+    QuaternionOrOctonion y_quat(static_cast<DefaultType>(y), 0.0, 0.0, 0.0);
+
+    
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+
+
+
+
+    VariableEntry varEntries[10] = {
+        {"z", &z},
+        {"v", &velocity},
+        {"f", &force},
+        {"dif", &dif},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
+        {"y", &y_quat},
+        {"x", &x_quat}
+    };
+
+    const size_t numVars = 10;
+    Parser parser(d_exp, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse();
+    const DefaultType r0 = 0.1;
+
+
+    QuaternionOrOctonion last_it_z;
+    z = QuaternionOrOctonion(point_x, point_y, z_initial_j, z_initial_k);
+    velocity = QuaternionOrOctonion(v_real, v_imag);
+
+
+    DefaultType temp = 0;
+    int closest_attractor_index = -1;
+    DefaultType min_distance = Max_flt;
+    
+
+    while (iteration < max_iter) {
+        it_quat = QuaternionOrOctonion(static_cast<DefaultType>(iteration));
+        force = QuaternionOrOctonion(0);
+
+        for (int i = 0; i < n_points; ++i) {
+            dif = attractors[i] - z;
+            DefaultType distance2 = dif.magSquared() + r0 * r0;
+            force += dif / distance2;
+
+            if (distance2 < min_distance) {
+                min_distance = distance2;
+                closest_attractor_index = i;
+            }
+        }
+
+        force -= velocity * damping;
+        velocity += force;
+        last_it_z = ast->evaluate();
+        if (last_it_z == z && fast_mode) break;
+        z = last_it_z;
+
+
+        temp = z.magSquared();
+        if (temp > escape_radius) break;
+        ++iteration;
+    }
+    update_pendulum_output(d_output, d_array_top_colors_outside, width, x, y, closest_attractor_index, n_points);
+}
+
+
+__global__ void generate_lorenz_trajectory(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+                        const int max_iter, const char* expression, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
+    
+
+    QuaternionOrOctonion pi(3.1415926535897932384626433832795028841971693993751);
+    QuaternionOrOctonion phi(1.6180339887498948482045868343656381177203091798057);
+    QuaternionOrOctonion e(2.7182818284590452353602874713526624977572470937000);
+
+#ifndef OCTO
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3]);
+#else
+    QuaternionOrOctonion point(z_initial[0], z_initial[1], z_initial[2], z_initial[3], z_initial[4], z_initial[5], z_initial[6], z_initial[7]);
+#endif
+    QuaternionOrOctonion dx = 0.0;
+    QuaternionOrOctonion dy = 0.0;
+    QuaternionOrOctonion dz = 0.0;
+    QuaternionOrOctonion it_quat = 0.0;
+    const QuaternionOrOctonion dt_q = 0.0;
+
+    ArrayEntry arrEntries[1] = {
+        {"array", input_array, array_size}
+    };
+    const size_t numArrays = 1;
+
+    VariableEntry varEntries[9] = {
+        {"z", &point},
+        {"phi", const_cast<QuaternionOrOctonion*>(&phi)},
+        {"pi", const_cast<QuaternionOrOctonion*>(&pi)},
+        {"e", const_cast<QuaternionOrOctonion*>(&e)},
+        {"it", &it_quat},
+        {"dx", &dx},
+        {"dy", &dy},
+        {"dz", &dz},
+        {"dt", const_cast<QuaternionOrOctonion*>(&dt_q)}
+    };
+    
+    const size_t numVars = 9;
+    Parser parser(expression, exp_size, varEntries, numVars, arrEntries, numArrays);
+    const ASTNode* ast = parser.parse(); // dx+dy*1i+dz*1j
+
+    #pragma unroll
+    for (int i = 0; i < max_iter; ++i) {
+        it_quat = static_cast<DefaultType>(i);
+        dx = sigma * (point.imag - point.real) * dt;
+        dy = (point.real * (rho - point.j) - point.imag) * dt;
+        dz = (point.real * point.imag - beta * point.j) * dt;
+        point += ast->evaluate();
+        trajectory[i] = point;
+    }
+}
+
+
+
+// Error checking function
+inline void checkCudaError(cudaError_t err, const char* msg) {
+    if (err != cudaSuccess) {
+        throw std::runtime_error(std::string(msg) + ": " + cudaGetErrorString(err));
+    }
+}
+
+// RAII wrapper for CUDA device memory
+template <typename T>
+class CudaMemory {
+public:
+    // count is the number of elements of type T.
+    CudaMemory(size_t count) : count_(count) {
+        checkCudaError(cudaMalloc((void**)&ptr_, count_ * sizeof(T)), "Failed to allocate device memory");
+    }
+    ~CudaMemory() {
+        if (ptr_) {
+            cudaFree(ptr_);
+        }
+    }
+    T* get() const { return ptr_; }
+    // Disable copy semantics
+    CudaMemory(const CudaMemory&) = delete;
+    CudaMemory& operator=(const CudaMemory&) = delete;
+private:
+    T* ptr_ = nullptr;
+    size_t count_;
+};
+
+// Generalized copy function
+template <typename T>
+void copyMemory(T* destination, const T* source, size_t count, cudaMemcpyKind direction) {
+    const char* errorMsg = (direction == cudaMemcpyHostToDevice) ? "Failed to copy to device"
+                               : (direction == cudaMemcpyDeviceToHost) ? "Failed to copy to host"
+                               : "Memory copy failed";
+    checkCudaError(cudaMemcpy(destination, source, count * sizeof(T), direction), errorMsg);
+}
+
+
+
+
+
+extern "C" void fractal_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
+    const DefaultType dy, const double* juliaset_c, DefaultType escape_radius, const bool fast_mode,
+    const bool juliaset, const bool lake, const int top_colors_outside, const int top_colors_lake,
+    const double* z_initial, double* input_array, const uint32_t array_size) {
+
+
+        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+        // Allocate device memory using the RAII wrapper.
+        // Note: The count here is the number of elements.
+        CudaMemory<uint8_t> d_output(width * height * 3);
+        CudaMemory<double> d_input_array(array_size);
+        CudaMemory<double> d_z_initial(8);
+        CudaMemory<double> d_juliaset_c(8);
+        CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
+        CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
+        
+        size_t exp_len = exp_size + 1; // +1 for null terminator
+        CudaMemory<char> d_exp(exp_len);
+    
+        // Copy host data to device
+        copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_juliaset_c.get(), juliaset_c, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
+        copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+    
+        // Define grid and block dimensions
+        dim3 blockDim(16, 16);
+        dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+                     (height + blockDim.y - 1) / blockDim.y);
+    
+        // Launch the CUDA kernel using the device pointers from the RAII wrappers
+        fractal_kernel<<<gridDim, blockDim>>>(d_output.get(),
+                                              d_array_top_colors_outside.get(),
+                                              d_array_top_colors_lake.get(),
+                                              d_exp.get(), exp_len,
+                                              width, height, max_iter,
+                                              xmin, ymin, dx, dy,
+                                              d_juliaset_c.get(),
+                                              escape_radius,
+                                              fast_mode,
+                                              juliaset,
+                                              lake,
+                                              top_colors_outside,
+                                              top_colors_lake,
+                                              d_z_initial.get(),
+                                              d_input_array.get(), array_size);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+        }
+    
+        // Synchronize the device to ensure kernel completion
+        cudaDeviceSynchronize();
+    
+        // Copy the result from device to host
+        copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
+    
+}
+
+
+
+
+extern "C" void lyapunov_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
+    const DefaultType dy, DefaultType complex_a, DefaultType complex_b,
+    const DefaultType z_initial_j, const DefaultType z_initial_k, DefaultType escape_radius, 
+    const int top_colors_outside, const int top_colors_lake, double* input_array, const uint32_t array_size) {
+
+    // Increase the device stack size if needed.
+    cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+    // Allocate device memory using our RAII wrapper.
+    CudaMemory<uint8_t> d_output(width * height * 3);
+    CudaMemory<double> d_input_array(array_size);
+    CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
+    CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
+    size_t exp_len = exp_size + 1; // +1 for null terminator
+    CudaMemory<char> d_exp(exp_len);
+
+    // Copy host data to device.
+    copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+    copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
+    copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
+    copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+
+    // Define grid and block dimensions.
+    dim3 blockDim(16, 16);
+    dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+                 (height + blockDim.y - 1) / blockDim.y);
+
+    // Launch the CUDA kernel with device pointers from the RAII wrappers.
+    lyapunov_kernel<<<gridDim, blockDim>>>(d_output.get(),
+                                           d_array_top_colors_outside.get(),
+                                           d_array_top_colors_lake.get(),
+                                           d_exp.get(), exp_len,
+                                           width, height, max_iter,
+                                           xmin, ymin, dx, dy,
+                                           complex_a, complex_b,
+                                           escape_radius,
+                                           top_colors_outside,
+                                           top_colors_lake,
+                                           z_initial_j,
+                                           z_initial_k,
+                                           d_input_array.get(), array_size);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+    }
+
+    // Synchronize to ensure kernel completion.
+    cudaDeviceSynchronize();
+
+    // Copy the result back from device to host.
+    copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
+
+
+}
+
+
+
+extern "C" void newton_kernel_call(uint8_t* output, const int* array_top_colors_outside, const int* array_top_colors_lake, const char* exp, const size_t exp_size,
+    const uint16_t width, const uint16_t height, const uint16_t max_iter,
+    const DefaultType xmin, const DefaultType ymin, const DefaultType dx,
+    const DefaultType dy, const double* juliaset_c, const bool juliaset, const int top_colors_outside, const int top_colors_lake,
+    const double* z_initial, const DefaultType newton_epsilon, double* input_array, const uint32_t array_size) {
+
+
+        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+        // Allocate device memory using the RAII wrapper.
+        // Note: The count here is the number of elements.
+        CudaMemory<uint8_t> d_output(width * height * 3);
+        CudaMemory<double> d_input_array(array_size);
+        CudaMemory<double> d_z_initial(8);
+        CudaMemory<double> d_juliaset_c(8);
+        CudaMemory<int> d_array_top_colors_outside(top_colors_outside);
+        CudaMemory<int> d_array_top_colors_lake(top_colors_lake);
+        
+        size_t exp_len = exp_size + 1; // +1 for null terminator
+        CudaMemory<char> d_exp(exp_len);
+    
+        // Copy host data to device
+        copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_juliaset_c.get(), juliaset_c, 8, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, top_colors_outside, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_lake.get(), array_top_colors_lake, top_colors_lake, cudaMemcpyHostToDevice);
+        copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+    
+        // Define grid and block dimensions
+        dim3 blockDim(16, 16);
+        dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+                     (height + blockDim.y - 1) / blockDim.y);
+    
+        // Launch the CUDA kernel using the device pointers from the RAII wrappers
+        newton_kernel<<<gridDim, blockDim>>>(d_output.get(),
+                                              d_array_top_colors_outside.get(),
+                                              d_array_top_colors_lake.get(),
+                                              d_exp.get(), exp_len,
+                                              width, height, max_iter,
+                                              xmin, ymin, dx, dy,
+                                              d_juliaset_c.get(),
+                                              juliaset,
+                                              top_colors_outside,
+                                              top_colors_lake,
+                                              d_z_initial.get(),
+                                              newton_epsilon,
+                                              d_input_array.get(), array_size);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+        }
+    
+        // Synchronize the device to ensure kernel completion
+        cudaDeviceSynchronize();
+    
+        // Copy the result from device to host
+        copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
+    
+}
+
+
+
+extern "C" void magnet_kernel_call(uint8_t* output, const int* array_top_colors_outside, const QuaternionOrOctonion* attractors,
+    const char* exp, const size_t exp_size, const uint16_t width, const uint16_t height,
+    const uint16_t max_iter, const DefaultType xmin, const DefaultType ymin,
+    const DefaultType dx, const DefaultType dy, const DefaultType v_real, const DefaultType v_imag,
+    DefaultType escape_radius, const DefaultType z_initial_j, const DefaultType z_initial_k, 
+    const bool fast_mode, const int n_points, double* input_array, const uint32_t array_size) {
+
+
+        cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+        // Allocate device memory using the RAII wrapper.
+        // Note: The count here is the number of elements.
+        CudaMemory<uint8_t> d_output(width * height * 3);
+        CudaMemory<double> d_input_array(array_size);
+        CudaMemory<int> d_array_top_colors_outside(n_points);
+        CudaMemory<QuaternionOrOctonion> d_attractors(n_points);
+        
+        size_t exp_len = exp_size + 1; // +1 for null terminator
+        CudaMemory<char> d_exp(exp_len);
+    
+        // Copy host data to device
+        copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+        copyMemory(d_array_top_colors_outside.get(), array_top_colors_outside, n_points, cudaMemcpyHostToDevice);
+        copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+        copyMemory(d_attractors.get(), attractors, n_points, cudaMemcpyHostToDevice);
+    
+        // Define grid and block dimensions
+        dim3 blockDim(16, 16);
+        dim3 gridDim((width + blockDim.x - 1) / blockDim.x,
+                     (height + blockDim.y - 1) / blockDim.y);
+    
+        // Launch the CUDA kernel using the device pointers from the RAII wrappers
+        magnet_kernel<<<gridDim, blockDim>>>(d_output.get(),
+                                              d_array_top_colors_outside.get(),
+                                              d_attractors.get(),
+                                              d_exp.get(), exp_len,
+                                              width, height, max_iter,
+                                              xmin, ymin, dx, dy,
+                                              v_real, v_imag,
+                                              escape_radius,
+                                              z_initial_j,
+                                              z_initial_k,
+                                              fast_mode, n_points,
+                                              d_input_array.get(), array_size);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+        }
+    
+        // Synchronize the device to ensure kernel completion
+        cudaDeviceSynchronize();
+    
+        // Copy the result from device to host
+        copyMemory(output, d_output.get(), width * height * 3, cudaMemcpyDeviceToHost);
+    
+}
+
+
+
+
+extern "C" void generate_lorenz_trajectory_kernel(QuaternionOrOctonion* trajectory, const DefaultType sigma, const DefaultType rho, const DefaultType beta, const DefaultType dt,
+    const int max_iter, const char* exp, const size_t exp_size, const double* z_initial, double* input_array, const uint32_t array_size) {
+
+
+    cudaDeviceSetLimit(cudaLimitStackSize, 16384 * 3);
+
+    // Allocate device memory using the RAII wrapper.
+    // Note: The count here is the number of elements.
+    CudaMemory<double> d_input_array(array_size);
+    CudaMemory<double> d_z_initial(8);
+    CudaMemory<QuaternionOrOctonion> d_trajectory(max_iter);
+    
+    size_t exp_len = exp_size + 1; // +1 for null terminator
+    CudaMemory<char> d_exp(exp_len);
+
+    // Copy host data to device
+    copyMemory(d_input_array.get(), input_array, array_size, cudaMemcpyHostToDevice);
+    copyMemory(d_z_initial.get(), z_initial, 8, cudaMemcpyHostToDevice);
+    copyMemory(d_exp.get(), exp, exp_len, cudaMemcpyHostToDevice);
+    copyMemory(d_trajectory.get(), trajectory, max_iter, cudaMemcpyHostToDevice);
+    
+
+    generate_lorenz_trajectory<<<1, 1>>>(d_trajectory.get(),
+                    sigma, rho, beta, dt, max_iter,
+                    d_exp.get(), exp_size, d_z_initial.get(), d_input_array.get(), array_size);
+
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+    }
+
+    // Synchronize the device to ensure kernel completion
+    cudaDeviceSynchronize();
+
+    // Copy the result from device to host
+    copyMemory(trajectory, d_trajectory.get(), max_iter, cudaMemcpyDeviceToHost);
+
+}
+
