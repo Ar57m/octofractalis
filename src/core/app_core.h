@@ -477,6 +477,10 @@ inline void SavePNGThread(
     auto now = std::chrono::system_clock::now();
     auto tt  = std::chrono::system_clock::to_time_t(now);
 
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()
+    ) % 1000;
+
     std::tm tm{};
     #ifdef _WIN32
         localtime_s(&tm, &tt);
@@ -485,13 +489,14 @@ inline void SavePNGThread(
     #endif
 
     std::snprintf(tmp_fn, sizeof(tmp_fn),
-        "./images/fractal_%04d%02d%02d_%02d%02d%02d.png",
+        "./images/fractal_%04d%02d%02d_%02d%02d%02d_%03lld.png",
         tm.tm_year + 1900,
         tm.tm_mon + 1,
         tm.tm_mday,
         tm.tm_hour,
         tm.tm_min,
-        tm.tm_sec
+        tm.tm_sec,
+        static_cast<long long>(ms.count())
     );
 
     // Save with metadata

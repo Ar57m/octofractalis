@@ -124,9 +124,9 @@ inline void update_output(uint8_t* output, const int* array_top_colors_outside, 
     int it = 0;
     
     if (not_escaped) {
-        it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * (top_colors_lake - 1)))] : array_top_colors_lake[0];
+        it = lake ? array_top_colors_lake[static_cast<int>(my_round((temp / (temp + 1.0)) * top_colors_lake))] : array_top_colors_lake[0];
     } else if (lya) {
-        it = array_top_colors_outside[static_cast<int>((my_round((temp / (temp + top_colors_outside / 10.0)) * (top_colors_outside - 1))))];
+        it = array_top_colors_outside[static_cast<int>((my_round((temp / (temp + top_colors_outside / 10.0)) * top_colors_outside)))];
     } else {
         it = array_top_colors_outside[iteration % top_colors_outside];
     }
@@ -244,15 +244,17 @@ inline void runFractalCPU(
         return;
     }
 
-    // Pixel loop with OpenMP
+    // Outer Loop: Rows (y) - Optimized for OpenMP and cache locality
     #pragma omp parallel for schedule(dynamic)
-    for (int x = 0; x < width; ++x) {
+    for (int y = 0; y < height; ++y) {
+        // Atomic check hoisted to the outer loop. Checking once per row 
+        // is incredibly fast and keeps thread cancellation responsive.
         if (stopFlag.load(std::memory_order_relaxed)) continue;
 
         H z, c, last_it_z;
         H it_quat(0.0);
-        H x_quat(static_cast<DefaultType>(x));
-        H y_quat(0.0);
+        H x_quat(0.0);
+        H y_quat(static_cast<DefaultType>(y));
 
         VariableEntry<Dim> threadVarEntries[] = {
             {"z",   &z},
@@ -265,10 +267,9 @@ inline void runFractalCPU(
             {"x",   &x_quat}
         };
 
-        for (int y = 0; y < height; ++y) {
-            if (stopFlag.load(std::memory_order_relaxed)) break;
-
-            y_quat = H(static_cast<DefaultType>(y));
+        // Inner Loop: Columns (x) - Continuous memory writing
+        for (int x = 0; x < width; ++x) {
+            x_quat = H(static_cast<DefaultType>(x));
 
             setHypercomplexValues<Dim>(juliaset, c, z, juliaset_c,
                                     xmin + x * dx,
@@ -280,14 +281,10 @@ inline void runFractalCPU(
             bool escaped = false;
 
             while (!escaped && iteration < max_iter) {
-                if ((iteration & 7) == 0) { // check every 8 iterations
-                    if (stopFlag.load(std::memory_order_relaxed)) break;
-                }
-
                 it_quat = H(static_cast<DefaultType>(iteration));
-
+                
                 evaluateBytecode(last_it_z, globalBytecode, bytecodeSize,
-                                threadVarEntries, arrEntries);
+                              threadVarEntries, arrEntries);
 
                 if (fast_mode && last_it_z == z) break;
 
@@ -296,8 +293,6 @@ inline void runFractalCPU(
                 ++iteration;
                 escaped = (magSq >= escape_radius);
             }
-
-            if (stopFlag.load(std::memory_order_relaxed)) break;
 
             update_output(output, array_top_colors_outside, array_top_colors_lake,
                         my_sqrt(magSq), width,
@@ -362,8 +357,8 @@ extern "C" {
         double escape_radius,
         const bool fast_mode, const bool juliaset,
         const bool lake, const bool ignore_it, std::atomic<bool>& stopFlag,
-        const int top_colors_outside,
-        const int top_colors_lake,
+        int top_colors_outside,
+        int top_colors_lake,
         const double* z_initial,
         double* input_array,
         const uint32_t array_size,
@@ -372,6 +367,8 @@ extern "C" {
         
         if (escape_radius == 0.0) escape_radius = 2.0;
         escape_radius *= escape_radius;
+        top_colors_outside -= 1;
+        top_colors_lake -= 1;
 
         size_t exp_size = std::strlen(exp);
 
