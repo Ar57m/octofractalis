@@ -1,5 +1,4 @@
-#ifndef HYPERCOMPLEX_H
-#define HYPERCOMPLEX_H
+#pragma once
 
 
 
@@ -1216,4 +1215,3 @@ public:
 
 
 
-#endif

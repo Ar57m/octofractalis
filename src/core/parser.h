@@ -1,5 +1,4 @@
-#ifndef AST_PARSER_H
-#define AST_PARSER_H
+#pragma once
 
 
 #include <cstdio>
@@ -1173,5 +1172,3 @@ HOST_DEVICE inline void evaluateBytecode(
 
 
 
-
-#endif // AST_PARSER_H

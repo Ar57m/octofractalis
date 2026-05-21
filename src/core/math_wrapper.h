@@ -1,7 +1,4 @@
-#ifndef MATH_WRAPPER_H
-#define MATH_WRAPPER_H
-
-
+#pragma once
 
 
 
@@ -107,4 +104,6 @@ HOST_DEVICE inline DefaultType my_max(DefaultType x, DefaultType y) {
     return x > y ? x : y;
 }
 
-#endif // MATH_WRAPPER_H
+
+
+

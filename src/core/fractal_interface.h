@@ -1,5 +1,4 @@
-#ifndef FRACTAL_INTERFACE_H
-#define FRACTAL_INTERFACE_H
+#pragma once
 
 #include <cstdint>
 #include <vector>
@@ -532,4 +531,3 @@ extern "C" {
 }
 
 
-#endif
