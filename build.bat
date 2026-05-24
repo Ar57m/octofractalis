@@ -18,7 +18,7 @@ set TARGET=UI
 
 :parse_args
 if "%~1"=="" goto check_target
-if /i "%~1"=="--cuda"   set MODE=CUDA& set PRECISION=FLOAT& shift & goto parse_args
+@REM if /i "%~1"=="--cuda"   set MODE=CUDA& set PRECISION=FLOAT& shift & goto parse_args
 if /i "%~1"=="--cpu"    set MODE=CPU& set PRECISION=DOUBLE& shift & goto parse_args
 if /i "%~1"=="--float"  set PRECISION=FLOAT& shift & goto parse_args
 if /i "%~1"=="--double" set PRECISION=DOUBLE& shift & goto parse_args
@@ -31,7 +31,7 @@ echo Unknown option: %1 & exit /b 1
 :help
 echo Fractal Viewer Build Script
 echo Usage: build.bat [options]
-echo --cuda      Compile for GPU (defaults to float)
+@REM echo --cuda      Compile for GPU (defaults to float)
 echo --cpu       Compile for CPU (defaults to double)
 echo --float     Use 32-bit floats
 echo --double    Use 64-bit doubles
@@ -58,7 +58,7 @@ set FLAGS=/std:c++20 /O2 /openmp /EHsc /MT ^
 /I %SRC%\ext
 
 set DEFS=
-if "%MODE%"=="CUDA" set DEFS=%DEFS% -DUSE_CUDA
+@REM if "%MODE%"=="CUDA" set DEFS=%DEFS% -DUSE_CUDA
 if "%PRECISION%"=="FLOAT" set DEFS=%DEFS% -DUSE_FLOAT
 
 if "%SHARE%"=="OFF" set FLAGS=%FLAGS% /arch:AVX2
@@ -122,7 +122,7 @@ set CXX_FLAGS=/nologo /std:c++20 /O2 /Ob3 /GL /openmp ^
 /I "%SDL_INCLUDE_DIR%"
 
 set DEFS=
-if "%MODE%"=="CUDA" set DEFS=%DEFS% -DUSE_CUDA
+@REM if "%MODE%"=="CUDA" set DEFS=%DEFS% -DUSE_CUDA
 if "%PRECISION%"=="FLOAT" set DEFS=%DEFS% -DUSE_FLOAT
 
 if "%SHARE%"=="OFF" set CXX_FLAGS=%CXX_FLAGS% /arch:AVX2
@@ -142,19 +142,19 @@ echo Compiling...
 cl %CXX_FLAGS% %DEFS% /Fo%BUILD%\ /c !FILES!
 
 :: CUDA
-if "%MODE%"=="CUDA" (
-    set NVCC_ARCH=-gencode arch=compute_75,code=sm_75 -gencode arch=compute_86,code=sm_86
-    nvcc -c %SRC%\gpu\octofractalis-kernel.cu -o %BUILD%\kernel.obj -O3 %DEFS% !NVCC_ARCH! --ptxas-options=-v -Xcompiler "/MD /EHsc"
-)
+@REM if "%MODE%"=="CUDA" (
+@REM     set NVCC_ARCH=-gencode arch=compute_75,code=sm_75 -gencode arch=compute_86,code=sm_86
+@REM     nvcc -c %SRC%\gpu\octofractalis-kernel.cu -o %BUILD%\kernel.obj -O3 %DEFS% !NVCC_ARCH! --ptxas-options=-v -Xcompiler "/MD /EHsc"
+@REM )
 
 :: Link
 set LIBS_LINK=SDL3.lib user32.lib gdi32.lib shell32.lib
 set LIB_PATHS=/LIBPATH:"%SDL_LIB_DIR%"
 
-if "%MODE%"=="CUDA" (
-    set LIBS_LINK=%LIBS_LINK% cudart.lib
-    set LIB_PATHS=%LIB_PATHS% /LIBPATH:"%CUDA_PATH%\lib\x64"
-)
+@REM if "%MODE%"=="CUDA" (
+@REM     set LIBS_LINK=%LIBS_LINK% cudart.lib
+@REM     set LIB_PATHS=%LIB_PATHS% /LIBPATH:"%CUDA_PATH%\lib\x64"
+@REM )
 
 rc /fo %BUILD%\octofractalis.res %SRC%\app\octofractalis.rc
 link /nologo /LTCG /OUT:octofractalis.exe %BUILD%\*.obj %BUILD%\octofractalis.res %LIB_PATHS% %LIBS_LINK%
