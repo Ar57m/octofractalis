@@ -1,14 +1,15 @@
 #pragma once
 #include <cstdio>
-#include <cstdint>
 #include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
+
 // Image Save
 #include "ext/lodepng.h"
+
 #include "core/runtime.h"
 
 
@@ -45,10 +46,14 @@ struct AppState {
     int outGradCount = 72;
     int lakeGradCount = 72;
     
-    int seedOutCount = 8;
-    uint32_t seedOut[8] = { 0x050505, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x000033, 0x004488, 0x6600AA, 0x222222 };
-    int seedLakeCount = 8;
-    uint32_t seedLake[8] = { 0x000000, 0x711c91, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x00657B, 0x711c91 };
+    std::vector<uint32_t> seedOut = { 0x050505, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x000033, 0x004488, 0x6600AA, 0x222222 };
+
+    std::vector<uint32_t> seedLake = { 0x000000, 0x711c91, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x00657B, 0x711c91 };
+
+    AppState() {
+        seedOut.reserve(32);
+        seedLake.reserve(32);
+    }
 
     int renderResMultiplier = 1;
     bool showGUI = true;
@@ -207,8 +212,8 @@ inline std::string SaveState(const AppState& state, const std::string& filename 
 
     writeArray("juliaC", state.juliaC, 8);
     writeArray("zInit", state.zInit, 8);
-    writeArray("seedOut", state.seedOut, 8, false, true);
-    writeArray("seedLake", state.seedLake, 8, true, true); // Kept true for valid JSON output
+    writeArray("seedOut", state.seedOut.data(), state.seedOut.size(), false, true);
+    writeArray("seedLake", state.seedLake.data(), state.seedLake.size(), true, true); // Kept true for valid JSON output
 
     ss << "}";
 
@@ -271,25 +276,82 @@ inline bool LoadState(AppState& state, std::string input, bool isPath = true) {
             }
         }
         
+
         // Handle array fields dynamically based on clean keys
         if (line.find('[') != std::string::npos) {
             size_t start = line.find('[');
             size_t end = line.find(']');
-            if (start != std::string::npos && end != std::string::npos && end > start) {
-                std::string arrayContent = line.substr(start + 1, end - start - 1);
+
+            if (start != std::string::npos &&
+                end   != std::string::npos &&
+                end > start
+            ) {
+                std::string arrayContent =
+                    line.substr(start + 1, end - start - 1);
+
                 std::stringstream arraySs(arrayContent);
                 std::string item;
-                int i = 0;
-                while (std::getline(arraySs, item, ',') && i < 8) {
-                    if (key == "juliaC")         state.juliaC[i] = std::stof(item);
-                    else if (key == "zInit")     state.zInit[i] = std::stof(item);
-                    else if (key == "seedOut")   state.seedOut[i] = parseColorItem(item);
-                    else if (key == "seedLake")  state.seedLake[i] = parseColorItem(item);
-                    i++;
+
+                if (key == "juliaC") {
+                    int i = 0;
+                    while (std::getline(arraySs, item, ',') && i < 8 ) {
+                        state.juliaC[i] = std::stof(item);
+                        i++;
+                    }
+                }
+                else if (key == "zInit") {
+                    int i = 0;
+                    while (std::getline(arraySs, item, ',') && i < 8 ) {
+                        state.zInit[i] = std::stof(item);
+                        i++;
+                    }
+                }
+                else if ( key == "seedOut" || key == "seedLake" ) {
+                    std::vector<uint32_t>& target =
+                        (key == "seedOut")
+                        ? state.seedOut
+                        : state.seedLake;
+
+                    int count = 0;
+
+                    // Count items first
+                    std::stringstream countSs(arrayContent);
+
+                    while (
+                        std::getline(countSs, item, ',')
+                    ) {
+                        count++;
+                    }
+                    // Clamp between 2 and 32
+                    count = std::max(2, std::min(count, 32));
+
+                    // Resize once
+                    target.resize(count);
+
+                    // Parse again and assign directly
+                    std::stringstream parseSs(arrayContent);
+                    int i = 0;
+
+                    while (std::getline(parseSs, item, ',') && i < count ) {
+                        target[i] = parseColorItem(item);
+                        i++;
+                    }
+
+                    // Fill missing entries if needed
+                    while (i < count) {
+                        target[i] =
+                            (i > 0)
+                            ? target[i - 1]
+                            : 0x000000;
+
+                        i++;
+                    }
+                    
                 }
             }
         }
     }
+    
     state.needsRender = true;
     return true;
 }
@@ -358,6 +420,7 @@ inline bool loadInputState(AppState& state_, const std::string& path) {
 
     if (endsWith(path, ".png")) {
         std::string json = load_json_from_png(path);
+        // printf("JSON included in IMG Metadata: %s\n", json.c_str());
         if (json.empty()) {
             printf("Failed to extract JSON from PNG\n");
             return false;
@@ -375,8 +438,8 @@ inline bool loadInputState(AppState& state_, const std::string& path) {
 
 
 using FractalFn = void(*)(uint8_t*,
-    const int*,
-    const int*,
+    const uint32_t*,
+    const uint32_t*,
     const char*,
     const uint16_t,
     const uint16_t,
@@ -403,8 +466,8 @@ using FractalFn = void(*)(uint8_t*,
 
 
 inline void SavePNGThread(
-    std::vector<int> pO,
-    std::vector<int> pL,
+    std::vector<uint32_t> pO,
+    std::vector<uint32_t> pL,
     int w, int h,
     AppState s,
     RuntimeState& g_runtime_,

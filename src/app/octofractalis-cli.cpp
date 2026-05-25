@@ -1,5 +1,5 @@
-#include <iostream>
 #include <csignal>
+
 #include "core/app_core.h"
 #include "core/fractal_interface.h"
 
@@ -45,15 +45,16 @@ CLIOptions parseArgs(int argc, char** argv) {
 
 // ---------- HELP ----------
 void printHelp() {
-    std::cout <<
-    "Fractal CLI\n\n"
-    "Usage:\n"
-    "  ./fractal_cli [options]\n\n"
-    "Options:\n"
-    "  --with <file>     Load state from JSON or PNG\n"
-    "  -e \"expr\"         Override expression\n"
-    "  --bench N         Run N times and average\n"
-    "  -h                Show this help\n";
+    printf(
+        "Fractal CLI\n\n"
+        "Usage:\n"
+        "  ./fractal_cli [options]\n\n"
+        "Options:\n"
+        "  --with <file>     Load state from JSON or PNG\n"
+        "  -e \"expr\"         Override expression\n"
+        "  --bench N         Run N times and average\n"
+        "  -h                Show this help\n"
+    );
 }
 
 // ---------- OVERRIDE ----------
@@ -75,85 +76,93 @@ const char* modeToStr(int mode) {
 
 // ---------- PRINT ----------
 void printVec(const char* name, const float* v, int count) {
-    std::cout << name << ": [";
+    printf("%s: [", name);
+
     for (int i = 0; i < count; ++i) {
-        std::cout << std::fixed << std::setprecision(6) << v[i];
-        if (i < count - 1) std::cout << ", ";
+        printf("%.6f", v[i]);
+
+        if (i < count - 1) {
+            printf(", ");
+        }
     }
-    std::cout << "]\n";
+
+    printf("]\n");
 }
 
 void printColors(const char* name, const uint32_t* colors, size_t count) {
-    std::cout << name << ": [";
-    for (size_t i = 0; i < count; ++i) {
-        std::cout << "\"0x"
-                  << std::hex << std::setw(6) << std::setfill('0')
-                  << (colors[i] & 0xFFFFFF)
-                  << std::dec << "\"";
+    printf("%s: [", name);
 
-        if (i < count - 1) std::cout << ", ";
+    for (size_t i = 0; i < count; ++i) {
+        printf("\"0x%06X\"", colors[i] & 0xFFFFFF);
+
+        if (i < count - 1) {
+            printf(", ");
+        }
     }
-    std::cout << "]\n";
+
+    printf("]\n");
 }
 
 void printConfig() {
-    std::cout << "\n=========== FRACTAL CONFIG ===========\n";
+    printf("\n=========== FRACTAL CONFIG ===========\n");
 
     // Core
-    std::cout << "\n[Core]\n";
-    std::cout << "Mode:              " << modeToStr(state.mode) << "\n";
-    std::cout << "Expression:        " << state.expressionBuffer << "\n";
-    std::cout << "Iterations:        " << state.iterations << "\n";
-    std::cout << "Escape Radius:     " << state.escapeRadius << "\n";
+    printf("\n[Core]\n");
+    printf("Mode:              %s\n", modeToStr(state.mode));
+    printf("Expression:        %s\n", state.expressionBuffer);
+    printf("Iterations:        %d\n", state.iterations);
+    printf("Escape Radius:     %.6f\n", state.escapeRadius);
 
     // Render
-    std::cout << "\n[Render]\n";
-    std::cout << "Resolution:        " << state.renderWidth << " x " << state.renderHeight << "\n";
-    std::cout << "Resolution Scale:  " << state.renderResMultiplier << "\n";
-    std::cout << "Zoom:              " << state.zoom << "\n";
-    std::cout << "Offset:            (" << state.offsetX << ", " << state.offsetY << ")\n";
+    printf("\n[Render]\n");
+    printf("Resolution:        %d x %d\n", state.renderWidth, state.renderHeight);
+    printf("Resolution Scale:  %d\n", state.renderResMultiplier);
+    printf("Zoom:              %.6f\n", state.zoom);
+    printf("Offset:            (%.6f, %.6f)\n", state.offsetX, state.offsetY);
 
-    // Mode flags
-    std::cout << "\n[Flags]\n";
-    std::cout << "Julia Mode:        " << (state.isJulia ? "yes" : "no") << "\n";
-    std::cout << "Show Lake:         " << (state.showLake ? "yes" : "no") << "\n";
-    std::cout << "Ignore Iteration:  " << (state.ignore_it ? "yes" : "no") << "\n";
+    // Flags
+    printf("\n[Flags]\n");
+    printf("Julia Mode:        %s\n", state.isJulia ? "yes" : "no");
+    printf("Show Lake:         %s\n", state.showLake ? "yes" : "no");
+    printf("Ignore Iteration:  %s\n", state.ignore_it ? "yes" : "no");
 
     // Vectors
-    std::cout << "\n[Vectors]\n";
+    printf("\n[Vectors]\n");
     printVec("Julia C", state.juliaC, 8);
     printVec("Z Init ", state.zInit, 8);
 
     // Palette
-    std::cout << "\n[Palette]\n";
-    std::cout << "Out Gradient Count:   " << state.outGradCount << "\n";
-    std::cout << "Lake Gradient Count:  " << state.lakeGradCount << "\n";
+    printf("\n[Palette]\n");
+    printf("Out Gradient Count:   %d\n", state.outGradCount);
+    printf("Lake Gradient Count:  %d\n", state.lakeGradCount);
 
-    printColors("Seed Out ", state.seedOut, 8);
-    printColors("Seed Lake", state.seedLake, 8);
+    printColors("Seed Out ", state.seedOut.data(), state.seedOut.size());
+    printColors("Seed Lake", state.seedLake.data(), state.seedLake.size());
 
-    std::cout << "======================================\n\n";
+    printf("======================================\n\n");
 }
 
 // ---------- PALETTE ----------
-void regenPalettes(std::vector<int>& palOut, std::vector<int>& palLake) {
+void regenPalettes(std::vector<uint32_t>& palOut, std::vector<uint32_t>& palLake) {
     if (state.outGradCount < 0) state.outGradCount = 0;
     if (state.lakeGradCount < 0) state.lakeGradCount = 0;
-    uint32_t countout = state.seedOutCount*(1+state.outGradCount);
-    uint32_t countlake = state.seedLakeCount*(1+state.lakeGradCount);
-    if (palOut.capacity() < (size_t)countout) palOut.reserve(3072);
-    if (palLake.capacity() < (size_t)countlake) palLake.reserve(3072);
+
+    uint32_t countout = state.seedOut.size()*(1+state.outGradCount);
+    uint32_t countlake = state.seedLake.size()*(1+state.lakeGradCount);
+
+    palOut.resize(countout);
+    palLake.resize(countlake);
 
 
     palOut.resize(countout);
     palLake.resize(countlake);
 
-    generate_on_cpu(state.seedOut, state.seedOutCount, countout, (uint32_t*)palOut.data());
-    generate_on_cpu(state.seedLake, state.seedLakeCount, countlake, (uint32_t*)palLake.data());
+    generate_on_cpu(state.seedOut.data(), state.seedOut.size(), countout, palOut.data());
+    generate_on_cpu(state.seedLake.data(), state.seedLake.size(), countlake, palLake.data());
 }
 
 // ---------- RUN ----------
-inline double runOnce(const std::vector<int>& palOut, const std::vector<int>& palLake) {
+inline double runOnce(const std::vector<uint32_t>& palOut, const std::vector<uint32_t>& palLake) {
     g_runtime.saveStopFlag.store(false);
 
     int w = state.renderWidth * state.renderResMultiplier;
@@ -174,21 +183,25 @@ inline double runOnce(const std::vector<int>& palOut, const std::vector<int>& pa
 }
 
 // ---------- BENCH ----------
-inline void runBench(int count, const std::vector<int>& palOut, const std::vector<int>& palLake) {
+inline void runBench(
+    int count,
+    const std::vector<uint32_t>& palOut,
+    const std::vector<uint32_t>& palLake
+) {
     double total = 0.0;
-    
+
     for (int i = 0; i < count; ++i) {
-        if (g_stop.load()) break;
+        if (g_stop.load()) {
+            break;
+        }
 
         double t = runOnce(palOut, palLake);
         total += t;
-
-        std::cout << "[" << i+1 << "/" << count << "] "
-                  << t << " ms\n";
+        printf("[%d/%d] %.6f ms\n", i + 1, count, t);
     }
 
     if (count > 0) {
-        std::cout << "\nAverage: " << (total / count) << " ms\n";
+        printf("\nAverage: %.6f ms\n", total / count);
     }
 }
 
@@ -201,11 +214,11 @@ int main(int argc, char** argv) {
 
     try {
         if (!std::filesystem::exists(img_folder)) {
-            // create_directories creates the full path including parents if needed
             std::filesystem::create_directories(img_folder);
         }
-    } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Error creating directory: " << e.what() << std::endl;
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        printf("Error creating directory: %s\n", e.what());
     }
     if (opt.help) {
         printHelp();
@@ -219,18 +232,22 @@ int main(int argc, char** argv) {
     applyOverrides(opt);
     printConfig();
 
-    std::vector<int> palOut, palLake;
+    std::vector<uint32_t> palOut, palLake;
+    palOut.reserve(32*(1+256)); // 32 max colors and 256 max gradients between each color
+    palLake.reserve(32*(1+256));
+
     regenPalettes(palOut, palLake);
 
     if (opt.bench > 1) {
         runBench(opt.bench, palOut, palLake);
-    } else {
+    }
+    else {
         double t = runOnce(palOut, palLake);
-        std::cout << "Time: " << t << " ms\n";
+        printf("Time: %.6f ms\n", t);
     }
 
     if (g_stop.load()) {
-        std::cout << "\nInterrupted.\n";
+        printf("\nInterrupted.\n");
     }
 
     return 0;

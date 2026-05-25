@@ -95,9 +95,9 @@ public:
     HOST_DEVICE Hypercomplex(const Hypercomplex&) = default;
     HOST_DEVICE Hypercomplex(DefaultType r, DefaultType i=0.0, DefaultType j=0.0, DefaultType k=0.0, DefaultType l=0.0, DefaultType m=0.0, DefaultType n=0.0, DefaultType o=0.0) {
         v[0] = noNan(r);
-        if (Dim >= 2) v[1] = noNan(i);
-        if (Dim >= 4) v[2] = noNan(j), v[3] = noNan(k);
-        if (Dim >= 8) v[4] = noNan(l), v[5] = noNan(m), v[6] = noNan(n), v[7] = noNan(o);
+        if constexpr (Dim >= 2) v[1] = noNan(i);
+        if constexpr (Dim >= 4) v[2] = noNan(j), v[3] = noNan(k);
+        if constexpr (Dim >= 8) v[4] = noNan(l), v[5] = noNan(m), v[6] = noNan(n), v[7] = noNan(o);
     }
 
     HOST_DEVICE inline void set_raw(const DefaultType* values) {

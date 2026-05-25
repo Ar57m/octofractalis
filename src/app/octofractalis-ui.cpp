@@ -1,20 +1,12 @@
-#include <cmath>
-#include <thread>
 #include <csignal>
-#include <filesystem>
 
-// ImGui
 #include <SDL3/SDL.h>
 #include "imgui/imgui.h"
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
 
-
-// Fractal Interface
-#include "core/fractal_interface.h"
-#include "core/math_wrapper.h"
 #include "core/app_core.h"
-
+#include "core/fractal_interface.h"
 
 static SDL_Window* g_window = nullptr;
 static SDL_Renderer* g_renderer = nullptr;
@@ -67,7 +59,7 @@ void ResizeFractalTexture(int w, int h) {
 }
 
 
-void AsyncRenderThread(std::vector<int> pO, std::vector<int> pL, int w, int h, AppState s) {
+void AsyncRenderThread(std::vector<uint32_t> pO, std::vector<uint32_t> pL, int w, int h, AppState s) {
     g_runtime.isAsyncRendering = true;
 
     // Resize the global async buffer to match requirements
@@ -165,34 +157,30 @@ int main(int, char**) {
 
     try {
         if (!std::filesystem::exists(img_folder)) {
-            // create_directories creates the full path including parents if needed
             std::filesystem::create_directories(img_folder);
         }
-    } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Error creating directory: " << e.what() << std::endl;
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        printf("Error creating directory: %s\n", e.what());
     }
 
     std::vector<uint8_t> rgbaBuf;
-    std::vector<int> palOut, palLake;
+    std::vector<uint32_t> palOut, palLake;
+    palOut.reserve(32*(1+256)); // 32 max colors and 256 max gradients between each color
+    palLake.reserve(32*(1+256));
 
     auto regenPalettes = [&]() {
         if (state.outGradCount < 0) state.outGradCount = 0;
         if (state.lakeGradCount < 0) state.lakeGradCount = 0;
-        uint32_t countout = state.seedOutCount*(1+state.outGradCount);
-        uint32_t countlake = state.seedLakeCount*(1+state.lakeGradCount);
-        
-        // Use reserve to prevent frequent reallocations
-        if (palOut.capacity() < (size_t)countout) palOut.reserve(3072);
-        if (palLake.capacity() < (size_t)countlake) palLake.reserve(3072);
+        uint32_t countout = state.seedOut.size()*(1+state.outGradCount);
+        uint32_t countlake = state.seedLake.size()*(1+state.lakeGradCount);
 
-        palOut.resize(countout); 
+        palOut.resize(countout);
         palLake.resize(countlake);
 
-        // Call CPU version instead of GPU
-        generate_on_cpu(state.seedOut, state.seedOutCount, countout, (uint32_t*)palOut.data());
-        generate_on_cpu(state.seedLake, state.seedLakeCount, countlake, (uint32_t*)palLake.data());
+        generate_on_cpu(state.seedOut.data(), state.seedOut.size(), countout, palOut.data());
+        generate_on_cpu(state.seedLake.data(), state.seedLake.size(), countlake, palLake.data());
         
-        if (state.realtimeExpression) state.needsRender = true;
     };
     regenPalettes();
     
@@ -234,6 +222,7 @@ int main(int, char**) {
                         
                         g_NotificationText = "Loaded: " + filename;
                         g_NotificationExpireTime = SDL_GetTicks() + 3500;
+                        regenPalettes();
                         state.needsRender = true;
                     } else {
                         g_NotificationText = "Failed to load file!";
@@ -683,6 +672,7 @@ int main(int, char**) {
             if (palette_changed && state.realtimeExpression) {
                 regenPalettes();
                 g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
+                state.needsRender = true;
             }
         }
 
