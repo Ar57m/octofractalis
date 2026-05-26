@@ -6,12 +6,52 @@
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
+#include <unordered_map>
+#include <cmath>
 
-// Image Save
+// Image Save an load
 #include "ext/lodepng.h"
+#include "stb_image.h"
 
 #include "core/runtime.h"
 
+// inline bool LoadImageInfo(
+//     const std::string& path,
+//     int& width,
+//     int& height,
+//     int& channels
+// ) {
+//     unsigned char* data =
+//         stbi_load(
+//             path.c_str(),
+//             &width,
+//             &height,
+//             &channels,
+//             0
+//         );
+
+//     if (!data) {
+//         printf(
+//             "Failed to load image: %s\n",
+//             stbi_failure_reason()
+//         );
+//         return false;
+//     }
+
+//     printf(
+//         "Image loaded successfully\n"
+//         "Width: %d\n"
+//         "Height: %d\n"
+//         "Channels: %d\n",
+//         width,
+//         height,
+//         channels
+//     );
+
+//     stbi_image_free(data);
+
+//     return true;
+// }
 
 struct AppState {
     double offsetX = 0.0;
@@ -45,7 +85,10 @@ struct AppState {
     
     int outGradCount = 72;
     int lakeGradCount = 72;
-    
+
+    int paletteSeedOut= 8;
+    int paletteSeedLake= 8;
+
     std::vector<uint32_t> seedOut = { 0x050505, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x000033, 0x004488, 0x6600AA, 0x222222 };
 
     std::vector<uint32_t> seedLake = { 0x000000, 0x711c91, 0x004455, 0xCCFFFF, 0x002244, 0x000011, 0x00657B, 0x711c91 };
@@ -102,6 +145,300 @@ inline void AppState::ResetAll() {
 
 
 
+struct RGB {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+};
+
+struct HSV {
+    float h;
+    float s;
+    float v;
+};
+
+struct PaletteColor {
+    RGB rgb;
+    HSV hsv;
+    uint32_t count;
+};
+
+
+
+
+
+// Palette extraction part
+
+inline HSV RGBToHSV(uint8_t r, uint8_t g, uint8_t b) {
+
+    float rf = r / 255.0f;
+    float gf = g / 255.0f;
+    float bf = b / 255.0f;
+
+    float maxv = std::max({ rf, gf, bf });
+    float minv = std::min({ rf, gf, bf });
+
+    float delta = maxv - minv;
+
+    HSV out {};
+
+    if (delta > 0.0f) {
+
+        if (maxv == rf) {
+            out.h = 60.0f * std::fmod(((gf - bf) / delta), 6.0f);
+        }
+        else if (maxv == gf) {
+            out.h = 60.0f * (((bf - rf) / delta) + 2.0f);
+        }
+        else {
+            out.h = 60.0f * (((rf - gf) / delta) + 4.0f);
+        }
+
+        if (out.h < 0.0f) {
+            out.h += 360.0f;
+        }
+    }
+
+    out.s = maxv <= 0.0f ? 0.0f : (delta / maxv) * 100.0f;
+    out.v = maxv * 100.0f;
+
+    return out;
+}
+
+inline uint32_t PackRGB(uint8_t r, uint8_t g, uint8_t b) {
+    return
+        (uint32_t(r) << 16) |
+        (uint32_t(g) << 8)  |
+        uint32_t(b);
+}
+
+inline bool IsSimilar(
+    const PaletteColor& a,
+    const PaletteColor& b,
+    int rThreshold,
+    int gThreshold,
+    int bThreshold,
+    float hThreshold,
+    float sThreshold,
+    float vThreshold
+) {
+
+    const int dr =
+        std::abs(int(a.rgb.r) - int(b.rgb.r));
+
+    const int dg =
+        std::abs(int(a.rgb.g) - int(b.rgb.g));
+
+    const int db =
+        std::abs(int(a.rgb.b) - int(b.rgb.b));
+
+    const float dh =
+        std::abs(a.hsv.h - b.hsv.h);
+
+    const float ds =
+        std::abs(a.hsv.s - b.hsv.s);
+
+    const float dv =
+        std::abs(a.hsv.v - b.hsv.v);
+
+    const bool rgbSimilar =
+        dr <= rThreshold &&
+        dg <= gThreshold &&
+        db <= bThreshold;
+
+    const bool hsvSimilar =
+        dh <= hThreshold &&
+        ds <= sThreshold &&
+        dv <= vThreshold;
+
+    return rgbSimilar || hsvSimilar;
+}
+
+inline bool ExtractPaletteFromImage(
+    const std::string& path,
+    std::vector<uint32_t>& outPalette,
+    int colorCount,
+    int rThreshold = 40,
+    int gThreshold = 40,
+    int bThreshold = 40,
+    float hThreshold = 48.0f,
+    float sThreshold = 30.0f,
+    float vThreshold = 30.0f
+) {
+
+    if (colorCount <= 1) {
+        return false;
+    }
+
+    if (colorCount > 32) {
+        colorCount = 32;
+    }
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+
+    unsigned char* data =
+        stbi_load(
+            path.c_str(),
+            &width,
+            &height,
+            &channels,
+            3
+        );
+
+    if (!data) {
+
+        printf(
+            "Failed to load image: %s\n",
+            stbi_failure_reason()
+        );
+
+        return false;
+    }
+
+    std::unordered_map<uint32_t, uint32_t> frequency;
+
+    const int pixelCount = width * height;
+
+    for (int i = 0; i < pixelCount; ++i) {
+
+        const uint8_t r = data[i * 3 + 0];
+        const uint8_t g = data[i * 3 + 1];
+        const uint8_t b = data[i * 3 + 2];
+
+        const uint32_t packed =
+            PackRGB(r, g, b);
+
+        frequency[packed]++;
+    }
+
+    std::vector<PaletteColor> colors;
+    colors.reserve(frequency.size());
+
+    for (const auto& pair : frequency) {
+
+        const uint32_t packed = pair.first;
+
+        PaletteColor c {};
+
+        c.rgb.r = (packed >> 16) & 255;
+        c.rgb.g = (packed >> 8) & 255;
+        c.rgb.b = packed & 255;
+
+        c.hsv =
+            RGBToHSV(
+                c.rgb.r,
+                c.rgb.g,
+                c.rgb.b
+            );
+
+        c.count = pair.second;
+
+        colors.push_back(c);
+    }
+
+    std::sort(
+        colors.begin(),
+        colors.end(),
+        [](const PaletteColor& a, const PaletteColor& b) {
+            return a.count > b.count;
+        }
+    );
+
+    std::vector<PaletteColor> filtered;
+    filtered.reserve(colorCount);
+
+    for (const PaletteColor& c : colors) {
+
+        bool similar = false;
+
+        for (const PaletteColor& existing : filtered) {
+
+            if (
+                IsSimilar(
+                    c,
+                    existing,
+                    rThreshold,
+                    gThreshold,
+                    bThreshold,
+                    hThreshold,
+                    sThreshold,
+                    vThreshold
+                )
+            ) {
+                similar = true;
+                break;
+            }
+        }
+
+        if (!similar) {
+
+            filtered.push_back(c);
+
+            if ((int)filtered.size() >= colorCount) {
+                break;
+            }
+        }
+    }
+
+    if (filtered.size() < 2) {
+
+        stbi_image_free(data);
+        return false;
+    }
+
+    outPalette.clear();
+    outPalette.resize(filtered.size());
+
+    for (size_t i = 0; i < filtered.size(); ++i) {
+
+        outPalette[i] =
+            PackRGB(
+                filtered[i].rgb.r,
+                filtered[i].rgb.g,
+                filtered[i].rgb.b
+            );
+    }
+
+    stbi_image_free(data);
+
+    return true;
+}
+
+
+inline bool ApplyPaletteExtraction(
+    AppState& state,
+    const std::string& path
+) {
+    bool changed = false;
+
+    if (
+        state.paletteSeedOut > 1 &&
+        state.paletteSeedOut <= 32
+    ) {
+
+        changed |= ExtractPaletteFromImage(
+            path,
+            state.seedOut,
+            state.paletteSeedOut
+        );
+    }
+
+    if (
+        state.paletteSeedLake > 1 &&
+        state.paletteSeedLake <= 32
+    ) {
+
+        changed |= ExtractPaletteFromImage(
+            path,
+            state.seedLake,
+            state.paletteSeedLake
+        );
+    }
+
+    return changed;
+}
 
 
 

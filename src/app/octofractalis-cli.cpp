@@ -1,5 +1,6 @@
 #include <csignal>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include "core/app_core.h"
 #include "core/fractal_interface.h"
 
@@ -18,6 +19,7 @@ void handle_sigint(int) {
 // ---------- ARGS ----------
 struct CLIOptions {
     std::string inputPath;
+    std::string palettePath;
     std::string expr;
     int bench = 1;
     bool help = false;
@@ -31,11 +33,17 @@ CLIOptions parseArgs(int argc, char** argv) {
 
         if (arg == "--with" && i + 1 < argc) {
             opt.inputPath = argv[++i];
-        } else if (arg == "-e" && i + 1 < argc) {
+        }
+        else if ((arg == "-p" || arg == "--palette") && i + 1 < argc) {
+            opt.palettePath = argv[++i];
+        }
+        else if (arg == "-e" && i + 1 < argc) {
             opt.expr = argv[++i];
-        } else if (arg == "--bench" && i + 1 < argc) {
+        }
+        else if (arg == "--bench" && i + 1 < argc) {
             opt.bench = std::stoi(argv[++i]);
-        } else if (arg == "-h" || arg == "--help") {
+        }
+        else if (arg == "-h" || arg == "--help") {
             opt.help = true;
         }
     }
@@ -50,10 +58,11 @@ void printHelp() {
         "Usage:\n"
         "  ./fractal_cli [options]\n\n"
         "Options:\n"
-        "  --with <file>     Load state from JSON or PNG\n"
-        "  -e \"expr\"         Override expression\n"
-        "  --bench N         Run N times and average\n"
-        "  -h                Show this help\n"
+        "  --with <file>        Load state from JSON or PNG\n"
+        "  -p, --palette <img>  Extract palette from image\n"
+        "  -e \"expr\"            Override expression\n"
+        "  --bench N            Run N times and average\n"
+        "  -h                   Show this help\n"
     );
 }
 
@@ -133,6 +142,8 @@ void printConfig() {
 
     // Palette
     printf("\n[Palette]\n");
+    printf("Out Colors to Extract:   %d\n", state.paletteSeedOut);
+    printf("Lake Colors to Extract:  %d\n", state.paletteSeedLake);
     printf("Out Gradient Count:   %d\n", state.outGradCount);
     printf("Lake Gradient Count:  %d\n", state.lakeGradCount);
 
@@ -230,6 +241,23 @@ int main(int argc, char** argv) {
     }
 
     applyOverrides(opt);
+
+    if (!opt.palettePath.empty()) {
+
+        if (ApplyPaletteExtraction(state, opt.palettePath)) {
+
+            printf(
+                "Palette extracted from image: %s\n",
+                opt.palettePath.c_str()
+            );
+
+        } else {
+
+            printf(
+                "Palette extraction skipped.\n"
+            );
+        }
+    }
     printConfig();
 
     std::vector<uint32_t> palOut, palLake;

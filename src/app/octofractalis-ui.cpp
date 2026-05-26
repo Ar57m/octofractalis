@@ -5,6 +5,7 @@
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
 
+#define STB_IMAGE_IMPLEMENTATION
 #include "core/app_core.h"
 #include "core/fractal_interface.h"
 
@@ -205,28 +206,51 @@ int main(int, char**) {
             if (event.type == SDL_EVENT_DROP_FILE) {
                 const char* path = event.drop.data;
 
-                if (path != nullptr && path[0] != '\0') { 
+                if (path && path[0] != '\0') {
                     std::string droppedPath = path;
+                    float dropX = event.drop.x;
+                    float dropY = event.drop.y;
 
-                    // STOP THREAD SAFELY
-                    g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
-                    if (g_runtime.renderThread.joinable()) {
-                        g_runtime.renderThread.join();
-                    }
+                    bool droppedOnGUI = state.showGUI && (dropX >= state.renderWidth) && (dropY > state.winHeight * 0.4f);
 
-                    // LOAD
-                    if (loadInputState(state, droppedPath)) {
-                        // Safe extraction of filename
-                        size_t lastSlash = droppedPath.find_last_of("/\\");
-                        std::string filename = (lastSlash == std::string::npos) ? droppedPath : droppedPath.substr(lastSlash + 1);
-                        
-                        g_NotificationText = "Loaded: " + filename;
-                        g_NotificationExpireTime = SDL_GetTicks() + 3500;
-                        regenPalettes();
-                        state.needsRender = true;
-                    } else {
-                        g_NotificationText = "Failed to load file!";
-                        g_NotificationExpireTime = SDL_GetTicks() + 3500;
+                    if (droppedOnGUI) {
+                        if (ApplyPaletteExtraction(state, droppedPath)) {
+                            regenPalettes();
+                            state.needsRender = true;
+
+                            g_NotificationText =
+                                "Extracted palette from image.";
+                        } else {
+                            g_NotificationText =
+                                "Palette extraction skipped.";
+                        }
+
+                        g_NotificationExpireTime =
+                            SDL_GetTicks() + 3500;
+
+                    }else {
+                        // FRACTAL VIEW DROP (Left Side / Full Screen)
+                        g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
+
+                        if (g_runtime.renderThread.joinable()) {
+                            g_runtime.renderThread.join();
+                        }
+
+                        if (loadInputState(state, droppedPath)) {
+                            size_t lastSlash = droppedPath.find_last_of("/\\");
+                            std::string filename = (lastSlash == std::string::npos)
+                                ? droppedPath
+                                : droppedPath.substr(lastSlash + 1);
+
+                            g_NotificationText = "Loaded View: " + filename;
+                            g_NotificationExpireTime = SDL_GetTicks() + 3500;
+
+                            regenPalettes();
+                            state.needsRender = true;
+                        } else {
+                            g_NotificationText = "Failed to load file!";
+                            g_NotificationExpireTime = SDL_GetTicks() + 3500;
+                        }
                     }
                 }
             }
@@ -265,18 +289,13 @@ int main(int, char**) {
                 fractal
             );
         }
-        // 1. Fetch exact window size directly from OS every frame
         SDL_GetWindowSize(g_window, &state.winWidth, &state.winHeight);
 
-        // 2. Prevent negative window dimensions from destroying memory allocations
         state.renderWidth = state.showGUI ? (state.winWidth - state.guiWidth) : state.winWidth;
         if (state.renderWidth < 1) state.renderWidth = 1;
         
         state.renderHeight = state.winHeight;
         if (state.renderHeight < 1) state.renderHeight = 1;
-        
-        // 3. Layout Calculation with CUDA Edge Padding
-        ResizeFractalTexture(state.renderWidth, state.renderHeight);
         
         size_t pixelCount = (size_t)state.renderWidth * state.renderHeight;
         size_t requiredRgba = (pixelCount + 8192) * 4;
@@ -319,6 +338,8 @@ int main(int, char**) {
         }
 
         if (g_runtime.renderBufferReady) {
+            ResizeFractalTexture(state.texW, state.texH);
+
             SDL_UpdateTexture(
                 g_pFractalTexture,
                 nullptr,
@@ -625,8 +646,54 @@ int main(int, char**) {
                 palette_changed = true;
             }
 
+            static const char* paletteSeedItems[] = {
+                " Off","  2 ","  3 ","  4 ","  5 ","  6 ","  7 ","  8 ",
+                "  9 ","  10","  11","  12","  13","  14","  15","  16",
+                "  17","  18","  19","  20","  21","  22","  23","  24",
+                "  25","  26","  27","  28","  29","  30","  31","  32"
+            };
+
+            int outSeedCombo =
+                state.paletteSeedOut <= 1 ?
+                0 : state.paletteSeedOut - 1;
+
+            ImGui::SetNextItemWidth(60);
+            if (ImGui::Combo(
+                "Image Seeds Out",
+                &outSeedCombo,
+                paletteSeedItems,
+                IM_ARRAYSIZE(paletteSeedItems)
+            )) {
+                state.paletteSeedOut =
+                    outSeedCombo == 0 ?
+                    0 : outSeedCombo + 1;
+            }
+
+            int lakeSeedCombo =
+                state.paletteSeedLake <= 1 ?
+                0 : state.paletteSeedLake - 1;
+
+            ImGui::SetNextItemWidth(60);
+            if (ImGui::Combo(
+                "Image Seeds Lake",
+                &lakeSeedCombo,
+                paletteSeedItems,
+                IM_ARRAYSIZE(paletteSeedItems)
+            )) {
+                state.paletteSeedLake =
+                    lakeSeedCombo == 0 ?
+                    0 : lakeSeedCombo + 1;
+            }
+
+            ImGui::TextDisabled(
+                "Drop image here to extract palette seeds"
+            );
+
+            ImGui::Separator();
+
             ImGui::Text("Outside Seeds");
-            for (int i = 0; i < 8; i++) {
+
+            for (int i = 0; i < state.seedOut.size(); i++) {
                 ImGui::PushID(i);
 
                 float c[3] = {
@@ -640,15 +707,20 @@ int main(int, char**) {
                         ((int)(c[0] * 255) << 16) |
                         ((int)(c[1] * 255) << 8)  |
                         (int)(c[2] * 255);
+
                     palette_changed = true;
                 }
 
-                if ((i + 1) % 4 != 0) ImGui::SameLine();
+                if ((i + 1) % 8 != 0) ImGui::SameLine();
+
                 ImGui::PopID();
             }
 
+            ImGui::Spacing();
+
             ImGui::Text("Lake Seeds");
-            for (int i = 0; i < 8; i++) {
+
+            for (int i = 0; i < state.seedLake.size(); i++) {
                 ImGui::PushID(100 + i);
 
                 float c[3] = {
@@ -662,12 +734,16 @@ int main(int, char**) {
                         ((int)(c[0] * 255) << 16) |
                         ((int)(c[1] * 255) << 8)  |
                         (int)(c[2] * 255);
+
                     palette_changed = true;
                 }
 
-                if ((i + 1) % 4 != 0) ImGui::SameLine();
+                if ((i + 1) % 8 != 0) ImGui::SameLine();
+
                 ImGui::PopID();
             }
+
+            ImGui::Spacing();
 
             if (palette_changed && state.realtimeExpression) {
                 regenPalettes();
@@ -692,7 +768,6 @@ int main(int, char**) {
                         g_runtime.renderThread.join();
                     }
 
-                    // 🔥 FIX HERE
                     if (g_runtime.saveThread.joinable()) {
                         g_runtime.saveThread.join();
                     }

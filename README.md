@@ -34,8 +34,8 @@ Tested on:
 - **Fractal Types:** Mandelbrot & Julia (fully customizable equations)
 - **Fast CPU Rendering:** OpenMP + SIMD (AVX2)
 - **Dual Modes:**
-  - UI (SDL3 + Dear ImGui + lodepng)
-  - CLI (minimal + lodepng + fast)
+  - UI (SDL3 + Dear ImGui + lodepng + stb_image.h)
+  - CLI (fast and minimal + lodepng + stb_image.h)
 
 ---
 
