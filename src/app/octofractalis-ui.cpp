@@ -692,8 +692,31 @@ int main(int, char**) {
             ImGui::Separator();
 
             ImGui::Text("Outside Seeds");
+            ImGui::SameLine();
 
-            for (int i = 0; i < state.seedOut.size(); i++) {
+            if (state.seedOut.size() < 32) {
+                if (ImGui::SmallButton("+##out")) {
+                    uint32_t c =
+                        state.seedOut.empty()
+                        ? 0xFFFFFF
+                        : state.seedOut.back();
+
+                    state.seedOut.push_back(c);
+
+                    palette_changed = true;
+                }
+            }
+
+            ImGui::SameLine();
+
+            if (state.seedOut.size() > 2) {
+                if (ImGui::SmallButton("-##out")) {
+                    state.seedOut.pop_back();
+                    palette_changed = true;
+                }
+            }
+            ImGui::Spacing();
+            for (int i = 0; i < (int)state.seedOut.size(); i++) {
                 ImGui::PushID(i);
 
                 float c[3] = {
@@ -702,7 +725,11 @@ int main(int, char**) {
                     (state.seedOut[i] & 0xFF) / 255.f
                 };
 
-                if (ImGui::ColorEdit3("##o", c, ImGuiColorEditFlags_NoInputs)) {
+                if (ImGui::ColorEdit3(
+                    "##o",
+                    c,
+                    ImGuiColorEditFlags_NoInputs
+                )) {
                     state.seedOut[i] =
                         ((int)(c[0] * 255) << 16) |
                         ((int)(c[1] * 255) << 8)  |
@@ -711,7 +738,8 @@ int main(int, char**) {
                     palette_changed = true;
                 }
 
-                if ((i + 1) % 8 != 0) ImGui::SameLine();
+                if ((i + 1) % 8 != 0)
+                    ImGui::SameLine();
 
                 ImGui::PopID();
             }
@@ -719,8 +747,31 @@ int main(int, char**) {
             ImGui::Spacing();
 
             ImGui::Text("Lake Seeds");
+            ImGui::SameLine();
 
-            for (int i = 0; i < state.seedLake.size(); i++) {
+            if (state.seedLake.size() < 32) {
+                if (ImGui::SmallButton("+##lake")) {
+                    uint32_t c =
+                        state.seedLake.empty()
+                        ? 0xFFFFFF
+                        : state.seedLake.back();
+
+                    state.seedLake.push_back(c);
+
+                    palette_changed = true;
+                }
+            }
+
+            ImGui::SameLine();
+
+            if (state.seedLake.size() > 2) {
+                if (ImGui::SmallButton("-##lake")) {
+                    state.seedLake.pop_back();
+                    palette_changed = true;
+                }
+            }
+            ImGui::Spacing();
+            for (int i = 0; i < (int)state.seedLake.size(); i++) {
                 ImGui::PushID(100 + i);
 
                 float c[3] = {
@@ -729,7 +780,11 @@ int main(int, char**) {
                     (state.seedLake[i] & 0xFF) / 255.f
                 };
 
-                if (ImGui::ColorEdit3("##l", c, ImGuiColorEditFlags_NoInputs)) {
+                if (ImGui::ColorEdit3(
+                    "##l",
+                    c,
+                    ImGuiColorEditFlags_NoInputs
+                )) {
                     state.seedLake[i] =
                         ((int)(c[0] * 255) << 16) |
                         ((int)(c[1] * 255) << 8)  |
@@ -738,7 +793,8 @@ int main(int, char**) {
                     palette_changed = true;
                 }
 
-                if ((i + 1) % 8 != 0) ImGui::SameLine();
+                if ((i + 1) % 8 != 0)
+                    ImGui::SameLine();
 
                 ImGui::PopID();
             }

@@ -15,43 +15,7 @@
 
 #include "core/runtime.h"
 
-// inline bool LoadImageInfo(
-//     const std::string& path,
-//     int& width,
-//     int& height,
-//     int& channels
-// ) {
-//     unsigned char* data =
-//         stbi_load(
-//             path.c_str(),
-//             &width,
-//             &height,
-//             &channels,
-//             0
-//         );
 
-//     if (!data) {
-//         printf(
-//             "Failed to load image: %s\n",
-//             stbi_failure_reason()
-//         );
-//         return false;
-//     }
-
-//     printf(
-//         "Image loaded successfully\n"
-//         "Width: %d\n"
-//         "Height: %d\n"
-//         "Channels: %d\n",
-//         width,
-//         height,
-//         channels
-//     );
-
-//     stbi_image_free(data);
-
-//     return true;
-// }
 
 struct AppState {
     double offsetX = 0.0;
