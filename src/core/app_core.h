@@ -47,8 +47,8 @@ struct AppState {
 
     char expressionBuffer[256] = "z*z+c";
     
-    int outGradCount = 72;
-    int lakeGradCount = 72;
+    int outGradCount = 64;
+    int lakeGradCount = 64;
 
     int paletteSeedOut= 8;
     int paletteSeedLake= 8;

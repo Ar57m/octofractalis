@@ -551,7 +551,20 @@ int main(int, char**) {
                     state.needsRender = true;
                 }
                 if (ImGui::InputText("Expression", state.expressionBuffer, 256)) changed = true;
-                if (ImGui::SliderInt("Iterations", &state.iterations, 1, 4096))  changed = true;
+                if (ImGui::InputInt(
+                    "Iterations",
+                    &state.iterations,
+                    1,
+                    64
+                )) {
+                    state.iterations = std::clamp(
+                        state.iterations,
+                        1,
+                        4096
+                    );
+
+                    changed = true;
+                }
                 if (ImGui::DragFloat("Escape", &state.escapeRadius, 0.1f, 0.1f, 256.0f)) changed = true;
                 if (ImGui::Checkbox("Julia", &state.isJulia)) changed = true;
                 if (ImGui::Checkbox("Fast", &state.fastMode))  changed = true;
@@ -638,11 +651,58 @@ int main(int, char**) {
             if (ImGui::Checkbox("Lake", &state.showLake)) palette_changed = true;
             if (ImGui::Checkbox("Ignore Iter", &state.ignore_it)) palette_changed = true;
 
-            if (ImGui::SliderInt("Out Colors", &state.outGradCount, 0, 256)) {
+            static const char* gradItems[] = {
+                "None",
+                "Low (4)",
+                "Medium (16)",
+                "High (64)",
+                "Max (256)"
+            };
+
+            static const int gradValues[] = {
+                0,
+                4,
+                16,
+                64,
+                256
+            };
+
+            auto gradToIndex = [](int v) {
+                switch (v) {
+                    case 0:   return 0;
+                    case 4:   return 1;
+                    case 16:  return 2;
+                    case 64:  return 3;
+                    case 256: return 4;
+                    default:  return 2;
+                }
+            };
+
+            int outIdx = gradToIndex(state.outGradCount);
+
+            ImGui::SetNextItemWidth(120);
+
+            if (ImGui::Combo(
+                "Out Gradient",
+                &outIdx,
+                gradItems,
+                IM_ARRAYSIZE(gradItems)
+            )) {
+                state.outGradCount = gradValues[outIdx];
                 palette_changed = true;
             }
 
-            if (ImGui::SliderInt("Lake Colors", &state.lakeGradCount, 0, 256)) {
+            int lakeIdx = gradToIndex(state.lakeGradCount);
+
+            ImGui::SetNextItemWidth(120);
+
+            if (ImGui::Combo(
+                "Lake Gradient",
+                &lakeIdx,
+                gradItems,
+                IM_ARRAYSIZE(gradItems)
+            )) {
+                state.lakeGradCount = gradValues[lakeIdx];
                 palette_changed = true;
             }
 
