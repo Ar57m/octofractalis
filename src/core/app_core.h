@@ -78,7 +78,7 @@ struct AppState {
 inline void AppState::ResetView() {
     offsetX = 0.0;
     offsetY = 0.0;
-    zoom = 1.0;
+    zoom = 0.8;
     needsRender = true;
 }
 
