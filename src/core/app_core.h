@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
+#include <string>
 #include <unordered_map>
 #include <cmath>
 
@@ -462,13 +463,44 @@ inline constexpr bool endsWith(const char* expr, const char* token) {
 inline bool endsWith(const std::string& str, const char* token) {
     return endsWith(str.c_str(), token);
 }
+inline void SanitizeExpression(const char* src, char dst[256]) {
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+
+    size_t j = 0;
+
+    for (size_t i = 0; src[i] && j < 255; ++i) {
+        unsigned char c = (unsigned char)src[i];
+
+        if (std::isspace(c))
+            continue;
+
+        // Allow only characters your parser understands.
+        if ((c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            c == '+' || c == '-' || c == '*' || c == '/' ||
+            c == '^' || c == '%' ||
+            c == '(' || c == ')' ||
+            c == '[' || c == ']' ||
+            c == ',' || c == '.' ||
+            c == '<' || c == '>' ||
+            c == '=' || c == '&')
+        {
+            dst[j++] = (char)c;
+        }
+    }
+
+    dst[j] = '\0';
+}
 
 
 
 
 
-
-inline std::string SaveState(const AppState& state, const std::string& filename = "") {
+inline std::string SaveState(const AppState& state, const std::string& filename = "", const bool saveJson = false) {
     std::ostringstream ss;
     ss << std::setprecision(18) << std::fixed;
 
@@ -489,7 +521,7 @@ inline std::string SaveState(const AppState& state, const std::string& filename 
     ss << "  \"renderResMultiplier\": " << state.renderResMultiplier << ",\n";
     ss << "  \"lakeGradCount\": " << state.lakeGradCount << ",\n";
     ss << "  \"outGradCount\": " << state.outGradCount << ",\n";
-
+    ss << "  \"filename\": \"" << filename << "\",\n";
 
 
     auto writeArray = [&](const std::string& key, const auto* arr, int count, bool last = false, bool asHex = false) {
@@ -519,7 +551,7 @@ inline std::string SaveState(const AppState& state, const std::string& filename 
     ss << "}";
 
     std::string result = ss.str();
-    if (!filename.empty()) {
+    if (!filename.empty() && saveJson) {
         std::ofstream f(filename);
         if (f.is_open()) f << result;
     }
@@ -733,7 +765,41 @@ inline bool loadInputState(AppState& state_, const std::string& path) {
 }
 
 
+inline std::string MakeTimestampFilename(
+    const std::string& folder,
+    const std::string& prefix = "fractal",
+    const std::string& extension = "png"
+) {
+    auto now = std::chrono::system_clock::now();
+    auto tt  = std::chrono::system_clock::to_time_t(now);
 
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()
+    ) % 1000;
+
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &tt);
+#else
+    localtime_r(&tt, &tm);
+#endif
+
+    std::ostringstream ss;
+    ss << prefix << '_'
+       << std::setfill('0')
+       << std::setw(4) << (tm.tm_year + 1900)
+       << std::setw(2) << (tm.tm_mon + 1)
+       << std::setw(2) << tm.tm_mday
+       << '_'
+       << std::setw(2) << tm.tm_hour
+       << std::setw(2) << tm.tm_min
+       << std::setw(2) << tm.tm_sec
+       << '_'
+       << std::setw(3) << ms.count()
+       << '.' << extension;
+
+    return (std::filesystem::path(folder) / ss.str()).string();
+}
 
 
 
@@ -772,7 +838,8 @@ inline void SavePNGThread(
     int w, int h,
     AppState s,
     RuntimeState& g_runtime_,
-    FractalFn fractalFn
+    FractalFn fractalFn,
+    const std::string& path_ // full path or relative
 ) {
     g_runtime_.saveStopFlag.store(false, std::memory_order_relaxed);
 
@@ -836,41 +903,15 @@ inline void SavePNGThread(
 
     g_runtime_.lastGenTime = elapsed;
 
-    // Filename (timestamp)
-    char tmp_fn[128];
+    std::string filePath = MakeTimestampFilename(path_);
 
-    auto now = std::chrono::system_clock::now();
-    auto tt  = std::chrono::system_clock::to_time_t(now);
 
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()
-    ) % 1000;
-
-    std::tm tm{};
-    #ifdef _WIN32
-        localtime_s(&tm, &tt);
-    #else
-        localtime_r(&tt, &tm);
-    #endif
-
-    std::snprintf(tmp_fn, sizeof(tmp_fn),
-        "./images/fractal_%04d%02d%02d_%02d%02d%02d_%03lld.png",
-        tm.tm_year + 1900,
-        tm.tm_mon + 1,
-        tm.tm_mday,
-        tm.tm_hour,
-        tm.tm_min,
-        tm.tm_sec,
-        static_cast<long long>(ms.count())
-    );
-
-    // Save with metadata
-    std::string myJson = SaveState(s);
-    save_png_with_json(tmp_fn, rgba, w, h, myJson);
+    std::string myJson = SaveState(s, filePath);
+    save_png_with_json(filePath, rgba, w, h, myJson);
 
     // printf("JSON included in IMG Metadata: %s\n", load_json_from_png(tmp_fn).c_str());
 
-    g_runtime_.saveTask.filename = tmp_fn;
+    g_runtime_.saveTask.filename = filePath;
     g_runtime_.saveTask.active = false;
 }
 

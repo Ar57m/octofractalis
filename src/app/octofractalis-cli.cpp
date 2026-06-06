@@ -173,7 +173,7 @@ void regenPalettes(std::vector<uint32_t>& palOut, std::vector<uint32_t>& palLake
 }
 
 // ---------- RUN ----------
-inline double runOnce(const std::vector<uint32_t>& palOut, const std::vector<uint32_t>& palLake) {
+inline double runOnce(const std::vector<uint32_t>& palOut, const std::vector<uint32_t>& palLake, const std::string path_) {
     g_runtime.saveStopFlag.store(false);
 
     int w = state.renderWidth * state.renderResMultiplier;
@@ -186,7 +186,7 @@ inline double runOnce(const std::vector<uint32_t>& palOut, const std::vector<uin
         h,
         state,
         std::ref(g_runtime),
-        fractal
+        fractal, path_
     );
 
 
@@ -197,7 +197,8 @@ inline double runOnce(const std::vector<uint32_t>& palOut, const std::vector<uin
 inline void runBench(
     int count,
     const std::vector<uint32_t>& palOut,
-    const std::vector<uint32_t>& palLake
+    const std::vector<uint32_t>& palLake,
+    const std::string path_
 ) {
     double total = 0.0;
 
@@ -206,7 +207,7 @@ inline void runBench(
             break;
         }
 
-        double t = runOnce(palOut, palLake);
+        double t = runOnce(palOut, palLake, path_);
         total += t;
         printf("[%d/%d] %.6f ms\n", i + 1, count, t);
     }
@@ -221,7 +222,7 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, handle_sigint);
 
     CLIOptions opt = parseArgs(argc, argv);
-    std::string img_folder = "./images";
+    const std::string img_folder = "./images/";
 
     try {
         if (!std::filesystem::exists(img_folder)) {
@@ -239,6 +240,9 @@ int main(int argc, char** argv) {
     if (!loadInputState(state, opt.inputPath)) {
         return 1;
     }
+
+    SanitizeExpression(state.expressionBuffer, state.expressionBuffer);
+   
 
     applyOverrides(opt);
 
@@ -267,10 +271,10 @@ int main(int argc, char** argv) {
     regenPalettes(palOut, palLake);
 
     if (opt.bench > 1) {
-        runBench(opt.bench, palOut, palLake);
+        runBench(opt.bench, palOut, palLake, img_folder);
     }
     else {
-        double t = runOnce(palOut, palLake);
+        double t = runOnce(palOut, palLake, img_folder);
         printf("Time: %.6f ms\n", t);
     }
 

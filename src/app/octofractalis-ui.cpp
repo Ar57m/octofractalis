@@ -1,6 +1,7 @@
 #include <csignal>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_dialog.h>
 #include "imgui/imgui.h"
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
@@ -22,7 +23,33 @@ RuntimeState g_runtime;
 
 AppState state;
 
+enum class PendingAction : uint8_t {
+    None,
+    LoadState,
+    ExtractPalette
+};
 
+// Replace g_hasNewFile with this:
+static std::atomic<PendingAction> g_pendingAction{PendingAction::None};
+static char g_pendingPathBuffer[2048];
+
+static void SDLCALL OpenFileCallback(
+    void* userdata, 
+    const char* const* files, 
+    int
+) {
+    // Only accept a file if we aren't already processing one
+    if (files && files[0] && g_pendingAction.load() == PendingAction::None) {
+        
+        // Copy path safely to your 2048 buffer
+        strncpy(g_pendingPathBuffer, files[0], sizeof(g_pendingPathBuffer) - 1);
+        g_pendingPathBuffer[sizeof(g_pendingPathBuffer) - 1] = '\0';
+        
+        // Retrieve the action type from userdata and signal the main thread
+        PendingAction action = static_cast<PendingAction>(reinterpret_cast<uintptr_t>(userdata));
+        g_pendingAction.store(action, std::memory_order_release);
+    }
+}
 
 void SetupCyberpunkStyle() {
     auto& style = ImGui::GetStyle();
@@ -130,6 +157,38 @@ void SignalHandler(int signum) {
 }
 
 
+static int ExpressionFilter(ImGuiInputTextCallbackData* data)
+{
+    const char c = (char)data->EventChar;
+
+    if (std::isspace((unsigned char)c))
+        return 1; // reject
+
+    if ((c >= '0' && c <= '9') ||
+        (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            c == '+' || c == '-' || c == '*' || c == '/' ||
+            c == '^' || c == '%' ||
+            c == '(' || c == ')' ||
+            c == '[' || c == ']' ||
+            c == ',' || c == '.' ||
+            c == '<' || c == '>' ||
+            c == '=' || c == '&')
+        return 0; // accept
+
+    return 1; // reject
+}
+
+
+
+
+
+
+
+
+
+
+
 
 int main(int, char**) {
     std::signal(SIGINT, SignalHandler);  // Catch Ctrl+C
@@ -154,11 +213,15 @@ int main(int, char**) {
     ImGui_ImplSDLRenderer3_Init(g_renderer);
     SetupCyberpunkStyle();
 
-    std::string img_folder = "./images";
+    const std::string img_folder = "./images/";
+    const std::string jsonFolder = "./jsons/";
 
     try {
         if (!std::filesystem::exists(img_folder)) {
             std::filesystem::create_directories(img_folder);
+        }
+        if (!std::filesystem::exists(jsonFolder)) {
+            std::filesystem::create_directories(jsonFolder);
         }
     }
     catch (const std::filesystem::filesystem_error& e) {
@@ -286,7 +349,7 @@ int main(int, char**) {
                 state.renderHeight * state.renderResMultiplier,
                 state,
                 std::ref(g_runtime),
-                fractal
+                fractal, img_folder
             );
         }
         SDL_GetWindowSize(g_window, &state.winWidth, &state.winHeight);
@@ -304,6 +367,53 @@ int main(int, char**) {
             rgbaBuf.resize(requiredRgba);
             if (state.realtimeExpression) state.needsRender = true;
         }
+
+
+        // Buttons file handling
+        PendingAction action = g_pendingAction.load(std::memory_order_acquire);
+
+        if (action != PendingAction::None) {
+            std::string selectedPath = g_pendingPathBuffer;
+            
+            // Reset the flag immediately so we don't double-process
+            g_pendingAction.store(PendingAction::None, std::memory_order_relaxed);
+
+            // Stop and join the render thread safely before messing with data
+            g_runtime.renderStopFlag.store(true, std::memory_order_relaxed);
+            if (g_runtime.renderThread.joinable()) {
+                g_runtime.renderThread.join();
+            }
+
+            // --- Branch based on which button was clicked ---
+            if (action == PendingAction::LoadState) {
+                if (loadInputState(state, selectedPath)) {
+                    size_t lastSlash = selectedPath.find_last_of("/\\");
+                    std::string filename = (lastSlash == std::string::npos)
+                        ? selectedPath
+                        : selectedPath.substr(lastSlash + 1);
+
+                    g_NotificationText = "Loaded View: " + filename;
+                    regenPalettes();
+                    state.needsRender = true;
+                }
+                else {
+                    g_NotificationText = "Failed to load file!";
+                }
+                g_NotificationExpireTime = SDL_GetTicks() + 3500;
+            }
+            else if (action == PendingAction::ExtractPalette) {
+                if (ApplyPaletteExtraction(state, selectedPath)) {
+                    regenPalettes();
+                    state.needsRender = true;
+                    g_NotificationText = "Extracted palette from image.";
+                } 
+                else {
+                    g_NotificationText = "Palette extraction skipped.";
+                }
+                g_NotificationExpireTime = SDL_GetTicks() + 3500;
+            }
+        }
+
 
 
         bool mouseInRender = io.MousePos.x >= 0 && io.MousePos.x < state.renderWidth && io.MousePos.y >= 0 && io.MousePos.y < state.renderHeight;
@@ -526,7 +636,30 @@ int main(int, char**) {
             if (ImGui::Button("RESET VIEW", ImVec2(bw, 30))) state.ResetView();
             ImGui::SameLine();
             if (ImGui::Button("RESET ALL", ImVec2(bw, 30))) state.ResetAll();
+            if (ImGui::Button("SAVE JSON", ImVec2(bw, 30))) {
+                std::string jsonPath =
+                    MakeTimestampFilename(jsonFolder, "state", "json");
 
+                SaveState(state, jsonPath, true);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("LOAD PNG/JSON", ImVec2(bw, 30))) {
+                static const SDL_DialogFileFilter filters[] = {
+                    { "PNG and JSON", "png;json" },
+                    { "PNG Images",   "png"      },
+                    { "JSON Files",   "json"     }
+                };
+
+                SDL_ShowOpenFileDialog(
+                    OpenFileCallback,
+                    reinterpret_cast<void*>(static_cast<uintptr_t>(PendingAction::LoadState)), // Pass action type
+                    g_window,
+                    filters,
+                    SDL_arraysize(filters),
+                    nullptr,
+                    false
+                );
+            }
             if (ImGui::CollapsingHeader("ENGINE", ImGuiTreeNodeFlags_DefaultOpen)) {
                 bool changed = false;
                 static const char* modes[] = {
@@ -550,7 +683,15 @@ int main(int, char**) {
 
                     state.needsRender = true;
                 }
-                if (ImGui::InputText("Expression", state.expressionBuffer, 256)) changed = true;
+                if (ImGui::InputText(
+                        "Expression",
+                        state.expressionBuffer,
+                        256,
+                        ImGuiInputTextFlags_CallbackCharFilter,
+                        ExpressionFilter))
+                {
+                    changed = true;
+                }
                 if (ImGui::InputInt(
                     "Iterations",
                     &state.iterations,
@@ -746,9 +887,23 @@ int main(int, char**) {
             }
 
             ImGui::TextDisabled(
-                "Drop image here to extract palette seeds"
+                "Drop or select image here to extract palette"
             );
+            if (ImGui::Button("EXTRACT PALETTE", ImVec2(bw, 30))) {
+                static const SDL_DialogFileFilter imgFilters[] = {
+                    { "Image Files", "png;jpg;jpeg;bmp" }
+                };
 
+                SDL_ShowOpenFileDialog(
+                    OpenFileCallback,
+                    reinterpret_cast<void*>(static_cast<uintptr_t>(PendingAction::ExtractPalette)), // Pass action type
+                    g_window,
+                    imgFilters,
+                    SDL_arraysize(imgFilters),
+                    nullptr,
+                    false
+                );
+            }
             ImGui::Separator();
 
             ImGui::Text("Outside Seeds");
@@ -897,7 +1052,7 @@ int main(int, char**) {
                         state.renderHeight * state.renderResMultiplier,
                         state,
                         std::ref(g_runtime),
-                        fractal
+                        fractal, img_folder
                     );
                 }
             }
