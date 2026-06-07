@@ -71,6 +71,7 @@ void applyOverrides(const CLIOptions& opt) {
     if (!opt.expr.empty()) {
         snprintf(state.expressionBuffer, sizeof(state.expressionBuffer), "%s", opt.expr.c_str());
     }
+    SanitizeExpression(state.expressionBuffer, state.expressionBuffer);
 }
 
 // ---------- MODE ----------
@@ -240,10 +241,7 @@ int main(int argc, char** argv) {
     if (!loadInputState(state, opt.inputPath)) {
         return 1;
     }
-
-    SanitizeExpression(state.expressionBuffer, state.expressionBuffer);
-   
-
+    
     applyOverrides(opt);
 
     if (!opt.palettePath.empty()) {
