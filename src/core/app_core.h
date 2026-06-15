@@ -917,3 +917,62 @@ inline void SavePNGThread(
 
 
 
+
+
+
+
+
+
+
+// Portable nearest-even rounding
+inline int round_div_nearest_even(long long numer, int denom) {
+    long long q = numer / denom;
+    long long rem = numer % denom;
+    long long twice = rem * 2;
+    if (twice < denom) return (int)q;
+    if (twice > denom) return (int)(q + 1);
+    return (int)((q % 2 == 0) ? q : q + 1);
+}
+
+// CPU version of the RGB Lerp
+inline uint32_t rgbLerp_cpu(uint32_t c0, uint32_t c1, int step, int steps) {
+    int r0 = (c0 >> 16) & 0xFF;
+    int g0 = (c0 >> 8) & 0xFF;
+    int b0 = c0 & 0xFF;
+    int r1 = (c1 >> 16) & 0xFF;
+    int g1 = (c1 >> 8) & 0xFF;
+    int b1 = c1 & 0xFF;
+    
+    int denom = steps + 1;
+    int r = round_div_nearest_even((long long)r0 * (denom - step) + (long long)r1 * step, denom);
+    int g = round_div_nearest_even((long long)g0 * (denom - step) + (long long)g1 * step, denom);
+    int b = round_div_nearest_even((long long)b0 * (denom - step) + (long long)b1 * step, denom);
+    
+    r = std::clamp(r, 0, 255);
+    g = std::clamp(g, 0, 255);
+    b = std::clamp(b, 0, 255);
+    
+    return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
+}
+
+inline void generate_on_cpu(const uint32_t* h_colors, int numColors, int totalOutputSize, uint32_t* h_out) {
+    if (totalOutputSize <= 0 || numColors <= 0) return;
+
+    int outSizePerColor = totalOutputSize / numColors;
+    int S = outSizePerColor - 1;
+
+    for (int i = 0; i < totalOutputSize; ++i) {
+        int colorIndex = i / outSizePerColor;
+        int pos = i % outSizePerColor;
+
+        if (colorIndex >= numColors) break;
+
+        uint32_t c0 = h_colors[colorIndex];
+        if (pos == 0 || S <= 0) {
+            h_out[i] = c0;
+        } else {
+            uint32_t c1 = h_colors[(colorIndex + 1) % numColors];
+            h_out[i] = rgbLerp_cpu(c0, c1, pos, S);
+        }
+    }
+}

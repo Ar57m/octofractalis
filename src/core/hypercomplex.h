@@ -49,7 +49,7 @@ template <int Dim>
 class Hypercomplex {
 private:
     HOST_DEVICE static inline DefaultType noNan(const DefaultType v) {
-        return (my_abs(v) < Max_flt) ? v : copysign(Max_flt, v);
+        return (my_abs(v) < Max_flt) ? v : Max_flt;
     }
 
     HOST_DEVICE static inline DefaultType signDefaultType(const DefaultType value) {
@@ -156,6 +156,20 @@ public:
         Hypercomplex res;
         mul(res, *this, other);
         return res;
+    }
+    
+    HOST_DEVICE inline Hypercomplex operator/(const Hypercomplex& other) const {
+        Hypercomplex res;
+        div(res, *this, other);
+        return res;
+    }
+    
+    Hypercomplex operator/(DefaultType scalar) const {
+        Hypercomplex result = *this;
+        for (int i = 0; i < Dim; ++i) {
+            result.v[i] = noNan(result.v[i] / scalar);
+        }
+        return result;
     }
     
     HOST_DEVICE inline bool operator==(const Hypercomplex& other) const {

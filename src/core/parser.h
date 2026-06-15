@@ -367,6 +367,26 @@ HOST_DEVICE inline int findArrayIndex(const char* name, const ArrayEntry* arrEnt
 
 template <int Dim>
 class Parser {
+public:
+    HOST_DEVICE Parser(const char* expr, size_t expr_size,
+        const VariableEntry<Dim>* vars, size_t numVars,
+        const ArrayEntry* arrays, size_t numArrays)
+        : expr_size(expr_size), pos(0),
+          varEntries(vars), numVars(numVars),
+          arrEntries(arrays), numArrays(numArrays),
+          bytecode_size(0), vsp(0)
+    {
+        size_t i = 0;
+        for (; i < expr_size && i < MAX_EXPR_SIZE - 1; i++)
+            this->expr[i] = expr[i];
+        this->expr[i] = '\0';
+    }
+
+    HOST_DEVICE void parse() { parseExpression(); optimize(); }
+
+    HOST_DEVICE const Instruction<Dim>* getBytecode() const { return bytecode; }
+    HOST_DEVICE size_t getBytecodeSize() const { return bytecode_size; }
+
 private:
     char expr[MAX_EXPR_SIZE];
     size_t expr_size;
@@ -591,27 +611,12 @@ private:
         }
     }
 
-public:
-    HOST_DEVICE Parser(const char* expr, size_t expr_size,
-        const VariableEntry<Dim>* vars, size_t numVars,
-        const ArrayEntry* arrays, size_t numArrays)
-        : expr_size(expr_size), pos(0),
-          varEntries(vars), numVars(numVars),
-          arrEntries(arrays), numArrays(numArrays),
-          bytecode_size(0), vsp(0)
-    {
-        size_t i = 0;
-        for (; i < expr_size && i < MAX_EXPR_SIZE - 1; i++)
-            this->expr[i] = expr[i];
-        this->expr[i] = '\0';
-    }
 
-    HOST_DEVICE void parse() { parseExpression(); optimize(); }
 
-    HOST_DEVICE const Instruction<Dim>* getBytecode() const { return bytecode; }
-    HOST_DEVICE size_t getBytecodeSize() const { return bytecode_size; }
 
-private:
+
+
+
     HOST_DEVICE void parseExpression() {
         parseCompare();
         while (pos < expr_size) {
@@ -1024,7 +1029,7 @@ HOST_DEVICE inline void evaluateBytecode(
     const VariableEntry<Dim>* vars,
     const ArrayEntry* arrays)
 {
-    alignas(16) Hypercomplex<Dim> R[MAX_REGISTERS];
+    alignas(alignof(Hypercomplex<Dim>)) Hypercomplex<Dim> R[MAX_REGISTERS]{};
     // bool hasError = false;
 
     for (size_t i = 0; i < size; ++i) {
