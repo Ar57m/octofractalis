@@ -5,10 +5,15 @@
 
 // ===========================================================
 
+const char* APP_VERSION = "v0.6.0";
+
+
 template <int Dim>
 void runCalculator();
 
 int main() {
+    printf("App Version: %s\n", APP_VERSION);
+    
     printf("Choose hypercomplex dimension: 2 (complex), 4 (quaternion), 8 (octonion): ");
 
     int dim;

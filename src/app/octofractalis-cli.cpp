@@ -4,6 +4,7 @@
 #include "core/app_core.h"
 #include "core/fractal_interface.h"
 
+const char* APP_VERSION = "v0.6.0";
 
 RuntimeState g_runtime;
 AppState state;
@@ -221,6 +222,8 @@ inline void runBench(
 // ---------- MAIN ----------
 int main(int argc, char** argv) {
     std::signal(SIGINT, handle_sigint);
+    
+    printf("App Version: %s\n", APP_VERSION);
 
     CLIOptions opt = parseArgs(argc, argv);
     const std::string img_folder = "./images/";

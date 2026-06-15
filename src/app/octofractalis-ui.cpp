@@ -10,6 +10,9 @@
 #include "core/app_core.h"
 #include "core/fractal_interface.h"
 
+
+const char* APP_VERSION = "v0.6.0";
+
 static SDL_Window* g_window = nullptr;
 static SDL_Renderer* g_renderer = nullptr;
 static SDL_Texture* g_pFractalTexture = nullptr;
@@ -193,6 +196,8 @@ static int ExpressionFilter(ImGuiInputTextCallbackData* data)
 int main(int, char**) {
     std::signal(SIGINT, SignalHandler);  // Catch Ctrl+C
     std::signal(SIGTERM, SignalHandler); // Catch termination
+
+    printf("App Version: %s\n", APP_VERSION);
     
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         printf("Error: SDL_Init(): %s\n", SDL_GetError());
@@ -625,7 +630,7 @@ int main(int, char**) {
             ImGui::SetNextWindowPos(ImVec2((float)state.renderWidth, 0));
             ImGui::SetNextWindowSize(ImVec2((float)state.guiWidth, (float)state.winHeight));
             ImGui::Begin("CONSOLE", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
-            ImGui::TextColored(ImVec4(0.9f, 0, 0.4f, 1), "FRACTAL VIEWER");
+            ImGui::TextColored(ImVec4(0.9f, 0.0f, 0.4f, 1.0f), "FRACTAL VIEWER %s", APP_VERSION);
             
             ImGui::Separator();
 
