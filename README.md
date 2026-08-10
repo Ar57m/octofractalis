@@ -1,3 +1,5 @@
+
+
 <div align="center">
   <img src="https://github.com/user-attachments/assets/6a681bfb-1f57-4a78-b437-2895dbd4ac5f" height="128" alt="Octo Fractalis Logo"/>
 
@@ -77,7 +79,7 @@ Precompiled builds are available in the Releases section:
 
 1. Download the archive for your platform  
 2. Extract it  
-3. Run
+3. Run `octofractalis.exe` (Windows) or `./octofractalis` (Linux)
 ---
 
 ## 📦 Installation
